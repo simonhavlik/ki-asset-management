@@ -4,7 +4,7 @@
 
 ---
 
-## The Core Problem
+## The Problem
 
 WebFlow shows static pages. Flask shows dynamic pages. You want Flask content inside WebFlow.
 
@@ -12,15 +12,35 @@ WebFlow shows static pages. Flask shows dynamic pages. You want Flask content in
 
 ---
 
-## Step 1: Add This to Your WebFlow Page
+## Step 1: Add Code to WebFlow
 
-Go to your WebFlow page and add:
+### Open WebFlow Designer
+
+1. Go to [WebFlow](https://webflow.com) and log in
+2. Click on your project
+3. Click **"Designer"** button (top right)
+
+### Add the Div Element
+
+1. In the left sidebar, click **"Add Elements"** (plus icon)
+2. Scroll down to **"Basic"**
+3. Drag **"Div Block"** onto your page
+4. Place it where you want Flask content to appear
+5. With the div selected, go to **"Settings"** panel (right side)
+6. In the **"Element Tag"** field, change to: `div`
+7. In the **"ID"** field, enter exactly: `flask-content-injection-point`
+
+### Add the Script
+
+1. In the left sidebar, click **"Add Elements"**
+2. Scroll down to **"Advanced"**
+3. Drag **"Embed"** element
+4. Place it at the **very bottom** of your page (after the div)
+5. A code editor will open
+6. **Delete everything** in the editor
+7. **Paste this code:**
 
 ```html
-<!-- Where Flask content will appear -->
-<div id="flask-content-injection-point"></div>
-
-<!-- JavaScript to fetch and inject Flask content -->
 <script>
 (function() {
     const FLASK_URL = 'http://localhost:5000';  // CHANGE THIS
@@ -37,13 +57,23 @@ Go to your WebFlow page and add:
 </script>
 ```
 
-**Change `FLASK_URL`** to your actual Flask URL:
-- Local: `http://localhost:5000`
+8. Click **"Save & Close"**
+
+### Change the Flask URL
+
+In the code you just pasted, find this line:
+
+```javascript
+const FLASK_URL = 'http://localhost:5000';  // CHANGE THIS
+```
+
+Change `http://localhost:5000` to your Flask URL:
+- Local development: `http://localhost:5000`
 - Production: `https://your-app.onrender.com`
 
 ---
 
-## Step 2: Test Flask Body-Only Mode
+## Step 2: Test Flask Body Mode
 
 Visit your Flask URL with `?_embed=body`:
 
@@ -57,7 +87,7 @@ You should see HTML **without** `<html>`, `<head>`, `<body>` tags - just the con
 
 ## Step 3: Configure Flask (Optional)
 
-If you want Flask to know your WebFlow URL, add to `.env`:
+Add to `.env` file:
 
 ```bash
 WEBFLOW_SHELL_URL=https://your-webflow-site.com
@@ -78,21 +108,21 @@ WEBFLOW_SHELL_URL=https://your-webflow-site.com
 
 **Free tier cannot add custom JavaScript.** Options:
 
-1. **Export to static HTML** (free, then host anywhere)
+1. **Export to static HTML** (then host on Render/Netlify/Vercel)
 2. **Upgrade to paid WebFlow plan** ($14+/mo)
-3. **Host WebFlow design on another service** (Netlify, Vercel, etc.)
 
 ---
 
 ## Troubleshooting
 
 **Content not showing?**
-1. Check browser console (F12) for errors
-2. Verify `FLASK_URL` is correct
-3. Test Flask directly: `curl https://your-app.com/?_embed=body`
+1. Open browser DevTools (F12) → Console tab
+2. Look for red error messages
+3. Verify `FLASK_URL` is correct
+4. Test Flask directly: `curl https://your-app.com/?_embed=body`
 
-**CORS error?**
-- Flask and WebFlow must use same protocol (both HTTPS or both HTTP)
+**"Element not found" error?**
+- Check the div ID is exactly: `flask-content-injection-point`
 
 ---
 
