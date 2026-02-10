@@ -98,7 +98,7 @@ class Config:
     REGISTRATION_EXPIRATION = 86400    # 24 hours
     
     # File upload settings
-    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
+    MAX_CONTENT_LENGTH = 32 * 1024 * 1024  # 32MB max file size (for PDF research reports)
     
     # Session security settings
     SESSION_COOKIE_HTTPONLY = True
