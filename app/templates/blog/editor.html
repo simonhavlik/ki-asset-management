@@ -595,6 +595,11 @@
 
 {% block extra_js %}
 <script>
+// CSRF token helper - gets token from meta tag or hidden input
+function getCsrfToken() {
+    return document.querySelector('meta[name="csrf-token"]')?.content ||
+           document.querySelector('input[name="csrf_token"]')?.value || '';
+}
 // Insert HTML tags around selection
 function insertTag(openTag, closeTag) {
     const textarea = document.getElementById('content');
@@ -623,7 +628,7 @@ function uploadImage(input) {
         method: 'POST',
         body: formData,
         headers: {
-            'X-CSRFToken': '{{ csrf_token() }}'
+            'X-CSRFToken': getCsrfToken()
         }
     })
     .then(response => response.json())
@@ -719,7 +724,7 @@ function autoGenerateSEO() {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token() }}'
+            'X-CSRFToken': getCsrfToken()
         },
         body: JSON.stringify({ title, content, category })
     })
@@ -839,7 +844,7 @@ function performUnsplashSearch(query, count, btn, originalText, isAutoSearch) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token() }}'
+            'X-CSRFToken': getCsrfToken()
         },
         body: JSON.stringify({ query, orientation: 'landscape', count: count })
     })
@@ -983,7 +988,7 @@ function generateFromDocument() {
         method: 'POST',
         body: formData,
         headers: {
-            'X-CSRFToken': '{{ csrf_token() }}'
+            'X-CSRFToken': getCsrfToken()
         }
     })
     .then(response => response.json())
@@ -1090,7 +1095,7 @@ function uploadPdf() {
         method: 'POST',
         body: formData,
         headers: {
-            'X-CSRFToken': '{{ csrf_token() }}'
+            'X-CSRFToken': getCsrfToken()
         }
     })
     .then(response => response.json())
@@ -1153,7 +1158,7 @@ function deleteExistingPdf(postId) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token() }}'
+            'X-CSRFToken': getCsrfToken()
         },
         body: JSON.stringify({ post_id: postId })
     })
@@ -1200,7 +1205,7 @@ function findAnalysisDate() {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token() }}'
+            'X-CSRFToken': getCsrfToken()
         },
         body: JSON.stringify({ search_term: searchTerm })
     })
@@ -1344,7 +1349,7 @@ function performTranslation() {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token() }}'
+            'X-CSRFToken': getCsrfToken()
         },
         body: JSON.stringify({
             text: content,
