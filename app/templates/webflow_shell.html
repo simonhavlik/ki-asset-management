@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en" data-webflow-shell="true">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="KI Asset Management - Prague Club of Investors Analyst Performance Tracker">
+    <meta name="theme-color" content="#1a1a2e">
+
+    <!-- WebFlow Design System Styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/webflow-reset.css') }}">
+
+    <!-- Flask Content Injection Point -->
+    <style>
+        #flask-content-injection-point {
+            min-height: 100vh;
+        }
+        #flask-content-injection-point.flask-loading {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        #flask-content-injection-point.flask-error {
+            padding: 40px;
+            text-align: center;
+            color: #cc0000;
+        }
+    </style>
+
+    <!--[if lt IE 9]><script src="https://cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.min.js"></script><![endif]-->
+
+    <!-- Prevent Flash of Unstyled Content -->
+    <script>
+        document.documentElement.classList.add('wf-loading');
+    </script>
+</head>
+<body>
+    <!-- Navigation (WebFlow Designed) -->
+    <nav class="webflow-nav" role="navigation" aria-label="Main navigation">
+        <div class="nav-container">
+            <a href="/" class="nav-logo" aria-label="KI Asset Management Home">
+                <span class="logo-text">KI AM</span>
+            </a>
+
+            <div class="nav-links">
+                <a href="/" class="nav-link" data-page="home">Home</a>
+                <a href="/about" class="nav-link" data-page="about">About</a>
+                <a href="/strategy" class="nav-link" data-page="strategy">Strategy</a>
+                <a href="/blog" class="nav-link" data-page="blog">Blog</a>
+                <a href="/dashboard" class="nav-link nav-cta" data-page="dashboard">Dashboard</a>
+            </div>
+
+            <div class="nav-auth">
+                {% if current_user.is_authenticated %}
+                    <a href="/analyst" class="nav-link">My Dashboard</a>
+                    <form action="{{ url_for('auth.logout') }}" method="POST" style="display: inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-outline">Logout</button>
+                    </form>
+                {% else %}
+                    <a href="{{ url_for('auth.login') }}" class="nav-link">Login</a>
+                    <a href="{{ url_for('auth.register') }}" class="btn btn-primary">Join</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area (Flask Content Injected Here) -->
+    <main id="flask-content-injection-point" role="main">
+        <!-- Loading State -->
+        <div class="flask-loading-state" style="padding: 40px; text-align: center;">
+            <p>Loading content...</p>
+        </div>
+    </main>
+
+    <!-- Footer (WebFlow Designed) -->
+    <footer class="webflow-footer" role="contentinfo">
+        <div class="footer-container">
+            <div class="footer-brand">
+                <span class="footer-logo">KI Asset Management</span>
+                <p class="footer-tagline">Institutional-grade research. Student-driven excellence.</p>
+            </div>
+
+            <div class="footer-links">
+                <div class="footer-column">
+                    <h4>The Club</h4>
+                    <a href="/about">About Us</a>
+                    <a href="/strategy">Strategy</a>
+                    <a href="/team">Team</a>
+                </div>
+                <div class="footer-column">
+                    <h4>Resources</h4>
+                    <a href="/blog">Blog</a>
+                    <a href="/performance">Performance</a>
+                    <a href="/reports">Reports</a>
+                </div>
+                <div class="footer-column">
+                    <h4>Contact</h4>
+                    <a href="mailto:simon.havlik@klubinvestoru.com">Email Us</a>
+                    <p class="footer-address">Prague, Czech Republic</p>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <p>&copy; {{ now.year }} KI Asset Management. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Flask Content Injection Script -->
+    <script>
+        (function() {
+            'use strict';
+
+            const CONFIG = {
+                baseUrl: '{{ request.host_url }}',
+                injectionSelector: '#flask-content-injection-point',
+                loadingClass: 'flask-loading',
+                errorClass: 'flask-error'
+            };
+
+            function getCurrentPage() {
+                const path = window.location.pathname;
+                return path === '/' ? 'home' : path.replace('/', '').split('/')[0];
+            }
+
+            async function fetchFlaskContent() {
+                const currentPath = window.location.pathname;
+                const endpoint = CONFIG.baseUrl + currentPath.slice(1) || CONFIG.baseUrl;
+
+                console.log('[WebFlow] Fetching Flask content from:', endpoint);
+
+                try {
+                    const response = await fetch(endpoint + '?_embed=body', {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'text/html+webflow'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    const html = await response.text();
+                    return html;
+                } catch (error) {
+                    console.error('[WebFlow] Failed to fetch content:', error);
+                    throw error;
+                }
+            }
+
+            function injectContent(html) {
+                const container = document.querySelector(CONFIG.injectionSelector);
+
+                if (!container) {
+                    console.error('[WebFlow] Injection point not found:', CONFIG.injectionSelector);
+                    return false;
+                }
+
+                container.innerHTML = html;
+                container.classList.remove(CONFIG.loadingClass);
+
+                // Remove loading state elements
+                const loadingState = container.querySelector('.flask-loading-state');
+                if (loadingState) {
+                    loadingState.remove();
+                }
+
+                console.log('[WebFlow] Content injected successfully');
+                return true;
+            }
+
+            function showError(message) {
+                const container = document.querySelector(CONFIG.injectionSelector);
+                if (container) {
+                    container.classList.add(CONFIG.errorClass);
+                    container.innerHTML = `
+                        <div style="padding: 40px; text-align: center;">
+                            <h2>Oops! Something went wrong</h2>
+                            <p>${message || 'Unable to load content. Please try again.'}</p>
+                            <button onclick="window.location.reload()" style="margin-top: 20px; padding: 10px 20px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                Reload Page
+                            </button>
+                        </div>
+                    `;
+                }
+            }
+
+            function updateActiveNav() {
+                const currentPage = getCurrentPage();
+                document.querySelectorAll('.nav-link[data-page]').forEach(link => {
+                    const page = link.getAttribute('data-page');
+                    if (page === currentPage || (currentPage === '' && page === 'home')) {
+                        link.classList.add('active');
+                    } else {
+                        link.classList.remove('active');
+                    }
+                });
+            }
+
+            function init() {
+                // Update active navigation state
+                updateActiveNav();
+
+                // Mark WebFlow shell as ready
+                document.documentElement.classList.remove('wf-loading');
+
+                // Fetch and inject Flask content
+                fetchFlaskContent()
+                    .then(html => {
+                        if (injectContent(html)) {
+                            // Trigger custom event for any JS that needs to run after injection
+                            window.dispatchEvent(new CustomEvent('flask-content-injected', {
+                                detail: { path: window.location.pathname }
+                            }));
+                        }
+                    })
+                    .catch(error => {
+                        showError(error.message);
+                    });
+            }
+
+            // Initialize when DOM is ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', init);
+            } else {
+                init();
+            }
+
+            // Handle browser back/forward navigation
+            window.addEventListener('popstate', () => {
+                const container = document.querySelector(CONFIG.injectionSelector);
+                if (container) {
+                    // Show loading state
+                    container.classList.add(CONFIG.loadingClass);
+                    container.innerHTML = '<div class="flask-loading-state" style="padding: 40px; text-align: center;"><p>Loading...</p></div>';
+
+                    // Re-initialize
+                    init();
+                }
+            });
+
+        })();
+    </script>
+
+    <!-- CSRF Token for AJAX Requests -->
+    <script>
+        window.FLASK_CONFIG = {
+            csrfToken: '{{ csrf_token() }}',
+            userAuthenticated: {{ 'true' if current_user.is_authenticated else 'false' }},
+            userId: {{ current_user.id if current_user.is_authenticated else 'null' }}
+    </script>
+</body>
+</html>

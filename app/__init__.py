@@ -92,10 +92,14 @@ def create_app(config_name=None):
     mail.init_app(app)
     csrf.init_app(app)
     cache.init_app(app)
-    
+
     # Set cache instance for neon_cache module
     from .utils.neon_cache import set_cache_instance
     set_cache_instance(cache)
+
+    # Initialize WebFlow integration
+    from .webflow_integration import webflow_integration
+    webflow_integration.init_app(app)
 
     # Register blueprints
     from .auth import auth_bp
@@ -111,6 +115,14 @@ def create_app(config_name=None):
     app.register_blueprint(main_bp)
     app.register_blueprint(presentation_bp, url_prefix='/presentation')
     app.register_blueprint(blog_bp, url_prefix='/blog')
+
+    # WebFlow integration routes
+    from flask import render_template
+
+    @app.route('/webflow-shell')
+    def webflow_shell():
+        """Serve the WebFlow shell template for testing."""
+        return render_template('webflow_shell.html')
 
     # Create database tables
     with app.app_context():

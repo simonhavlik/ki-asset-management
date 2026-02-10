@@ -211,5 +211,23 @@ Before suggesting changes, verify:
 
 ---
 
+## 🌐 WebFlow Integration
+
+The application supports integration with WebFlow-designed site shells.
+
+### Quick Links
+- Documentation: [docs/WEBFLOW_INTEGRATION.md](docs/WEBFLOW_INTEGRATION.md)
+- Shell Template: `app/templates/webflow_shell.html`
+- Integration Module: `app/webflow_integration.py`
+- Route Helpers: `app/routes_webflow.py`
+
+### Usage
+1. Set `WEBFLOW_SHELL_URL` in `.env`
+2. Add `<div id="flask-content-injection-point">` to your WebFlow site
+3. Include the JavaScript injection snippet
+4. Access pages with `?_embed=body` for body-only content
+
+---
+
 **Last Updated:** 2026-02-10  
 **Location:** `/AGENTS.md` (project root)
