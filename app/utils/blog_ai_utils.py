@@ -21,37 +21,47 @@ logger = logging.getLogger(__name__)
 # DeepSeek API Functions
 # =============================================================================
 
-def generate_seo_from_content(title: str, content: str) -> Dict[str, str]:
+def generate_seo_from_content(title: str, content: str, languages: List[str] = None) -> Dict[str, Any]:
     """
     Generate SEO metadata from blog post content using DeepSeek API.
+    Supports multiple languages (English and Czech).
     
     Args:
         title: The blog post title
         content: The blog post content (HTML or plain text)
+        languages: List of languages to generate SEO for ['en', 'cs']. Defaults to both.
     
     Returns:
-        Dictionary with meta_description, meta_keywords, excerpt, and suggested_tags
+        Dictionary with SEO metadata for all requested languages
     """
     api_key = current_app.config.get('DEEPSEEK_API_KEY')
     if not api_key:
         logger.warning("DeepSeek API key not configured")
-        return _fallback_seo(title, content)
+        return generate_fallback_seo_all_languages(title, content, languages)
+    
+    if languages is None:
+        languages = ['en', 'cs']
     
     # Clean content - remove HTML tags for better processing
     clean_content = re.sub(r'<[^>]+>', ' ', content)
-    clean_content = re.sub(r'\s+', ' ', clean_content).strip()[:2000]  # Limit length
+    clean_content = re.sub(r'\s+', ' ', clean_content).strip()[:2000]
     
-    prompt = f"""Given the following blog post title and content, generate SEO-optimized metadata.
+    result = {'languages': {}}
+    
+    for lang in languages:
+        lang_name = 'English' if lang == 'en' else 'Czech'
+        
+        prompt = f"""Given the following blog post title and content, generate SEO-optimized metadata in {lang_name}.
 
 Title: {title}
 
 Content: {clean_content}
 
 Please provide:
-1. Meta Description (150-160 characters, compelling for search results)
-2. Meta Keywords (5-10 relevant keywords, comma-separated)
-3. Excerpt (brief 2-3 sentence summary for previews)
-4. Suggested Tags (5-8 relevant tags, comma-separated)
+1. Meta Description (150-160 characters, compelling for search results in {lang_name})
+2. Meta Keywords (5-10 relevant keywords, comma-separated in {lang_name})
+3. Excerpt (brief 2-3 sentence summary for previews in {lang_name})
+4. Suggested Tags (5-8 relevant tags, comma-separated in {lang_name})
 
 Format your response EXACTLY as JSON:
 {{
@@ -61,46 +71,87 @@ Format your response EXACTLY as JSON:
     "suggested_tags": "..."
 }}
 """
+        
+        try:
+            response = call_deepseek(prompt, max_tokens=800, temperature=0.3)
+            if response:
+                json_match = re.search(r'\{[^}]*\}', response, re.DOTALL)
+                if json_match:
+                    seo_data = json.loads(json_match.group())
+                    result['languages'][lang] = {
+                        'meta_description': seo_data.get('meta_description', '')[:300],
+                        'meta_keywords': seo_data.get('meta_keywords', '')[:255],
+                        'excerpt': seo_data.get('excerpt', ''),
+                        'suggested_tags': seo_data.get('suggested_tags', '')
+                    }
+                    continue
+        except Exception as e:
+            logger.error(f"Error generating SEO for {lang}: {e}")
+        
+        # Fallback for this language
+        fallback = _fallback_seo(title, content, lang)
+        result['languages'][lang] = fallback
     
-    try:
-        response = call_deepseek(prompt, max_tokens=800, temperature=0.3)
-        if response:
-            # Extract JSON from response
-            json_match = re.search(r'\{[^}]*\}', response, re.DOTALL)
-            if json_match:
-                seo_data = json.loads(json_match.group())
-                return {
-                    'meta_description': seo_data.get('meta_description', '')[:300],
-                    'meta_keywords': seo_data.get('meta_keywords', '')[:255],
-                    'excerpt': seo_data.get('excerpt', ''),
-                    'suggested_tags': seo_data.get('suggested_tags', '')
-                }
-    except Exception as e:
-        logger.error(f"Error generating SEO with DeepSeek: {e}")
+    # Use English as default for single-field compatibility
+    if 'en' in result['languages']:
+        en_seo = result['languages']['en']
+        result.update({
+            'meta_description': en_seo.get('meta_description', ''),
+            'meta_keywords': en_seo.get('meta_keywords', ''),
+            'excerpt': en_seo.get('excerpt', ''),
+            'suggested_tags': en_seo.get('suggested_tags', '')
+        })
     
-    return _fallback_seo(title, content)
+    return result
 
 
-def _fallback_seo(title: str, content: str) -> Dict[str, str]:
+def generate_fallback_seo_all_languages(title: str, content: str, languages: List[str] = None) -> Dict[str, Any]:
+    """Generate basic SEO data for all languages when AI is unavailable."""
+    if languages is None:
+        languages = ['en', 'cs']
+    
+    result = {'languages': {}}
+    
+    for lang in languages:
+        fallback = _fallback_seo(title, content, lang)
+        result['languages'][lang] = fallback
+    
+    # Default values
+    en_seo = result['languages'].get('en', {})
+    result.update({
+        'meta_description': en_seo.get('meta_description', ''),
+        'meta_keywords': en_seo.get('meta_keywords', ''),
+        'excerpt': en_seo.get('excerpt', ''),
+        'suggested_tags': en_seo.get('suggested_tags', '')
+    })
+    
+    return result
+
+
+def _fallback_seo(title: str, content: str, lang: str = 'en') -> Dict[str, str]:
     """Generate basic SEO data when AI is unavailable."""
     clean_content = re.sub(r'<[^>]+>', ' ', content)
-    clean_content = re.sub(r'\s+', ' ', clean_content).strip()
+    clean_content = re.sub(r'\s+', ' ', content.strip())
     
-    # Generate excerpt from first 200 chars
     excerpt = clean_content[:200] + '...' if len(clean_content) > 200 else clean_content
-    
-    # Basic meta description
     meta_description = excerpt[:160] if len(excerpt) > 160 else excerpt
     
-    # Extract potential keywords from title
     words = re.findall(r'\b[A-Za-z]{4,}\b', title)
-    keywords = ', '.join(list(set(words))[:8]) if words else 'investment, analysis, finance'
+    
+    if lang == 'cs':
+        keywords = ', '.join(list(set(words))[:8]) if words else 'investice, analýza, finance'
+        tags_suffix = ', akcie, ekonomika, trh'
+    else:
+        keywords = ', '.join(list(set(words))[:8]) if words else 'investment, analysis, finance'
+        tags_suffix = ', stocks, economy, market'
+    
+    suggested_tags = keywords + tags_suffix
     
     return {
         'meta_description': meta_description,
         'meta_keywords': keywords,
         'excerpt': excerpt,
-        'suggested_tags': keywords
+        'suggested_tags': suggested_tags
     }
 
 

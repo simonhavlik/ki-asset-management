@@ -5,6 +5,7 @@ from werkzeug.utils import secure_filename
 import os
 import io
 import csv
+import secrets
 from datetime import datetime, date, timedelta
 from sqlalchemy import desc, func
 
@@ -14,6 +15,8 @@ from .forms import UserEditForm, CreateUserForm, CsvUploadForm, AnalystMappingFo
 from ..utils.csv_import import CsvImporter
 from ..utils.performance import PerformanceCalculator
 from ..utils.email_normalization import normalize_email
+from ..email_service import send_password_setup_email
+from ..auth.utils import create_password_reset_token
 
 admin_bp = Blueprint('admin', __name__, template_folder='../templates/admin')
 
@@ -387,7 +390,7 @@ def dashboard():
 def users():
     """List all users."""
     page = request.args.get('page', 1, type=int)
-    per_page = 20
+    per_page = 50
     
     users_query = User.query.order_by(User.created_at.desc())
     pagination = users_query.paginate(page=page, per_page=per_page)
@@ -406,10 +409,20 @@ def edit_user(user_id):
         user.email = form.email.data
         user.full_name = form.full_name.data
         user.is_admin = form.is_admin.data
-        user.is_active = form.is_active.data
+        
+        # Only update is_active if admin explicitly checks/unchecks it
+        if form.is_active.data != user.is_active:
+            user.is_active = form.is_active.data
         
         if form.password.data:
             user.set_password(form.password.data)
+        
+        if form.send_setup_email.data:
+            user.is_active = False
+            user.email_verified = False
+            token = create_password_reset_token(user, token_type='registration')
+            send_password_setup_email(user, token)
+            flash(f'Password setup email sent to {user.email}.', 'success')
         
         db.session.commit()
         flash(f'User {user.email} updated.', 'success')
@@ -425,16 +438,28 @@ def create_user():
     form = CreateUserForm()
     
     if form.validate_on_submit():
+        normalized_email = normalize_email(form.email.data)
         user = User(
-            email=form.email.data,
+            email=normalized_email,
             full_name=form.full_name.data,
-            is_admin=form.is_admin.data
+            is_admin=form.is_admin.data,
+            is_active=not form.send_setup_email.data,
+            email_verified=False
         )
-        user.set_password(form.password.data)
-        db.session.add(user)
-        db.session.commit()
         
-        flash(f'User {user.email} created.', 'success')
+        if form.send_setup_email.data:
+            db.session.add(user)
+            db.session.commit()
+            token = create_password_reset_token(user, token_type='registration')
+            send_password_setup_email(user, token)
+            flash(f'User {user.email} created. A password setup email has been sent.', 'success')
+        else:
+            temp_password = secrets.token_urlsafe(16)
+            user.set_password(temp_password)
+            db.session.add(user)
+            db.session.commit()
+            flash(f'User {user.email} created. Temporary password: {temp_password}', 'success')
+        
         return redirect(url_for('admin.users'))
     
     return render_template('admin/create_user.html', form=form)

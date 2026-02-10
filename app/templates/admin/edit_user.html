@@ -46,6 +46,13 @@
                         {% endif %}
                         <div class="form-text">Only enter a password if you want to reset it. Minimum 8 characters.</div>
                     </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            {{ form.send_setup_email(class="form-check-input") }}
+                            {{ form.send_setup_email.label(class="form-check-label") }}
+                        </div>
+                        <div class="form-text">Sends a password setup email and deactivates the account until they set a password.</div>
+                    </div>
                     <div class="d-flex justify-content-between">
                         <a href="{{ url_for('admin.users') }}" class="btn btn-outline-secondary">
                             <i class="bi bi-arrow-left"></i> Cancel

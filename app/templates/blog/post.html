@@ -176,10 +176,50 @@
             <img src="{{ post.og_image }}" alt="{{ post.title }}" class="img-fluid rounded-4 mb-4 w-100" style="max-height: 400px; object-fit: cover;">
             {% endif %}
             
-            <!-- Content -->
+            <!-- PDF Viewer for PDF Blog Posts -->
+            {% if post.is_pdf_post %}
+            <div class="pdf-viewer-container mb-4">
+                <div class="pdf-header d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="mb-0">
+                        <i class="bi bi-file-earmark-pdf text-danger"></i> Research Report
+                    </h5>
+                    <div class="btn-group btn-group-sm">
+                        <a href="{{ url_for('static', filename=post.pdf_path) }}" target="_blank" class="btn btn-outline-primary">
+                            <i class="bi bi-download"></i> Download PDF
+                        </a>
+                        <button type="button" class="btn btn-outline-secondary" onclick="toggleFullscreen()">
+                            <i class="bi bi-fullscreen"></i> Fullscreen
+                        </button>
+                    </div>
+                </div>
+                <div class="pdf-wrapper border rounded-4 overflow-hidden" style="height: 700px;">
+                    <iframe src="{{ url_for('static', filename=post.pdf_path) }}#view=FitH" 
+                            width="100%" 
+                            height="100%" 
+                            style="border: none;"
+                            title="{{ post.title }} - PDF Research Report">
+                    </iframe>
+                </div>
+                <div class="mt-2 text-end">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle"></i> Use browser controls to navigate the PDF
+                    </small>
+                </div>
+            </div>
+            
+            <!-- PDF-only post description -->
+            {% if post.content %}
+            <div class="blog-post-content mt-4">
+                {{ post.content | safe }}
+            </div>
+            {% endif %}
+            
+            {% elif post.content %}
+            <!-- Regular HTML Content (no PDF) -->
             <div class="blog-post-content">
                 {{ post.content | safe }}
             </div>
+            {% endif %}
             
             <!-- Share buttons -->
             <div class="mt-5 pt-4 border-top">
@@ -262,4 +302,26 @@
         {% endif %}
     </div>
 </section>
+
+{% block extra_js %}
+{% if post.is_pdf_post %}
+<script>
+function toggleFullscreen() {
+    const pdfWrapper = document.querySelector('.pdf-wrapper');
+    if (pdfWrapper) {
+        if (document.fullscreenElement) {
+            document.exitFullscreen();
+        } else {
+            pdfWrapper.requestFullscreen().catch(err => {
+                console.log('Fullscreen not supported:', err);
+                window.open('{{ url_for("static", filename=post.pdf_path) }}', '_blank');
+            });
+        }
+    }
+}
+</script>
+{% endif %}
+{{ super() }}
+{% endblock %}
+
 {% endblock %}

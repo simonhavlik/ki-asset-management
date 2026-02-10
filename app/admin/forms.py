@@ -10,6 +10,7 @@ class UserEditForm(FlaskForm):
     is_admin = BooleanField('Administrator')
     is_active = BooleanField('Active')
     password = PasswordField('New Password', validators=[Optional(), Length(min=8, message='Password must be at least 8 characters')])
+    send_setup_email = BooleanField('Send password setup email')
     submit = SubmitField('Save Changes')
     
     def validate_email(self, field):

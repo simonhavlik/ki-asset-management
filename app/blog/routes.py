@@ -221,14 +221,16 @@ def new_post():
         tags = request.form.get('tags', '').strip()
         content_type = request.form.get('content_type', 'html')
         is_public = request.form.get('is_public') == 'on'
+        pdf_path = request.form.get('pdf_path', '').strip()
         
         # Validation
         if not title:
             flash('Title is required.', 'danger')
             return redirect(url_for('blog.new_post'))
         
-        if not content:
-            flash('Content is required.', 'danger')
+        # Either content or PDF is required
+        if not content and not pdf_path:
+            flash('Either content or a PDF file is required.', 'danger')
             return redirect(url_for('blog.new_post'))
         
         # Validate title length
@@ -240,13 +242,14 @@ def new_post():
         # Create post
         blog_post = BlogPost(
             title=sanitized_title,
-            content=content,
+            content=content if content else '',
             excerpt=excerpt if excerpt else None,
             meta_description=meta_description[:300] if meta_description else None,
             meta_keywords=meta_keywords[:255] if meta_keywords else None,
             category=category if category else None,
             tags=tags if tags else None,
             content_type=content_type,
+            pdf_path=pdf_path if pdf_path else None,
             is_public=is_public,
             author_id=current_user.id,
             status='draft'
@@ -292,10 +295,16 @@ def edit_post(post_id):
         og_image = request.form.get('og_image', '').strip()
         is_public = request.form.get('is_public') == 'on'
         is_featured = request.form.get('is_featured') == 'on'
+        pdf_path = request.form.get('pdf_path', '').strip()
         
         # Validation
-        if not title or not content:
-            flash('Title and content are required.', 'danger')
+        if not title:
+            flash('Title is required.', 'danger')
+            return redirect(url_for('blog.edit_post', post_id=post_id))
+        
+        # Either content or PDF is required
+        if not content and not pdf_path:
+            flash('Either content or a PDF file is required.', 'danger')
             return redirect(url_for('blog.edit_post', post_id=post_id))
         
         # Validate title length
@@ -306,7 +315,7 @@ def edit_post(post_id):
         
         # Update fields
         blog_post.title = sanitized_title
-        blog_post.content = content
+        blog_post.content = content if content else ''
         blog_post.excerpt = excerpt if excerpt else None
         blog_post.meta_description = meta_description[:300] if meta_description else None
         blog_post.meta_keywords = meta_keywords[:255] if meta_keywords else None
@@ -314,6 +323,7 @@ def edit_post(post_id):
         blog_post.tags = tags if tags else None
         blog_post.content_type = content_type
         blog_post.og_image = og_image if og_image else None
+        blog_post.pdf_path = pdf_path if pdf_path else None
         blog_post.is_public = is_public
         blog_post.updated_at = datetime.utcnow()
         
@@ -759,6 +769,143 @@ def upload_document():
         return jsonify({'error': f'Failed to process document: {str(e)}'}), 500
 
 
+@blog_bp.route('/api/upload-pdf', methods=['POST'])
+@login_required
+@rate_limit(limit=30, window=3600)  # 30 PDF uploads per hour
+def upload_pdf_api():
+    """
+    API endpoint to upload a PDF file for a blog post.
+    Returns the path to the uploaded PDF for storage and suggested title.
+    """
+    if 'pdf' not in request.files:
+        return jsonify({'error': 'No file uploaded'}), 400
+    
+    file = request.files['pdf']
+    post_id = request.form.get('post_id', type=int)
+    
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    
+    # Validate file type
+    if not file.filename.lower().endswith('.pdf'):
+        return jsonify({'error': 'Only PDF files are allowed'}), 400
+    
+    # Validate file size (25MB max - larger for PDF research reports)
+    max_file_size = 25 * 1024 * 1024  # 25MB
+    file.seek(0, 2)
+    file_size = file.tell()
+    file.seek(0)
+    
+    if file_size > max_file_size:
+        return jsonify({'error': 'File too large. Maximum size is 25MB.'}), 400
+    
+    if file_size == 0:
+        return jsonify({'error': 'File is empty'}), 400
+    
+    try:
+        from werkzeug.utils import secure_filename
+        import os
+        
+        # Create upload directory if it doesn't exist
+        upload_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'blog_pdfs')
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        # Generate secure filename with timestamp
+        timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+        safe_filename = secure_filename(f"{timestamp}_{file.filename}")
+        
+        # Full path
+        file_path = os.path.join(upload_dir, safe_filename)
+        file.save(file_path)
+        
+        # Return relative path for storage
+        relative_path = f"uploads/blog_pdfs/{safe_filename}"
+        
+        # Extract suggested title from filename
+        original_name = file.filename
+        suggested_title = secure_filename(original_name)
+        # Remove extension and clean up
+        suggested_title = re.sub(r'\.(pdf|PDF)$', '', suggested_title)
+        suggested_title = suggested_title.replace('_', ' ').replace('-', ' ')
+        suggested_title = ' '.join(word.capitalize() for word in suggested_title.split())
+        
+        # Try to extract title from PDF metadata
+        pdf_title = None
+        try:
+            from PyPDF2 import PdfReader
+            reader = PdfReader(file_path)
+            if reader.metadata and reader.metadata.title:
+                pdf_title = reader.metadata.title.strip()
+        except Exception as e:
+            current_app.logger.warning(f"Could not extract PDF metadata: {e}")
+        
+        if pdf_title and len(pdf_title) > 5:
+            suggested_title = pdf_title
+        
+        # Update post if post_id provided
+        if post_id:
+            blog_post = BlogPost.query.get(post_id)
+            if blog_post and (current_user.id == blog_post.author_id or current_user.is_admin):
+                blog_post.pdf_path = relative_path
+                db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'pdf_path': relative_path,
+            'filename': file.filename,
+            'file_size': file_size,
+            'suggested_title': suggested_title
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error uploading PDF: {e}")
+        return jsonify({'error': f'Failed to upload PDF: {str(e)}'}), 500
+
+
+@blog_bp.route('/api/delete-pdf', methods=['POST'])
+@login_required
+@rate_limit(limit=30, window=3600)
+def delete_pdf_api():
+    """
+    API endpoint to delete a PDF file from a blog post.
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    post_id = data.get('post_id', type=int)
+    
+    if not post_id:
+        return jsonify({'error': 'Post ID required'}), 400
+    
+    try:
+        blog_post = BlogPost.query.get_or_404(post_id)
+        
+        # Check permissions
+        if current_user.id != blog_post.author_id and not current_user.is_admin:
+            return jsonify({'error': 'Permission denied'}), 403
+        
+        if blog_post.pdf_path:
+            # Delete file from disk
+            import os
+            full_path = os.path.join(current_app.root_path, 'static', blog_post.pdf_path)
+            try:
+                if os.path.exists(full_path):
+                    os.unlink(full_path)
+            except Exception as e:
+                current_app.logger.warning(f"Could not delete PDF file: {e}")
+            
+            # Clear from database
+            blog_post.pdf_path = None
+            db.session.commit()
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        current_app.logger.error(f"Error deleting PDF: {e}")
+        return jsonify({'error': f'Failed to delete PDF: {str(e)}'}), 500
+
+
 @blog_bp.route('/api/enhance-post', methods=['POST'])
 @login_required
 def enhance_post_api():
@@ -843,3 +990,63 @@ def find_analysis_date_api():
     except Exception as e:
         current_app.logger.error(f"Error finding analysis date: {e}")
         return jsonify({'error': 'Failed to search analyses'}), 500
+
+
+@blog_bp.route('/api/translate', methods=['POST'])
+@login_required
+@rate_limit(limit=50, window=3600)  # 50 translations per hour
+def translate_content_api():
+    """
+    API endpoint to translate blog content using Google Translate.
+    Useful for translating Czech content to English for broader audience.
+    """
+    try:
+        from deep_translator import GoogleTranslator
+    except ImportError:
+        return jsonify({'error': 'Translation service not available. Install deep_translator.'}), 503
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    text = data.get('text', '').strip()
+    target_lang = data.get('target_lang', 'en').strip().lower()
+    source_lang = data.get('source_lang', 'auto').strip().lower()
+    
+    if not text:
+        return jsonify({'error': 'No text to translate'}), 400
+    
+    if len(text) > 10000:
+        return jsonify({'error': 'Text too long. Maximum 10,000 characters.'}), 400
+    
+    # Validate language codes
+    valid_languages = {
+        'en': 'English', 'cs': 'Czech', 'de': 'German', 'fr': 'French',
+        'es': 'Spanish', 'it': 'Italian', 'pl': 'Polish', 'sk': 'Slovak',
+        'hu': 'Hungarian', 'ro': 'Romanian', 'nl': 'Dutch', 'pt': 'Portuguese'
+    }
+    
+    if target_lang not in valid_languages:
+        return jsonify({
+            'error': f'Invalid target language. Supported: {", ".join(valid_languages.keys())}'
+        }), 400
+    
+    try:
+        # Translate using Google Translator
+        translator = GoogleTranslator(source=source_lang, target=target_lang)
+        translated_text = translator.translate(text)
+        
+        if translated_text:
+            return jsonify({
+                'success': True,
+                'translated_text': translated_text,
+                'source_lang': translator.source,
+                'target_lang': target_lang,
+                'target_lang_name': valid_languages.get(target_lang, target_lang)
+            })
+        else:
+            return jsonify({'error': 'Translation returned empty result'}), 500
+            
+    except Exception as e:
+        current_app.logger.error(f"Translation error: {e}")
+        return jsonify({'error': f'Translation failed: {str(e)}'}), 500

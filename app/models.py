@@ -379,6 +379,7 @@ class BlogPost(db.Model):
     excerpt = db.Column(db.Text, nullable=True)  # Short summary for previews
     content = db.Column(db.Text, nullable=False)  # Main content (HTML/Markdown)
     content_type = db.Column(db.String(20), default='html')  # 'html' or 'markdown'
+    pdf_path = db.Column(db.String(500), nullable=True)  # Path to PDF file for PDF blog posts
     
     # Author & Publishing
     author_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -412,6 +413,18 @@ class BlogPost(db.Model):
     def is_published(self):
         """Check if post is published and public."""
         return self.status == 'published' and self.is_public and self.published_at
+    
+    @property
+    def is_pdf_post(self):
+        """Check if this is a PDF-only blog post."""
+        return bool(self.pdf_path)
+    
+    @property
+    def pdf_filename(self):
+        """Get the PDF filename from the path."""
+        if not self.pdf_path:
+            return None
+        return self.pdf_path.split('/')[-1]
     
     @property
     def reading_time(self):

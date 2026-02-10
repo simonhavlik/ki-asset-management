@@ -91,7 +91,7 @@ def register():
     return render_template('register.html', form=form)
 
 @auth_bp.route('/forgot-password', methods=['GET', 'POST'])
-@rate_limit(limit=3, window=3600)  # 3 requests per hour
+@rate_limit(limit=10, window=3600)  # 10 requests per hour
 def forgot_password():
     if current_user.is_authenticated:
         return redirect(url_for('analyst.dashboard'))
@@ -196,6 +196,40 @@ def reset_password(token):
         flash('Your password has been updated. You are now logged in.', 'success')
         return redirect(url_for('analyst.dashboard'))
     return render_template('reset_password.html', form=form, token=token)
+
+
+@auth_bp.route('/set-password/<token>', methods=['GET', 'POST'])
+def set_password(token):
+    """Set password for admin-created users. Requires password to be set before login."""
+    if current_user.is_authenticated:
+        logout_user()
+    
+    # On GET request, just validate without consuming
+    user = validate_token(token, token_type='registration', consume=False)
+    if not user:
+        flash('Invalid or expired password setup link. Please request a new one from an administrator.', 'danger')
+        return redirect(url_for('auth.login'))
+    
+    form = ResetPasswordForm()
+    if form.validate_on_submit():
+        # Now consume the token
+        consumed_user = validate_token(token, token_type='registration', consume=True)
+        if not consumed_user:
+            flash('Token has already been used. Please request a new password setup link.', 'danger')
+            return redirect(url_for('auth.login'))
+        
+        consumed_user.set_password(form.password.data)
+        consumed_user.is_active = True
+        consumed_user.email_verified = True
+        db.session.commit()
+        login_user(consumed_user)
+        log_activity(consumed_user, 'password_set')
+        flash('Your password has been set successfully. You are now logged in.', 'success')
+        if consumed_user.is_admin:
+            return redirect(url_for('admin.dashboard'))
+        else:
+            return redirect(url_for('analyst.dashboard'))
+    return render_template('set_password.html', form=form, token=token, user=user)
 
 @auth_bp.route('/logout')
 @login_required

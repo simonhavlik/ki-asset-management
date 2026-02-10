@@ -51,6 +51,9 @@ PyPDF2==3.0.1          # PDF text extraction
 python-docx==1.1.0     # DOCX text extraction
 pdfplumber==0.10.0     # Alternative PDF parser (optional)
 
+# Translation (Google Translate integration for Czech->English translation)
+deep-translator==1.11.4
+
 # Production Server
 gunicorn==21.2.0
 
