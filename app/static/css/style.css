@@ -1,0 +1,1646 @@
+/* =================================================================
+   KI Asset Management - Institutional Design System
+   Corporate Professional Light Theme
+   ================================================================= */
+
+/* -----------------------------------------------------------------
+   CSS Variables - Corporate Light Theme
+   ----------------------------------------------------------------- */
+:root {
+    /* Primary Brand Colors - Institutional Green */
+    --primary-green: #1a9c5e;
+    --primary-green-light: #2cce7e;
+    --primary-green-dark: #147a4a;
+    --primary-green-pale: rgba(26, 156, 94, 0.08);
+    --primary-green-faint: rgba(26, 156, 94, 0.04);
+    
+    /* Corporate Neutral Palette */
+    --color-white: #ffffff;
+    --color-cream: #fafbfc;
+    --color-gray-50: #f5f7f9;
+    --color-gray-100: #eef1f4;
+    --color-gray-200: #e1e5e9;
+    --color-gray-300: #c5cdd4;
+    --color-gray-400: #9aa5b1;
+    --color-gray-500: #6b7682;
+    --color-gray-600: #4a5561;
+    --color-gray-700: #2d3742;
+    --color-gray-800: #1a2028;
+    --color-gray-900: #0f1419;
+    
+    /* Supporting Colors */
+    --accent-gold: #b8860b;
+    --accent-gold-light: #d4a520;
+    --accent-navy: #1e3a5f;
+    
+    /* Semantic Colors */
+    --success: #1a9c5e;
+    --warning: #d69e2e;
+    --danger: #c53030;
+    --info: #2b6cb0;
+    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, #1a9c5e 0%, #147a4a 100%);
+    --gradient-light: linear-gradient(180deg, #fafbfc 0%, #f5f7f9 100%);
+    --gradient-hero: linear-gradient(135deg, #f5f7f9 0%, #eef1f4 50%, #e1e5e9 100%);
+    --gradient-gold: linear-gradient(135deg, #b8860b 0%, #d4a520 100%);
+    
+    /* Shadows - Subtle Corporate */
+    --shadow-sm: 0 1px 2px rgba(15, 20, 25, 0.04);
+    --shadow-md: 0 4px 6px -1px rgba(15, 20, 25, 0.06), 0 2px 4px -1px rgba(15, 20, 25, 0.03);
+    --shadow-lg: 0 10px 15px -3px rgba(15, 20, 25, 0.08), 0 4px 6px -2px rgba(15, 20, 25, 0.03);
+    --shadow-xl: 0 20px 25px -5px rgba(15, 20, 25, 0.1), 0 10px 10px -5px rgba(15, 20, 25, 0.02);
+    --shadow-glow: 0 0 0 1px rgba(26, 156, 94, 0.15), 0 4px 12px rgba(26, 156, 94, 0.12);
+    
+    /* Border Radius - Minimal Corporate */
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    --radius-xl: 12px;
+    --radius-2xl: 16px;
+    
+    /* Transitions */
+    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+    
+    /* Spacing */
+    --section-padding: 5rem;
+    
+    /* Cursor */
+    --cursor-size: 24px;
+}
+
+/* -----------------------------------------------------------------
+   Custom Inverted Cursor with Color Inversion Sphere
+   ----------------------------------------------------------------- */
+.custom-cursor {
+    position: fixed;
+    width: var(--cursor-size);
+    height: var(--cursor-size);
+    border: 2px solid var(--primary-green);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 10000;
+    transition: transform 0.12s ease, width 0.2s ease, height 0.2s ease, border-color 0.2s ease;
+    transform: translate(-50%, -50%);
+    /* Color inversion effect */
+    mix-blend-mode: difference;
+    background: transparent;
+    box-shadow: 0 0 0 0 transparent;
+}
+
+/* The color inversion sphere around cursor */
+.custom-cursor::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, transparent 70%);
+    mix-blend-mode: difference;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.custom-cursor.active::before,
+.custom-cursor.hover::before {
+    opacity: 1;
+}
+
+.custom-cursor.hover {
+    width: 48px;
+    height: 48px;
+    border-color: var(--primary-green-light);
+}
+
+.custom-cursor.clicking {
+    transform: translate(-50%, -50%) scale(0.85);
+}
+
+/* Cursor dot for precision */
+.cursor-dot {
+    position: fixed;
+    width: 6px;
+    height: 6px;
+    background: var(--primary-green);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 10001;
+    transform: translate(-50%, -50%);
+    mix-blend-mode: difference;
+}
+
+/* Hide default cursor on desktop */
+@media (pointer: fine) {
+    body {
+        cursor: none;
+    }
+    
+    a, button, .btn, input, textarea, select, [role="button"] {
+        cursor: none;
+    }
+}
+
+/* -----------------------------------------------------------------
+   Base Styles & Reset
+   ----------------------------------------------------------------- */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--color-gray-700);
+    background-color: var(--color-white);
+    overflow-x: hidden;
+}
+
+/* Selection */
+::selection {
+    background: rgba(26, 156, 94, 0.2);
+    color: var(--color-gray-900);
+}
+
+/* -----------------------------------------------------------------
+   Page Layout
+   ----------------------------------------------------------------- */
+html, body {
+    height: 100%;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+main {
+    flex: 1 0 auto;
+    padding-top: 72px;
+}
+
+.footer {
+    flex-shrink: 0;
+    margin-top: auto;
+}
+
+/* -----------------------------------------------------------------
+   Typography - Corporate Institutional
+   ----------------------------------------------------------------- */
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--color-gray-900);
+    margin-bottom: 1rem;
+    letter-spacing: -0.01em;
+}
+
+.display-1 {
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+}
+
+.display-2 {
+    font-size: clamp(1.75rem, 3.5vw, 2.75rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+}
+
+.display-3 {
+    font-size: clamp(1.5rem, 2.5vw, 2rem);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.text-gradient {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.text-gradient-gold {
+    background: var(--gradient-gold);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.text-muted {
+    color: var(--color-gray-500) !important;
+}
+
+/* -----------------------------------------------------------------
+   Navigation - Professional Corporate
+   ----------------------------------------------------------------- */
+.navbar {
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-bottom: 1px solid var(--color-gray-200);
+    padding: 0.875rem 0;
+    transition: all var(--transition-base);
+    z-index: 1030;
+}
+
+.navbar.scrolled {
+    background: rgba(255, 255, 255, 0.98) !important;
+    box-shadow: var(--shadow-md);
+    padding: 0.625rem 0;
+}
+
+.navbar-brand {
+    font-weight: 700;
+    font-size: 1.15rem;
+    color: var(--color-gray-900) !important;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.navbar-brand i {
+    color: var(--primary-green);
+    font-size: 1.35rem;
+}
+
+.nav-link {
+    font-weight: 500;
+    color: var(--color-gray-600) !important;
+    padding: 0.5rem 1rem !important;
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+    font-size: 0.9rem;
+}
+
+.nav-link:hover {
+    color: var(--primary-green) !important;
+    background: var(--primary-green-faint);
+}
+
+.navbar-toggler {
+    border-color: var(--color-gray-300);
+}
+
+.navbar-toggler-icon {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%2815, 20, 25, 0.7%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
+
+/* -----------------------------------------------------------------
+   Hero Section - Corporate Professional
+   ----------------------------------------------------------------- */
+.hero-section {
+    position: relative;
+    min-height: calc(100vh - 72px);
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    background: var(--color-cream);
+    padding: 3rem 0;
+}
+
+.hero-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(ellipse at 80% 20%, rgba(26, 156, 94, 0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 20% 80%, rgba(184, 134, 11, 0.04) 0%, transparent 50%);
+}
+
+.hero-grid {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        linear-gradient(rgba(26, 156, 94, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(26, 156, 94, 0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+    opacity: 0.5;
+}
+
+.hero-content {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+}
+
+.hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--color-white);
+    border: 1px solid var(--color-gray-200);
+    border-radius: var(--radius-full);
+    padding: 0.5rem 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-gray-600);
+    margin-bottom: 1.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    box-shadow: var(--shadow-sm);
+}
+
+.hero-badge::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    background: var(--primary-green);
+    border-radius: 50%;
+}
+
+.hero-title {
+    color: var(--color-gray-900);
+    margin-bottom: 1rem;
+}
+
+.hero-title .highlight {
+    color: var(--primary-green);
+}
+
+.hero-subtitle {
+    font-size: clamp(1rem, 1.5vw, 1.15rem);
+    color: var(--color-gray-600);
+    max-width: 540px;
+    margin-bottom: 2rem;
+    font-weight: 400;
+    line-height: 1.7;
+}
+
+/* Corporate Hero Layout */
+.hero-corporate {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: 4rem;
+    align-items: center;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 2rem;
+}
+
+.hero-left {
+    max-width: 560px;
+}
+
+.hero-stats-row {
+    display: flex;
+    gap: 2.5rem;
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--color-gray-200);
+}
+
+.hero-stat-compact {
+    text-align: left;
+}
+
+.hero-stat-compact .value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--color-gray-900);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.hero-stat-compact .label {
+    font-size: 0.75rem;
+    color: var(--color-gray-500);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 0.375rem;
+}
+
+/* Performance Dashboard Card */
+.performance-dashboard {
+    background: var(--color-white);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-xl);
+    border: 1px solid var(--color-gray-200);
+    overflow: hidden;
+}
+
+.performance-header {
+    background: var(--color-gray-50);
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--color-gray-200);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.performance-header h3 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-gray-700);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.performance-header .status {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--primary-green);
+    background: var(--primary-green-pale);
+    padding: 0.375rem 0.75rem;
+    border-radius: var(--radius-full);
+}
+
+.performance-main {
+    padding: 2rem 1.5rem;
+    text-align: center;
+    border-bottom: 1px solid var(--color-gray-200);
+}
+
+.performance-main .return-value {
+    font-size: 4rem;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 0.5rem;
+}
+
+.performance-main .return-value.positive {
+    color: var(--primary-green);
+}
+
+.performance-main .return-value.negative {
+    color: var(--danger);
+}
+
+.performance-main .return-label {
+    font-size: 0.8rem;
+    color: var(--color-gray-500);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 1rem;
+}
+
+.performance-main .return-meta {
+    font-size: 0.85rem;
+    color: var(--color-gray-500);
+}
+
+.performance-main .return-meta span {
+    color: var(--color-gray-700);
+    font-weight: 600;
+}
+
+/* Risk Metrics Grid */
+.risk-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--color-gray-200);
+}
+
+.risk-metric {
+    background: var(--color-white);
+    padding: 1.25rem 1rem;
+    text-align: center;
+}
+
+.risk-metric .metric-label {
+    font-size: 0.65rem;
+    color: var(--color-gray-500);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.5rem;
+}
+
+.risk-metric .metric-value {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--color-gray-900);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+.risk-metric .metric-value.positive {
+    color: var(--primary-green);
+}
+
+.risk-metric .metric-value.negative {
+    color: var(--danger);
+}
+
+.risk-metric .metric-subtext {
+    font-size: 0.7rem;
+    color: var(--color-gray-400);
+    margin-top: 0.375rem;
+}
+
+/* Benchmark Comparison */
+.benchmark-comparison {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--color-gray-200);
+    border-top: 1px solid var(--color-gray-200);
+}
+
+.benchmark-item {
+    background: var(--color-gray-50);
+    padding: 1rem;
+    text-align: center;
+}
+
+.benchmark-item .benchmark-name {
+    font-size: 0.7rem;
+    color: var(--color-gray-500);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.375rem;
+}
+
+.benchmark-item .benchmark-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--color-gray-700);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Hero CTA */
+.hero-cta {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+}
+
+.btn-hero-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--gradient-primary);
+    color: var(--color-white);
+    font-weight: 600;
+    padding: 0.875rem 2rem;
+    border-radius: var(--radius-md);
+    border: none;
+    text-decoration: none;
+    transition: all var(--transition-base);
+    box-shadow: 0 4px 12px rgba(26, 156, 94, 0.3);
+    font-size: 0.95rem;
+}
+
+.btn-hero-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(26, 156, 94, 0.4);
+    color: var(--color-white);
+}
+
+.btn-hero-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: transparent;
+    color: var(--color-gray-700);
+    font-weight: 600;
+    padding: 0.875rem 2rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-gray-300);
+    text-decoration: none;
+    transition: all var(--transition-base);
+    font-size: 0.95rem;
+}
+
+.btn-hero-secondary:hover {
+    border-color: var(--primary-green);
+    color: var(--primary-green);
+    background: var(--primary-green-faint);
+}
+
+/* Czech Note */
+.czech-note {
+    background: var(--primary-green-faint);
+    border: 1px solid rgba(26, 156, 94, 0.15);
+    border-radius: var(--radius-md);
+    padding: 0.75rem 1rem;
+    margin-top: 1rem;
+    font-size: 0.8rem;
+    color: var(--color-gray-600);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.czech-note i {
+    color: var(--accent-gold);
+}
+
+/* -----------------------------------------------------------------
+   Section Styles - Corporate
+   ----------------------------------------------------------------- */
+.section {
+    padding: var(--section-padding) 0;
+    position: relative;
+}
+
+.section-alt {
+    background: var(--color-cream);
+}
+
+.section-header {
+    text-align: center;
+    max-width: 640px;
+    margin: 0 auto 3.5rem;
+}
+
+.section-label {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--primary-green);
+    margin-bottom: 0.875rem;
+    padding: 0.375rem 1rem;
+    background: var(--primary-green-pale);
+    border-radius: var(--radius-full);
+}
+
+.section-title {
+    font-size: clamp(1.5rem, 3vw, 2.25rem);
+    margin-bottom: 1rem;
+    color: var(--color-gray-900);
+    font-weight: 700;
+}
+
+.section-subtitle {
+    font-size: 1.05rem;
+    color: var(--color-gray-500);
+    line-height: 1.7;
+}
+
+/* -----------------------------------------------------------------
+   Feature Cards - Corporate
+   ----------------------------------------------------------------- */
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.feature-card {
+    background: var(--color-white);
+    border: 1px solid var(--color-gray-200);
+    border-radius: var(--radius-lg);
+    padding: 1.75rem;
+    transition: all var(--transition-base);
+}
+
+.feature-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: rgba(26, 156, 94, 0.2);
+}
+
+.feature-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.35rem;
+    margin-bottom: 1.25rem;
+    transition: transform var(--transition-base);
+}
+
+.feature-card:hover .feature-icon {
+    transform: scale(1.1);
+}
+
+.feature-icon.primary {
+    background: var(--primary-green-pale);
+    color: var(--primary-green);
+}
+
+.feature-icon.secondary {
+    background: rgba(184, 134, 11, 0.1);
+    color: var(--accent-gold);
+}
+
+.feature-icon.accent {
+    background: rgba(30, 58, 95, 0.08);
+    color: var(--accent-navy);
+}
+
+.feature-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.625rem;
+    color: var(--color-gray-900);
+}
+
+.feature-text {
+    color: var(--color-gray-500);
+    line-height: 1.7;
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+/* -----------------------------------------------------------------
+   Strategy Section - Corporate
+   ----------------------------------------------------------------- */
+.strategy-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.strategy-card {
+    background: var(--color-white);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    border: 1px solid var(--color-gray-200);
+    transition: all var(--transition-base);
+}
+
+.strategy-card:hover {
+    box-shadow: var(--shadow-md);
+    border-color: rgba(26, 156, 94, 0.15);
+}
+
+.strategy-card h4 {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 0.625rem;
+    color: var(--color-gray-900);
+}
+
+.strategy-card h4 i {
+    font-size: 1.1rem;
+}
+
+.strategy-card p {
+    font-size: 0.875rem;
+    color: var(--color-gray-500);
+    line-height: 1.65;
+    margin: 0;
+}
+
+/* Allocation Chart */
+.allocation-chart {
+    background: var(--color-white);
+    border-radius: var(--radius-lg);
+    padding: 1.75rem;
+    border: 1px solid var(--color-gray-200);
+    height: 100%;
+}
+
+.allocation-chart h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 1.25rem;
+    color: var(--color-gray-900);
+}
+
+.allocation-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.875rem 0;
+    border-bottom: 1px solid var(--color-gray-100);
+}
+
+.allocation-item:last-child {
+    border-bottom: none;
+}
+
+.allocation-color {
+    width: 12px;
+    height: 12px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+}
+
+.allocation-info {
+    flex: 1;
+}
+
+.allocation-label {
+    font-weight: 600;
+    color: var(--color-gray-900);
+    font-size: 0.9rem;
+}
+
+.allocation-desc {
+    font-size: 0.75rem;
+    color: var(--color-gray-400);
+    margin-top: 0.125rem;
+}
+
+.allocation-percent {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--primary-green);
+    font-variant-numeric: tabular-nums;
+}
+
+/* -----------------------------------------------------------------
+   Investment Process Section
+   ----------------------------------------------------------------- */
+.process-section {
+    background: var(--color-gray-900);
+    color: var(--color-white);
+}
+
+.process-section .section-title {
+    color: var(--color-white);
+}
+
+.process-section .section-subtitle {
+    color: var(--color-gray-400);
+}
+
+.process-flow {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    position: relative;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.process-flow::before {
+    content: '';
+    position: absolute;
+    top: 2rem;
+    left: 10%;
+    right: 10%;
+    height: 2px;
+    background: linear-gradient(90deg, var(--primary-green) 0%, var(--accent-gold) 100%);
+    opacity: 0.3;
+}
+
+.process-step {
+    flex: 1;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+}
+
+.process-step .step-number {
+    width: 4rem;
+    height: 4rem;
+    background: var(--color-gray-800);
+    border: 2px solid var(--primary-green);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--primary-green);
+    margin: 0 auto 1rem;
+}
+
+.process-step .step-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-white);
+    margin-bottom: 0.5rem;
+}
+
+.process-step .step-desc {
+    font-size: 0.8rem;
+    color: var(--color-gray-400);
+    line-height: 1.6;
+}
+
+/* -----------------------------------------------------------------
+   Risk Management Section
+   ----------------------------------------------------------------- */
+.risk-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.25rem;
+}
+
+.risk-card {
+    background: var(--color-white);
+    border: 1px solid var(--color-gray-200);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    transition: all var(--transition-base);
+}
+
+.risk-card:hover {
+    border-color: rgba(26, 156, 94, 0.2);
+    box-shadow: var(--shadow-md);
+}
+
+.risk-card .risk-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.risk-card .risk-icon {
+    width: 36px;
+    height: 36px;
+    background: var(--primary-green-pale);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-green);
+    font-size: 1rem;
+}
+
+.risk-card .risk-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--color-gray-900);
+    margin: 0;
+}
+
+.risk-card .risk-desc {
+    font-size: 0.85rem;
+    color: var(--color-gray-500);
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* -----------------------------------------------------------------
+   Stats Section - Corporate
+   ----------------------------------------------------------------- */
+.stats-section {
+    background: var(--color-gray-900);
+    color: var(--color-white);
+    padding: 4rem 0;
+    position: relative;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2rem;
+    position: relative;
+    z-index: 1;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 1rem;
+}
+
+.stat-number {
+    font-size: 2.75rem;
+    font-weight: 700;
+    color: var(--primary-green-light);
+    line-height: 1;
+    margin-bottom: 0.5rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    color: var(--color-gray-400);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+/* -----------------------------------------------------------------
+   Team Section - Corporate
+   ----------------------------------------------------------------- */
+.team-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.team-card {
+    background: var(--color-white);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    transition: all var(--transition-base);
+    border: 1px solid var(--color-gray-200);
+}
+
+.team-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-xl);
+    border-color: rgba(26, 156, 94, 0.15);
+}
+
+.team-image-wrapper {
+    position: relative;
+    height: 240px;
+    overflow: hidden;
+    background: var(--color-gray-100);
+}
+
+.team-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--transition-slow);
+}
+
+.team-card:hover .team-image {
+    transform: scale(1.03);
+}
+
+.team-image-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(transparent, rgba(15, 20, 25, 0.85));
+}
+
+.team-content {
+    padding: 1.5rem;
+    background: var(--color-white);
+}
+
+.team-name {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    color: var(--color-gray-900);
+}
+
+.team-role {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--primary-green);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.625rem;
+}
+
+.team-edu {
+    font-size: 0.8rem;
+    color: var(--color-gray-500);
+    margin-bottom: 0.875rem;
+}
+
+.team-quote {
+    font-size: 0.85rem;
+    color: var(--color-gray-600);
+    line-height: 1.65;
+    font-style: italic;
+    padding-left: 0.875rem;
+    border-left: 2px solid var(--primary-green);
+}
+
+/* -----------------------------------------------------------------
+   Platform Perks - Corporate
+   ----------------------------------------------------------------- */
+.perks-section {
+    background: var(--color-cream);
+}
+
+.perk-card {
+    background: var(--color-white);
+    border-radius: var(--radius-lg);
+    padding: 1.75rem;
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+    transition: all var(--transition-base);
+    height: 100%;
+    border: 1px solid var(--color-gray-200);
+}
+
+.perk-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: rgba(26, 156, 94, 0.15);
+}
+
+.perk-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.25rem;
+    font-size: 1.5rem;
+    transition: transform var(--transition-base);
+}
+
+.perk-card:hover .perk-icon {
+    transform: scale(1.1);
+}
+
+.perk-icon.primary {
+    background: var(--primary-green-pale);
+    color: var(--primary-green);
+}
+
+.perk-icon.secondary {
+    background: rgba(184, 134, 11, 0.1);
+    color: var(--accent-gold);
+}
+
+.perk-icon.accent {
+    background: rgba(30, 58, 95, 0.08);
+    color: var(--accent-navy);
+}
+
+.perk-card h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.625rem;
+    color: var(--color-gray-900);
+}
+
+.perk-card p {
+    font-size: 0.875rem;
+    color: var(--color-gray-500);
+    line-height: 1.65;
+    margin: 0;
+}
+
+/* -----------------------------------------------------------------
+   CTA Section - Corporate
+   ----------------------------------------------------------------- */
+.cta-section {
+    background: var(--color-gray-900);
+    padding: 5rem 0;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.cta-content {
+    position: relative;
+    z-index: 1;
+}
+
+.cta-title {
+    color: var(--color-white);
+    font-size: clamp(1.5rem, 3vw, 2.25rem);
+    margin-bottom: 1rem;
+    font-weight: 700;
+}
+
+.cta-text {
+    color: var(--color-gray-400);
+    font-size: 1.05rem;
+    max-width: 560px;
+    margin: 0 auto 2rem;
+    line-height: 1.7;
+}
+
+.btn-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--gradient-primary);
+    color: var(--color-white);
+    font-weight: 600;
+    padding: 1rem 2.5rem;
+    border-radius: var(--radius-md);
+    border: none;
+    text-decoration: none;
+    transition: all var(--transition-base);
+    box-shadow: 0 4px 20px rgba(26, 156, 94, 0.3);
+}
+
+.btn-cta:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(26, 156, 94, 0.4);
+    color: var(--color-white);
+}
+
+/* -----------------------------------------------------------------
+   Footer - Corporate
+   ----------------------------------------------------------------- */
+.footer {
+    background: var(--color-gray-900);
+    color: var(--color-gray-400);
+    padding: 3rem 0 1.5rem;
+    border-top: 1px solid var(--color-gray-800);
+}
+
+.footer-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--color-gray-800);
+    margin-bottom: 1.5rem;
+}
+
+.footer-brand {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--color-white);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.footer-brand i {
+    color: var(--primary-green);
+}
+
+.footer-links {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+}
+
+.footer-link {
+    color: var(--color-gray-400);
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: color var(--transition-fast);
+}
+
+.footer-link:hover {
+    color: var(--primary-green);
+}
+
+.footer-bottom {
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--color-gray-500);
+}
+
+/* -----------------------------------------------------------------
+   Cards - Corporate
+   ----------------------------------------------------------------- */
+.card {
+    background: var(--color-white);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-gray-200);
+    box-shadow: var(--shadow-sm);
+    transition: all var(--transition-base);
+    overflow: hidden;
+}
+
+.card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.card-header {
+    background: var(--color-gray-50);
+    border-bottom: 1px solid var(--color-gray-200);
+    font-weight: 600;
+    padding: 1rem 1.25rem;
+    font-size: 0.9rem;
+    color: var(--color-gray-700);
+}
+
+/* -----------------------------------------------------------------
+   Tables - Corporate
+   ----------------------------------------------------------------- */
+.table {
+    font-size: 0.9rem;
+}
+
+.table thead th {
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    color: var(--color-gray-500);
+    border-top: none;
+    padding: 0.875rem 1rem;
+    background: var(--color-gray-50);
+    border-bottom: 1px solid var(--color-gray-200);
+}
+
+.table tbody td {
+    padding: 0.875rem 1rem;
+    vertical-align: middle;
+    color: var(--color-gray-700);
+    border-bottom: 1px solid var(--color-gray-100);
+}
+
+.table-hover tbody tr:hover {
+    background: var(--color-gray-50);
+}
+
+/* -----------------------------------------------------------------
+   Buttons - Corporate
+   ----------------------------------------------------------------- */
+.btn {
+    font-weight: 500;
+    padding: 0.625rem 1.25rem;
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+    font-size: 0.9rem;
+}
+
+.btn-primary {
+    background: var(--gradient-primary);
+    border: none;
+    box-shadow: 0 2px 8px rgba(26, 156, 94, 0.25);
+    color: var(--color-white);
+}
+
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(26, 156, 94, 0.35);
+    background: var(--gradient-primary);
+    color: var(--color-white);
+}
+
+.btn-outline-primary {
+    border-color: var(--primary-green);
+    color: var(--primary-green);
+}
+
+.btn-outline-primary:hover {
+    background: var(--primary-green);
+    border-color: var(--primary-green);
+    color: var(--color-white);
+}
+
+/* -----------------------------------------------------------------
+   Badges - Corporate
+   ----------------------------------------------------------------- */
+.badge {
+    font-weight: 500;
+    padding: 0.375em 0.75em;
+    border-radius: var(--radius-md);
+    font-size: 0.75rem;
+}
+
+.badge.bg-success {
+    background: var(--primary-green-pale) !important;
+    color: var(--primary-green-dark) !important;
+}
+
+/* -----------------------------------------------------------------
+   Animations & Utilities
+   ----------------------------------------------------------------- */
+.reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.reveal.active {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.reveal-delay-1 { transition-delay: 0.1s; }
+.reveal-delay-2 { transition-delay: 0.2s; }
+.reveal-delay-3 { transition-delay: 0.3s; }
+.reveal-delay-4 { transition-delay: 0.4s; }
+
+/* Chart Styles */
+canvas {
+    max-height: 400px !important;
+}
+
+.chart-container canvas {
+    max-height: 350px !important;
+}
+
+.chart-container {
+    position: relative;
+    height: 350px;
+    width: 100%;
+}
+
+/* Blog Cards */
+.blog-card {
+    background: var(--color-white);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-gray-200);
+    transition: all var(--transition-base);
+}
+
+.blog-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: rgba(26, 156, 94, 0.1);
+}
+
+/* -----------------------------------------------------------------
+   Responsive Design - Corporate
+   ----------------------------------------------------------------- */
+@media (max-width: 1199.98px) {
+    .hero-corporate {
+        grid-template-columns: 1fr;
+        gap: 3rem;
+        text-align: center;
+    }
+    
+    .hero-left {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .hero-subtitle {
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .hero-stats-row {
+        justify-content: center;
+    }
+    
+    .hero-stat-compact {
+        text-align: center;
+    }
+    
+    .hero-cta {
+        justify-content: center;
+    }
+    
+    .process-flow {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .process-flow::before {
+        display: none;
+    }
+    
+    .process-step {
+        flex: 0 0 calc(50% - 1rem);
+    }
+}
+
+@media (max-width: 991.98px) {
+    :root {
+        --section-padding: 4rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .strategy-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .risk-metrics {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 767.98px) {
+    .hero-stats-row {
+        flex-wrap: wrap;
+        gap: 1.5rem;
+    }
+    
+    .hero-stat-compact {
+        flex: 1 1 calc(50% - 1rem);
+    }
+    
+    .hero-cta {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .btn-hero-primary,
+    .btn-hero-secondary {
+        width: 100%;
+        max-width: 320px;
+        justify-content: center;
+    }
+    
+    .performance-main .return-value {
+        font-size: 3rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+    }
+    
+    .stat-number {
+        font-size: 2.25rem;
+    }
+    
+    .footer-content {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .footer-links {
+        justify-content: center;
+        gap: 1rem;
+    }
+    
+    .process-step {
+        flex: 1 1 100%;
+    }
+    
+    .benchmark-comparison {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .risk-metrics {
+        grid-template-columns: 1fr;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .team-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .feature-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .hero-stat-compact {
+        flex: 1 1 100%;
+    }
+}
+
+/* -----------------------------------------------------------------
+   Dashboard Layout Constraints
+   ----------------------------------------------------------------- */
+.dashboard-page main {
+    padding-top: 84px;
+    padding-bottom: 2rem;
+}
+
+.dashboard-page .container-fluid {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding-left: 2rem;
+    padding-right: 2rem;
+}
+
+@media (min-width: 1920px) {
+    .dashboard-page .container-fluid {
+        padding-left: 4rem;
+        padding-right: 4rem;
+    }
+}
+
+@media (max-width: 991.98px) {
+    .dashboard-page .container-fluid {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+}
+
+/* -----------------------------------------------------------------
+   Print Styles
+   ----------------------------------------------------------------- */
+@media print {
+    .navbar,
+    .hero-scroll,
+    .btn,
+    .footer,
+    .custom-cursor,
+    .cursor-dot {
+        display: none !important;
+    }
+    
+    .hero-section {
+        min-height: auto;
+        padding: 2rem 0;
+    }
+    
+    .section {
+        padding: 2rem 0;
+    }
+}

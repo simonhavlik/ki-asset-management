@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Analyst Mappings – Analyst Performance Tracker{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-person-badge"></i> Analyst Mappings</h1>
+    <a href="{{ url_for('admin.users') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Users
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-lg-5 mb-4">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="bi bi-plus-circle"></i> Create Mapping</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('admin.create_analyst_mapping') }}">
+                    {{ form.csrf_token }}
+                    <div class="mb-3">
+                        {{ form.analyst_name.label(class="form-label") }}
+                        {{ form.analyst_name(class="form-control", placeholder="Enter analyst name as appears in CSV") }}
+                        {% if form.analyst_name.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.analyst_name.errors[0] }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="mb-3">
+                        {{ form.user_id.label(class="form-label") }}
+                        {{ form.user_id(class="form-select") }}
+                        {% if form.user_id.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.user_id.errors[0] }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="d-grid">
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Analyst Name</th>
+                                <th>Mapped User</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for mapping in mappings %}
+                            <tr>
+                                <td><strong>{{ mapping.analyst_name }}</strong></td>
+                                <td>
+                                    <a href="{{ url_for('admin.edit_user', user_id=mapping.user.id) }}">
+                                        {{ mapping.user.email }}
+                                    </a>
+                                    {% if mapping.user.full_name %}
+                                        <br><small class="text-muted">{{ mapping.user.full_name }}</small>
+                                    {% endif %}
+                                </td>
+                                <td><small>{{ mapping.created_at.strftime('%Y‑%m‑%d') }}</small></td>
+                                <td>
+                                    <form method="POST" action="{{ url_for('admin.delete_analyst_mapping', mapping_id=mapping.id) }}" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this mapping?');">
+                                            <i class="bi bi-trash"></i> Delete
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-3">No analyst mappings yet.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="alert alert-info mt-4">
+    <i class="bi bi-info-circle"></i>
+    Analyst mappings allow you to link analyst names from CSV imports to existing user accounts.
+    When a CSV row contains an analyst name that matches a mapping, the system will assign the analysis to the mapped user instead of trying to find by full name or email.
+</div>
+</div>
+{% endblock %}

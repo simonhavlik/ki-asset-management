@@ -1,0 +1,789 @@
+{% extends "base.html" %}
+
+{% block title %}Calculation Methodology – KI Asset Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-calculator"></i> Calculation Methodology</h1>
+        <a href="{{ url_for('analyst.overview') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Overview
+        </a>
+    </div>
+
+    <!-- Quick Navigation -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="bi bi-bookmarks"></i> Quick Navigation</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <ul class="list-unstyled mb-0">
+                        <li><a href="#returns">Return Calculations</a></li>
+                        <li><a href="#aggregation">Performance Aggregation</a></li>
+                        <li><a href="#risk">Risk Metrics</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <ul class="list-unstyled mb-0">
+                        <li><a href="#benchmarks">Benchmark Comparisons</a></li>
+                        <li><a href="#portfolio">Portfolio Simulation</a></li>
+                        <li><a href="#sectors">Sector Statistics</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <ul class="list-unstyled mb-0">
+                        <li><a href="#rankings">Analyst Rankings</a></li>
+                        <li><a href="#glossary">Glossary</a></li>
+                        <li><a href="#formulas">Formula Summary</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Return Calculations -->
+    <div class="card mb-4" id="returns">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0"><i class="bi bi-graph-up"></i> Return Calculations</h4>
+        </div>
+        <div class="card-body">
+            <h5>Simple Return</h5>
+            <p class="text-muted">
+                This is the fundamental calculation showing the total return from when an analyst recommended a stock until now.
+            </p>
+            
+            <div class="bg-light p-3 rounded mb-3">
+                <strong>Formula:</strong>
+                <div class="mt-2">
+                    <code>
+                        Return % = ((Current Price - Price at Analysis) / Price at Analysis) × 100
+                    </code>
+                </div>
+            </div>
+
+            <div class="alert alert-info">
+                <strong>Example:</strong><br>
+                Analysis Date: January 15, 2025<br>
+                Price at Analysis: $150.00<br>
+                Current Price: $200.00<br>
+                <strong>Return = (200 - 150) / 150 × 100 = 33.33%</strong>
+            </div>
+
+            <h5 class="mt-4">Annualized Return (CAGR)</h5>
+            <p class="text-muted">
+                Annualization shows what the return would be if compressed to a one-year period. This allows fair comparison 
+                between stocks held for different lengths of time.
+            </p>
+
+            <div class="bg-light p-3 rounded mb-3">
+                <strong>Formula:</strong>
+                <div class="mt-2">
+                    <code>
+                        Annualized Return = [(1 + Return/100)^(365/Days) - 1] × 100
+                    </code>
+                </div>
+            </div>
+
+            <div class="alert alert-info">
+                <strong>Example:</strong><br>
+                Raw Return: 50%<br>
+                Days Held: 730 (2 years)<br>
+                <strong>Annualized = ((1 + 0.50)^(365/730) - 1) × 100 = 22.47% per year</strong>
+            </div>
+
+            <div class="alert alert-warning">
+                <strong>When Applied:</strong> Annualization is only calculated for holdings longer than 365 days. 
+                For shorter periods, the simple return is shown.
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Aggregation -->
+    <div class="card mb-4" id="aggregation">
+        <div class="card-header bg-success text-white">
+            <h4 class="mb-0"><i class="bi bi-bar-chart-line"></i> Performance Aggregation</h4>
+        </div>
+        <div class="card-body">
+            <h5>Equal-Weighted Average</h5>
+            <p class="text-muted">
+                We use <strong>equal-weighted averaging</strong> rather than value-weighted. This means each stock pick 
+                contributes equally to the average, regardless of company size.
+            </p>
+
+            <div class="bg-light p-3 rounded mb-3">
+                <strong>Formula:</strong>
+                <div class="mt-2">
+                    <code>
+                        Average Return = Sum of all returns / Number of analyses
+                    </code>
+                </div>
+            </div>
+
+            <div class="alert alert-info">
+                <strong>Example:</strong><br>
+                An analyst has 3 approved analyses with returns: +33%, -5%, +10%<br>
+                <strong>Average = (33 + (-5) + 10) / 3 = 12.67%</strong>
+            </div>
+
+            <h5>Why Equal-Weighting?</h5>
+            <ul>
+                <li><strong>Fair Comparison:</strong> Each pick represents equal "conviction" regardless of company size</li>
+                <li><strong>Skill Measurement:</strong> Measures stock-picking ability, not position sizing</li>
+                <li><strong>Bias Prevention:</strong> Prevents large-cap stocks from dominating metrics</li>
+                <li><strong>Industry Standard:</strong> Most analyst performance rankings use equal-weighting</li>
+            </ul>
+
+            <h5 class="mt-4">Median Return</h5>
+            <p class="text-muted">
+                The median is the middle value when all returns are sorted. It helps identify typical performance 
+                without being skewed by extreme outliers.
+            </p>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="alert alert-light">
+                        <strong>Odd Count (5 analyses):</strong><br>
+                        Returns: [-15%, -5%, 10%, 15%, 25%]<br>
+                        <strong>Median = 10%</strong> (3rd value)
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="alert alert-light">
+                        <strong>Even Count (4 analyses):</strong><br>
+                        Returns: [-10%, 5%, 15%, 20%]<br>
+                        <strong>Median = (5% + 15%) / 2 = 10%</strong>
+                    </div>
+                </div>
+            </div>
+
+            <h5 class="mt-4">Win Rate</h5>
+            <p class="text-muted">
+                The percentage of analyses that resulted in positive returns.
+            </p>
+
+            <div class="bg-light p-3 rounded mb-3">
+                <strong>Formula:</strong>
+                <div class="mt-2">
+                    <code>
+                        Win Rate % = (Number of Positive Returns / Total Analyses) × 100
+                    </code>
+                </div>
+            </div>
+
+            <div class="alert alert-info">
+                <strong>Example:</strong><br>
+                Total analyses: 10<br>
+                Positive returns: 7<br>
+                <strong>Win Rate = 7 / 10 × 100 = 70%</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- Risk Metrics -->
+    <div class="card mb-4" id="risk">
+        <div class="card-header bg-warning text-dark">
+            <h4 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Risk Metrics (Sector Statistics)</h4>
+        </div>
+        <div class="card-body">
+            <h5>Standard Deviation (Volatility)</h5>
+            <p class="text-muted">
+                Risk is measured as the <strong>standard deviation of returns</strong> within each sector. 
+                It indicates how much returns vary from the average—higher values mean more volatile/unpredictable performance.
+            </p>
+
+            <div class="bg-light p-3 rounded mb-3">
+                <strong>Formula:</strong>
+                <div class="mt-2">
+                    <code>
+                        Risk (σ) = √[ Σ(Return - Mean)² / N ]
+                    </code>
+                </div>
+            </div>
+
+            <h6>Step-by-Step Calculation Example:</h6>
+            <p class="text-muted">Given sector returns: [10%, 15%, -5%, 20%, 0%]</p>
+            
+            <ol>
+                <li><strong>Calculate Mean:</strong> (10 + 15 + (-5) + 20 + 0) / 5 = 8%</li>
+                <li><strong>Calculate Deviations:</strong>
+                    <ul>
+                        <li>(10 - 8)² = 4</li>
+                        <li>(15 - 8)² = 49</li>
+                        <li>(-5 - 8)² = 169</li>
+                        <li>(20 - 8)² = 144</li>
+                        <li>(0 - 8)² = 64</li>
+                    </ul>
+                </li>
+                <li><strong>Calculate Variance:</strong> (4 + 49 + 169 + 144 + 64) / 5 = 86</li>
+                <li><strong>Calculate Standard Deviation:</strong> √86 = 9.27%</li>
+            </ol>
+
+            <div class="alert alert-success mt-3">
+                <strong>Risk Level Interpretation:</strong>
+                <table class="table table-sm mt-2 mb-0">
+                    <thead>
+                        <tr>
+                            <th>Risk Level</th>
+                            <th>Standard Deviation</th>
+                            <th>Interpretation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Low</td>
+                            <td>0-5%</td>
+                            <td>Very consistent returns</td>
+                        </tr>
+                        <tr>
+                            <td>Medium</td>
+                            <td>5-15%</td>
+                            <td>Normal volatility</td>
+                        </tr>
+                        <tr>
+                            <td>High</td>
+                            <td>15-25%</td>
+                            <td>Erratic performance</td>
+                        </tr>
+                        <tr>
+                            <td>Very High</td>
+                            <td>>25%</td>
+                            <td>Unpredictable results</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="alert alert-info">
+                <strong>Why This Matters:</strong><br>
+                Comparing risk across sectors helps identify which sectors provide:
+                <ul class="mb-0">
+                    <li><strong>Consistent Performance:</strong> Low risk sectors (e.g., Utilities)</li>
+                    <li><strong>High Reward Potential:</strong> Check both return AND risk</li>
+                    <li><strong>Balanced Exposure:</strong> Medium risk/return sectors</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Benchmark Comparisons -->
+    <div class="card mb-4" id="benchmarks">
+        <div class="card-header bg-info text-white">
+            <h4 class="mb-0"><i class="bi bi-bullseye"></i> Benchmark Comparisons</h4>
+        </div>
+        <div class="card-body">
+            <p class="text-muted">
+                We compare our performance against major market indices to determine if we're 
+                outperforming (generating alpha) or underperforming the market.
+            </p>
+
+            <h5>Implemented Benchmarks</h5>
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Ticker</th>
+                        <th>Index</th>
+                        <th>Description</th>
+                        <th>Approx. Annual Return</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>SPY</code></td>
+                        <td>S&P 500</td>
+                        <td>500 largest US companies</td>
+                        <td>~10%</td>
+                    </tr>
+                    <tr>
+                        <td><code>VT</code></td>
+                        <td>FTSE All-World</td>
+                        <td>Global equity markets</td>
+                        <td>~9%</td>
+                    </tr>
+                    <tr>
+                        <td><code>EEMS</code></td>
+                        <td>MSCI EM Small Cap</td>
+                        <td>Emerging markets small cap</td>
+                        <td>~7%</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h5 class="mt-4">Alpha Generation</h5>
+            <p class="text-muted">
+                Alpha measures how much we outperform (or underperform) the benchmark.
+            </p>
+
+            <div class="bg-light p-3 rounded mb-3">
+                <strong>Formula:</strong>
+                <div class="mt-2">
+                    <code>
+                        Alpha = Analyst Return - Benchmark Return
+                    </code>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="alert alert-success">
+                        <strong>Positive Alpha</strong><br>
+                        Beating the benchmark<br>
+                        <small>Example: 25% - 15% = +10%</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="alert alert-secondary">
+                        <strong>Zero Alpha</strong><br>
+                        Matching the market<br>
+                        <small>Example: 15% - 15% = 0%</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="alert alert-danger">
+                        <strong>Negative Alpha</strong><br>
+                        Underperforming<br>
+                        <small>Example: 10% - 15% = -5%</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Portfolio Simulation -->
+    <div class="card mb-4" id="portfolio">
+        <div class="card-header bg-secondary text-white">
+            <h4 class="mb-0"><i class="bi bi-briefcase"></i> Portfolio Simulation</h4>
+        </div>
+        <div class="card-body">
+            <p class="text-muted">
+                We offer two calculation methods for portfolio performance. You can toggle between them on the Overview page.
+            </p>
+
+            <ul class="nav nav-tabs" id="portfolioMethodTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="incremental-tab" data-bs-toggle="tab" data-bs-target="#incremental-content" type="button" role="tab">
+                        <i class="bi bi-graph-up-arrow"></i> Incremental Rebalancing
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="equal-tab" data-bs-toggle="tab" data-bs-target="#equal-content" type="button" role="tab">
+                        <i class="bi bi-bar-chart"></i> Equal-Weighted
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content mt-3" id="portfolioMethodContent">
+                <!-- Incremental Rebalancing Method -->
+                <div class="tab-pane fade show active" id="incremental-content" role="tabpanel">
+                    <h5>Incremental Equal-Weight Rebalancing (Recommended)</h5>
+                    <p class="text-muted">
+                        This method simulates realistic portfolio management where each new stock addition triggers a 
+                        rebalancing to maintain equal weights. This accurately reflects how an actual portfolio would be managed:
+                    </p>
+
+                    <div class="bg-light p-3 rounded mb-3">
+                        <strong>How It Works:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li><strong>First stock:</strong> Invest 100% of capital</li>
+                            <li><strong>Second stock:</strong> Sell 50% of first stock, invest proceeds in second (now 50/50)</li>
+                            <li><strong>Third stock:</strong> Sell 33% of each existing position, invest in third (now 33/33/33)</li>
+                            <li><strong>Nth stock:</strong> Rebalance to 1/N weight for each position</li>
+                        </ul>
+                    </div>
+
+                    <h6>Step-by-Step Example:</h6>
+                    <p class="text-muted">Starting with $10,000 and three stocks added over time:</p>
+                    
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Step</th>
+                                <th>Action</th>
+                                <th>Stock A</th>
+                                <th>Stock B</th>
+                                <th>Stock C</th>
+                                <th>Total Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>1. Start</td>
+                                <td>Buy A with $10,000</td>
+                                <td>$10,000</td>
+                                <td>-</td>
+                                <td>-</td>
+                                <td>$10,000</td>
+                            </tr>
+                            <tr>
+                                <td>2. A grows</td>
+                                <td>A gains 30%</td>
+                                <td>$13,000</td>
+                                <td>-</td>
+                                <td>-</td>
+                                <td>$13,000</td>
+                            </tr>
+                            <tr>
+                                <td>3. Add B</td>
+                                <td>Rebalance 50/50</td>
+                                <td>$6,500 <small>(sold $6,500)</small></td>
+                                <td>$6,500</td>
+                                <td>-</td>
+                                <td>$13,000</td>
+                            </tr>
+                            <tr>
+                                <td>4. Both grow</td>
+                                <td>A: +10%, B: +20%</td>
+                                <td>$7,150</td>
+                                <td>$7,800</td>
+                                <td>-</td>
+                                <td>$14,950</td>
+                            </tr>
+                            <tr>
+                                <td>5. Add C</td>
+                                <td>Rebalance 33/33/33</td>
+                                <td>$4,983</td>
+                                <td>$4,983</td>
+                                <td>$4,983</td>
+                                <td>$14,950</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="alert alert-success">
+                        <strong>Why This Method Is More Realistic:</strong>
+                        <ul class="mb-0">
+                            <li>Mimics actual portfolio management decisions</li>
+                            <li>Captures the impact of rebalancing and position sizing</li>
+                            <li>Early positions have larger impact (as they would in reality)</li>
+                            <li>Reflects opportunity cost of adding new positions</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Equal-Weighted Method -->
+                <div class="tab-pane fade" id="equal-content" role="tabpanel">
+                    <h5>Simple Equal-Weighted Average</h5>
+                    <p class="text-muted">
+                        This method calculates a simple average where each stock contributes equally regardless of 
+                        when it was added. It provides a straightforward measure of stock-picking skill without 
+                        considering portfolio management dynamics.
+                    </p>
+
+                    <div class="bg-light p-3 rounded mb-3">
+                        <strong>Formula:</strong>
+                        <div class="mt-2">
+                            <code>
+                                Portfolio Return = Sum of individual returns / Number of positions
+                            </code>
+                        </div>
+                    </div>
+
+                    <h6>How It Works Over Time:</h6>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Time Period</th>
+                                <th>Active Stocks</th>
+                                <th>Calculation</th>
+                                <th>Portfolio Return</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Jan 2023</td>
+                                <td>Stock A only</td>
+                                <td>Stock A return</td>
+                                <td>30%</td>
+                            </tr>
+                            <tr>
+                                <td>Jun 2023</td>
+                                <td>A, B</td>
+                                <td>(30% + 10%) / 2</td>
+                                <td>20%</td>
+                            </tr>
+                            <tr>
+                                <td>Jan 2024</td>
+                                <td>A, B, C</td>
+                                <td>(30% + 10% + (-5%)) / 3</td>
+                                <td>11.67%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="alert alert-info">
+                        <strong>When to Use This Method:</strong>
+                        <ul class="mb-0">
+                            <li>Comparing pure stock-picking skill across different portfolios</li>
+                            <li>When timing of entries shouldn't affect the metric</li>
+                            <li>Simple, easy-to-understand performance measure</li>
+                            <li>Industry standard for analyst performance rankings</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert alert-warning mt-4">
+                <strong><i class="bi bi-exclamation-triangle"></i> Which Should I Use?</strong><br>
+                <strong>Incremental Rebalancing</strong> is recommended for portfolio performance tracking as it reflects 
+                how an actual portfolio would be managed. <strong>Equal-Weighted</strong> is better for comparing analyst 
+                stock-picking skill without the noise of portfolio management timing.
+            </div>
+        </div>
+    </div>
+
+    <!-- Sector Statistics -->
+    <div class="card mb-4" id="sectors">
+        <div class="card-header bg-dark text-white">
+            <h4 class="mb-0"><i class="bi bi-pie-chart"></i> Sector Statistics</h4>
+        </div>
+        <div class="card-body">
+            <p class="text-muted">
+                For each sector, we calculate several metrics to understand sector performance and risk:
+            </p>
+
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Description</th>
+                        <th>Formula</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Count</td>
+                        <td>Number of stocks in sector</td>
+                        <td>Simple count</td>
+                    </tr>
+                    <tr>
+                        <td>Avg Return</td>
+                        <td>Mean of all returns in sector</td>
+                        <td>Σ Returns / N</td>
+                    </tr>
+                    <tr>
+                        <td>Positive Ratio</td>
+                        <td>% of stocks with positive returns</td>
+                        <td>(Positive / Total) × 100</td>
+                    </tr>
+                    <tr>
+                        <td>Risk (StdDev)</td>
+                        <td>Volatility of sector returns</td>
+                        <td>√[ Σ(x - mean)² / N ]</td>
+                    </tr>
+                    <tr>
+                        <td>Min</td>
+                        <td>Worst performing stock</td>
+                        <td>Minimum return</td>
+                    </tr>
+                    <tr>
+                        <td>Max</td>
+                        <td>Best performing stock</td>
+                        <td>Maximum return</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Analyst Rankings -->
+    <div class="card mb-4" id="rankings">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0"><i class="bi bi-trophy"></i> Analyst Rankings</h4>
+        </div>
+        <div class="card-body">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Ranking</th>
+                        <th>Metric</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Top by Board Approved</td>
+                        <td>Count</td>
+                        <td>Analyses with 'On Watchlist' status</td>
+                    </tr>
+                    <tr>
+                        <td>Top by Total Analyses</td>
+                        <td>Count</td>
+                        <td>All stock analyses (approved + neutral + refused)</td>
+                    </tr>
+                    <tr>
+                        <td>Top by Win Rate</td>
+                        <td>Percentage</td>
+                        <td>Win rate for analysts with ≥3 analyses</td>
+                    </tr>
+                    <tr>
+                        <td>Top by Performance</td>
+                        <td>Return %</td>
+                        <td>Average return across approved analyses</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="alert alert-info">
+                <strong>Note:</strong> Win Rate rankings require a minimum of 3 analyses to ensure 
+                statistical significance. An analyst with 1 pick and 100% win rate is less meaningful 
+                than one with 10 picks and 80% win rate.
+            </div>
+        </div>
+    </div>
+
+    <!-- Glossary -->
+    <div class="card mb-4" id="glossary">
+        <div class="card-header bg-light">
+            <h4 class="mb-0"><i class="bi bi-book"></i> Glossary</h4>
+        </div>
+        <div class="card-body">
+            <dl class="row">
+                <dt class="col-sm-3">Alpha</dt>
+                <dd class="col-sm-9">Excess return above benchmark (outperformance)</dd>
+
+                <dt class="col-sm-3">Annualized</dt>
+                <dd class="col-sm-9">Return normalized to one-year period for comparison</dd>
+
+                <dt class="col-sm-3">CAGR</dt>
+                <dd class="col-sm-9">Compound Annual Growth Rate (same as annualized return)</dd>
+
+                <dt class="col-sm-3">Equal-Weighted</dt>
+                <dd class="col-sm-9">Each position contributes equally (vs. value-weighted by market cap)</dd>
+
+                <dt class="col-sm-3">Median</dt>
+                <dd class="col-sm-9">Middle value in sorted list (outlier-resistant average)</dd>
+
+                <dt class="col-sm-3">Population Std Dev</dt>
+                <dd class="col-sm-9">Standard deviation using all data points (N, not N-1)</dd>
+
+                <dt class="col-sm-3">Risk</dt>
+                <dd class="col-sm-9">Measured as standard deviation of returns (volatility)</dd>
+
+                <dt class="col-sm-3">Win Rate</dt>
+                <dd class="col-sm-9">Percentage of picks with positive returns</dd>
+            </dl>
+        </div>
+    </div>
+
+    <!-- Formula Summary -->
+    <div class="card mb-4" id="formulas">
+        <div class="card-header bg-success text-white">
+            <h4 class="mb-0"><i class="bi bi-calculator"></i> Quick Formula Reference</h4>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Metric</th>
+                            <th>Formula</th>
+                            <th>Code Location</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Simple Return</td>
+                            <td><code>((P_current - P_entry) / P_entry) × 100</code></td>
+                            <td><code>performance.py:209</code></td>
+                        </tr>
+                        <tr>
+                            <td>Annualized Return</td>
+                            <td><code>((1 + r/100)^(365/d) - 1) × 100</code></td>
+                            <td><code>performance.py:102</code></td>
+                        </tr>
+                        <tr>
+                            <td>Average Return</td>
+                            <td><code>Σ returns / n</code></td>
+                            <td><code>performance.py:302</code></td>
+                        </tr>
+                        <tr>
+                            <td>Median</td>
+                            <td><code>Middle value (or avg of two middles)</code></td>
+                            <td><code>performance.py:303</code></td>
+                        </tr>
+                        <tr>
+                            <td>Win Rate</td>
+                            <td><code>(positive / total) × 100</code></td>
+                            <td><code>performance.py:305</code></td>
+                        </tr>
+                        <tr>
+                            <td>Standard Deviation</td>
+                            <td><code>√[ Σ(x_i - mean)² / N ]</code></td>
+                            <td><code>analyst/routes.py:381</code></td>
+                        </tr>
+                        <tr>
+                            <td>Portfolio Return</td>
+                            <td><code>Σ individual returns / n</code></td>
+                            <td><code>performance.py:471</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Implementation Details -->
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h4 class="mb-0"><i class="bi bi-code-slash"></i> Implementation Details</h4>
+        </div>
+        <div class="card-body">
+            <h5>Price Handling</h5>
+            <ul>
+                <li><strong>Price at Analysis Date:</strong> Closing price on the exact date (or previous trading day if markets were closed)</li>
+                <li><strong>Current Price:</strong> Latest available closing price from Yahoo Finance</li>
+                <li><strong>Delisted Stocks:</strong> Use last available price before delisting</li>
+            </ul>
+
+            <h5>Cache Strategy</h5>
+            <ul>
+                <li>Stock prices: Updated daily</li>
+                <li>Sector information: 3-day cache</li>
+                <li>Performance calculations: Calculated on-demand but stored persistently</li>
+            </ul>
+
+            <h5>Edge Cases</h5>
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Scenario</th>
+                        <th>Handling</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Missing ticker</td>
+                        <td>Skip analysis, log warning</td>
+                    </tr>
+                    <tr>
+                        <td>Missing price data</td>
+                        <td>Skip calculation, visible in admin debug</td>
+                    </tr>
+                    <tr>
+                        <td>Zero price</td>
+                        <td>Skip (division by zero protection)</td>
+                    </tr>
+                    <tr>
+                        <td>-100% return</td>
+                        <td>Capped at -100%, cannot annualize</td>
+                    </tr>
+                    <tr>
+                        <td>Future analysis date</td>
+                        <td>Exclude from calculations</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="text-center text-muted mb-4">
+        <small>
+            Last updated: February 2026 | 
+            <a href="https://github.com/havliksimon/ki-asset-management" target="_blank">
+                <i class="bi bi-github"></i> View on GitHub
+            </a>
+        </small>
+    </div>
+</div>
+{% endblock %}

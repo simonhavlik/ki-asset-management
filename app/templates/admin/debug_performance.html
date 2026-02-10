@@ -1,0 +1,483 @@
+{% extends "base.html" %}
+
+{% block title %}Debug Performance Data – Analyst Performance Tracker{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-bug"></i> Debug Performance Data</h1>
+    <div>
+        <a href="{{ url_for('admin.performance') }}" class="btn btn-outline-primary">
+            <i class="bi bi-bar-chart"></i> Back to Performance
+        </a>
+    </div>
+</div>
+
+<!-- Summary Card -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">Summary</h6>
+                <div>
+                    <button class="btn btn-sm btn-success" onclick="resolveAllMissingTickers()">
+                        <i class="bi bi-magic"></i> Auto-Resolve All Missing Tickers
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h3 class="text-primary">{{ stats.total_analyses }}</h3>
+                            <small class="text-muted">Total Analyses</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h3 class="{% if stats.missing_ticker_count > 0 %}text-warning{% else %}text-success{% endif %}">
+                                {{ stats.missing_ticker_count }}
+                            </h3>
+                            <small class="text-muted">Missing Ticker</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h3 class="{% if stats.missing_price_count > 0 %}text-warning{% else %}text-success{% endif %}">
+                                {{ stats.missing_price_count }}
+                            </h3>
+                            <small class="text-muted">Missing Price Data</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h3 class="{% if stats.missing_perf_count > 0 %}text-warning{% else %}text-success{% endif %}">
+                                {{ stats.missing_perf_count }}
+                            </h3>
+                            <small class="text-muted">Missing Performance Calc</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Progress Modal -->
+<div class="modal fade" id="progressModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Resolving Tickers...</h5>
+            </div>
+            <div class="modal-body">
+                <div class="progress mb-3">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                         id="progressBar" role="progressbar" style="width: 0%"></div>
+                </div>
+                <p id="progressText">Initializing...</p>
+                <div id="progressLog" class="small text-muted" style="max-height: 150px; overflow-y: auto;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if missing_ticker %}
+<div class="card mb-4 border-warning">
+    <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Analyses Missing Ticker Symbol ({{ missing_ticker|length }})</h6>
+        <button class="btn btn-sm btn-dark" onclick="resolveAllMissingTickers()">
+            <i class="bi bi-magic"></i> Resolve All
+        </button>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Company</th>
+                        <th>Analysis Date</th>
+                        <th>Status</th>
+                        <th>Analysts</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for analysis, company in missing_ticker %}
+                    <tr data-company-id="{{ company.id }}" data-company-name="{{ company.name }}">
+                        <td>
+                            <strong>{{ company.name }}</strong>
+                            <br><small class="text-muted">ID: {{ analysis.id }}</small>
+                        </td>
+                        <td>{{ analysis.analysis_date }}</td>
+                        <td><span class="badge bg-secondary">{{ analysis.status }}</span></td>
+                        <td>
+                            {% for analyst in analysis.analysts_list %}
+                                <span class="badge bg-info">{{ analyst.full_name or analyst.email.split('@')[0] }}</span>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="resolveTicker({{ company.id }}, '{{ company.name|replace("'", "\\'") }}')">
+                                <i class="bi bi-search"></i> Find Ticker
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="markAsOther({{ company.id }}, '{{ company.name|replace("'", "\\'") }}')">
+                                <i class="bi bi-x-circle"></i> Mark as Other
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if missing_price %}
+<div class="card mb-4 border-info">
+    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="bi bi-currency-dollar"></i> Analyses Missing Price Data ({{ missing_price|length }})</h6>
+        <button class="btn btn-sm btn-light" onclick="tryAlternativeExchanges()">
+            <i class="bi bi-globe"></i> Try Alternative Exchanges
+        </button>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Company</th>
+                        <th>Current Ticker</th>
+                        <th>Analysis Date</th>
+                        <th>Status</th>
+                        <th>Issue</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for analysis, company, reason in missing_price %}
+                    <tr data-company-id="{{ company.id }}">
+                        <td>
+                            <strong>{{ company.name }}</strong>
+                            <br><small class="text-muted">ID: {{ analysis.id }}</small>
+                        </td>
+                        <td><code>{{ company.ticker_symbol }}</code></td>
+                        <td>{{ analysis.analysis_date }}</td>
+                        <td><span class="badge bg-secondary">{{ analysis.status }}</span></td>
+                        <td>
+                            {% if reason == 'missing_price_at_date' %}
+                                <span class="badge bg-warning">No price at analysis date</span>
+                            {% elif reason == 'missing_current_price' %}
+                                <span class="badge bg-warning">No current price</span>
+                            {% else %}
+                                <span class="badge bg-warning">{{ reason }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-info" onclick="searchAlternativeTicker({{ company.id }}, '{{ company.name|replace("'", "\\'") }}', '{{ company.ticker_symbol }}')">
+                                <i class="bi bi-search"></i> Search Alternative
+                            </button>
+                            <button class="btn btn-sm btn-outline-warning" onclick="manualTickerEdit({{ company.id }}, '{{ company.name|replace("'", "\\'") }}')">
+                                <i class="bi bi-pencil"></i> Edit
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if missing_perf %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h6 class="mb-0">Analyses Missing Performance Calculation (Unexpected)</h6>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Analysis ID</th>
+                        <th>Company</th>
+                        <th>Ticker</th>
+                        <th>Analysis Date</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for analysis, company, reason in missing_perf %}
+                    <tr>
+                        <td>{{ analysis.id }}</td>
+                        <td>{{ company.name }}</td>
+                        <td><code>{{ company.ticker_symbol }}</code></td>
+                        <td>{{ analysis.analysis_date }}</td>
+                        <td><span class="badge bg-secondary">{{ analysis.status }}</span></td>
+                        <td>
+                            <form method="POST" action="{{ url_for('admin.recalculate_performance') }}" style="display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="analysis_id" value="{{ analysis.id }}">
+                                <button type="submit" class="btn btn-sm btn-outline-warning" onclick="return confirm('Recalculate this analysis?')">
+                                    <i class="bi bi-calculator"></i> Recalculate
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if not missing_ticker and not missing_price and not missing_perf %}
+<div class="alert alert-success">
+    <i class="bi bi-check-circle"></i>
+    All analyses have ticker symbols, price data, and performance calculations.
+</div>
+{% endif %}
+
+<!-- Ticker Resolution Result Modal -->
+<div class="modal fade" id="tickerResultModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Ticker Resolution Results</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="tickerResultBody">
+                <!-- Results will be populated here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentResolveQueue = [];
+let currentResolveIndex = 0;
+
+function resolveTicker(companyId, companyName) {
+    const btn = event.target.closest('button');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Searching...';
+    
+    fetch(`/admin/api/company-tickers/resolve/${companyId}`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token() }}',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+    })
+    .then(data => {
+        showTickerResults(companyName, data);
+        if (data.success) {
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-search"></i> Find Ticker';
+        }
+    })
+    .catch(e => {
+        alert('Error: ' + e);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-search"></i> Find Ticker';
+    });
+}
+
+function markAsOther(companyId, companyName) {
+    if (!confirm(`Mark "${companyName}" as "Other" (non-stock event)?`)) return;
+    
+    fetch(`/admin/api/mark-as-other/${companyId}`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token() }}',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+    })
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(e => {
+        alert('Error: ' + e);
+    });
+}
+
+function resolveAllMissingTickers() {
+    // Only get rows from the missing ticker table that have company data
+    const rows = document.querySelectorAll('tr[data-company-id][data-company-name]');
+    currentResolveQueue = Array.from(rows).map(r => ({
+        id: r.dataset.companyId,
+        name: r.dataset.companyName
+    })).filter(item => item.id && item.name); // Filter out any without proper data
+    
+    if (currentResolveQueue.length === 0) {
+        alert('No missing tickers to resolve!');
+        return;
+    }
+    
+    currentResolveIndex = 0;
+    const modal = new bootstrap.Modal(document.getElementById('progressModal'));
+    modal.show();
+    
+    // Clear previous log
+    document.getElementById('progressLog').innerHTML = '';
+    
+    processNextInQueue();
+}
+
+function processNextInQueue() {
+    if (currentResolveIndex >= currentResolveQueue.length) {
+        document.getElementById('progressText').textContent = 'Complete! Reloading page...';
+        document.getElementById('progressBar').style.width = '100%';
+        setTimeout(() => location.reload(), 2000);
+        return;
+    }
+    
+    const item = currentResolveQueue[currentResolveIndex];
+    const progress = ((currentResolveIndex / currentResolveQueue.length) * 100).toFixed(0);
+    
+    document.getElementById('progressBar').style.width = progress + '%';
+    document.getElementById('progressText').textContent = `Resolving ${item.name}... (${currentResolveIndex + 1}/${currentResolveQueue.length})`;
+    
+    fetch(`/admin/api/company-tickers/resolve/${item.id}`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token() }}',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(r => {
+        if (!r.ok) {
+            return r.text().then(text => { throw new Error(`HTTP ${r.status}: ${text}`); });
+        }
+        return r.json();
+    })
+    .then(data => {
+        const log = document.getElementById('progressLog');
+        const status = data.success ? '✓' : '✗';
+        const ticker = data.ticker || (data.is_other ? '[Other]' : '[Not found]');
+        log.innerHTML += `<div>${status} ${item.name} → ${ticker}</div>`;
+        log.scrollTop = log.scrollHeight;
+        
+        currentResolveIndex++;
+        setTimeout(processNextInQueue, 500); // Small delay to avoid rate limiting
+    })
+    .catch(e => {
+        const log = document.getElementById('progressLog');
+        log.innerHTML += `<div class="text-danger">✗ ${item.name} → Error: ${e.message}</div>`;
+        currentResolveIndex++;
+        setTimeout(processNextInQueue, 500);
+    });
+}
+
+function searchAlternativeTicker(companyId, companyName, currentTicker) {
+    const newTicker = prompt(`Current ticker for "${companyName}" is: ${currentTicker}\n\nEnter alternative ticker to try (e.g., ${currentTicker}.L for London, ${currentTicker}.DE for Germany):`, currentTicker);
+    
+    if (!newTicker || newTicker === currentTicker) return;
+    
+    fetch(`/admin/api/update-ticker/${companyId}`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token() }}',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ ticker: newTicker })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    });
+}
+
+function manualTickerEdit(companyId, companyName) {
+    const newTicker = prompt(`Enter ticker symbol for "${companyName}":`);
+    if (!newTicker) return;
+    
+    fetch(`/admin/api/update-ticker/${companyId}`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token() }}',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ ticker: newTicker })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    });
+}
+
+function tryAlternativeExchanges() {
+    if (!confirm('Try alternative exchanges for all missing price data? This will search for the company on different exchanges.')) return;
+    
+    alert('Feature coming soon: Will try .L (London), .DE (Germany), .PA (Paris), .TO (Toronto) suffixes');
+}
+
+function showTickerResults(companyName, data) {
+    const modal = new bootstrap.Modal(document.getElementById('tickerResultModal'));
+    const body = document.getElementById('tickerResultBody');
+    
+    let html = `<h5>Results for "${companyName}"</h5>`;
+    
+    if (data.is_other) {
+        html += `<div class="alert alert-info">Marked as "Other" (non-stock event)</div>`;
+    } else if (data.ticker) {
+        html += `<div class="alert alert-success">
+            <strong>Ticker Found:</strong> ${data.ticker}<br>
+            <strong>Source:</strong> ${data.source}<br>
+            <strong>Validated:</strong> ${data.validated ? 'Yes' : 'No'}
+        </div>`;
+        
+        if (data.alternatives && data.alternatives.length > 0) {
+            html += `<h6>Alternative Tickers Found:</h6><ul>`;
+            data.alternatives.forEach(alt => {
+                html += `<li>${alt.symbol} (${alt.exchange}): ${alt.name}</li>`;
+            });
+            html += `</ul>`;
+        }
+    } else {
+        html += `<div class="alert alert-warning">No ticker found. Try manual entry.</div>`;
+    }
+    
+    if (data.attempts && data.attempts.length > 0) {
+        html += `<h6>Attempts:</h6><ul class="small">`;
+        data.attempts.forEach(attempt => {
+            html += `<li>${attempt.source}: ${attempt.success ? '✓' : '✗'} ${attempt.message || ''}</li>`;
+        });
+        html += `</ul>`;
+    }
+    
+    body.innerHTML = html;
+    modal.show();
+}
+</script>
+</div>
+
+{% endblock %}

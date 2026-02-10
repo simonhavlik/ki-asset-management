@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard – Analyst Performance Tracker{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-speedometer2"></i> Admin Dashboard</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-3 mb-4">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-people"></i> Users</h5>
+                <p class="display-4">{{ stats.total_users }}</p>
+                <p class="card-text">{{ stats.active_users }} active, {{ stats.admin_users }} admins</p>
+                <a href="{{ url_for('admin.users') }}" class="btn btn-light btn-sm">Manage</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-4">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-bar-chart"></i> Analyses</h5>
+                <p class="display-4">{{ stats.total_analyses }}</p>
+                <p class="card-text">{{ stats.approved_analyses }} approved</p>
+                <a href="{{ url_for('admin.performance') }}" class="btn btn-light btn-sm">View Performance</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-4">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-buildings"></i> Companies</h5>
+                <p class="display-4">{{ stats.total_companies }}</p>
+                <p class="card-text">With ticker mapping</p>
+                <a href="{{ url_for('admin.upload_csv') }}" class="btn btn-light btn-sm">Upload CSV</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-4">
+        <div class="card bg-secondary text-white">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-upload"></i> CSV Uploads</h5>
+                <p class="display-4">{{ stats.csv_uploads }}</p>
+                <p class="card-text">Total uploads</p>
+                <a href="{{ url_for('admin.upload_csv') }}" class="btn btn-light btn-sm">Upload New</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-clock-history"></i> Recent Activity</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Time</th>
+                                <th>User</th>
+                                <th>Action</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in stats.recent_activity %}
+                            <tr>
+                                <td>{{ log.timestamp.strftime('%Y‑%m‑%d %H:%M') }}</td>
+                                <td>
+                                    {% if log.user %}
+                                        {{ log.user.email }}
+                                    {% else %}
+                                        <em>System</em>
+                                    {% endif %}
+                                </td>
+                                <td><span class="badge bg-info">{{ log.action }}</span></td>
+                                <td><small class="text-muted">{{ (log.details if log.details is not none else '')|truncate(40) }}</small></td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-3">No recent activity.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer text-end">
+                <a href="{{ url_for('admin.activity') }}" class="btn btn-sm btn-outline-primary">View All Activity</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-lightning-charge"></i> Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('admin.create_user') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-person-plus"></i> Create User
+                    </a>
+                    <a href="{{ url_for('admin.upload_csv') }}" class="btn btn-outline-success">
+                        <i class="bi bi-upload"></i> Upload CSV
+                    </a>
+                    <a href="{{ url_for('admin.performance') }}" class="btn btn-outline-info">
+                        <i class="bi bi-bar-chart"></i> Performance Report
+                    </a>
+                    <a href="{{ url_for('admin.export_csv') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-download"></i> Export CSV
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="bi bi-tools"></i> Maintenance</h5>
+            </div>
+            <div class="card-body">
+                <p class="small text-muted mb-3">Fix benchmark data and clear caches if charts look wrong.</p>
+                <div class="d-grid gap-2">
+                    <form method="POST" action="{{ url_for('admin.update_benchmarks') }}" onsubmit="return confirm('Fetch 5 years of benchmark data from Yahoo Finance?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-outline-warning w-100">
+                            <i class="bi bi-graph-up"></i> Update Benchmarks
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('admin.refresh_all_caches') }}" onsubmit="return confirm('Clear all caches? This will require recalculating all views.');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-outline-danger w-100">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh All Caches
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}

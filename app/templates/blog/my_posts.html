@@ -1,0 +1,203 @@
+{% extends "blog/base_blog.html" %}
+
+{% block title %}My Blog Posts | KI Asset Management{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<section class="blog-hero">
+    <div class="container">
+        <h1>My Blog Posts</h1>
+        <p>Manage your articles and drafts.</p>
+    </div>
+</section>
+
+<div class="container mb-5">
+    <!-- Actions Bar -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <a href="{{ url_for('blog.new_post') }}" class="btn btn-primary">
+                <i class="bi bi-plus-lg"></i> New Post
+            </a>
+            <a href="{{ url_for('blog.index') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-journal-text"></i> View Blog
+            </a>
+        </div>
+        <div>
+            <form class="d-flex gap-2" method="GET">
+                <select name="status" class="form-select" onchange="this.form.submit()">
+                    <option value="">All Status</option>
+                    <option value="published" {% if status_filter == 'published' %}selected{% endif %}>Published</option>
+                    <option value="draft" {% if status_filter == 'draft' %}selected{% endif %}>Draft</option>
+                </select>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Posts Table -->
+    {% if posts %}
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Post</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                        <th>Views</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for post in posts %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                {% if post.og_image %}
+                                <img src="{{ post.og_image }}" alt="" class="rounded" style="width: 50px; height: 50px; object-fit: cover; margin-right: 1rem;">
+                                {% else %}
+                                <div class="rounded bg-light d-flex align-items-center justify-content-center" style="width: 50px; height: 50px; margin-right: 1rem;">
+                                    <i class="bi bi-journal-text text-muted"></i>
+                                </div>
+                                {% endif %}
+                                <div>
+                                    <h6 class="mb-0">{{ post.title }}</h6>
+                                    <small class="text-muted">{{ post.get_excerpt(60) }}</small>
+                                    {% if post.category %}
+                                    <span class="badge bg-light text-dark ms-2">{{ post.category }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            {% if post.status == 'published' %}
+                            <span class="status-badge published">
+                                <i class="bi bi-check-circle"></i> Published
+                            </span>
+                            {% if post.is_public %}
+                            <span class="badge bg-success ms-1">Public</span>
+                            {% else %}
+                            <span class="badge bg-secondary ms-1">Private</span>
+                            {% endif %}
+                            {% else %}
+                            <span class="status-badge draft">
+                                <i class="bi bi-pencil"></i> Draft
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if post.published_at %}
+                            <small>{{ post.published_at.strftime('%Y-%m-%d') }}</small>
+                            {% else %}
+                            <small class="text-muted">Not published</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <small><i class="bi bi-eye"></i> {{ post.view_count }}</small>
+                        </td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{{ url_for('blog.edit_post', post_id=post.id) }}" class="btn btn-sm btn-outline-primary" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                {% if post.status == 'published' %}
+                                <a href="{{ url_for('blog.post', slug=post.slug) }}" class="btn btn-sm btn-outline-info" title="View" target="_blank">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                {% else %}
+                                <a href="{{ url_for('blog.preview_post', post_id=post.id) }}" class="btn btn-sm btn-outline-info" title="Preview" target="_blank">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                {% endif %}
+                                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ post.id }}" title="Delete">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+    <nav aria-label="Posts pagination" class="blog-pagination">
+        <ul class="pagination">
+            {% if pagination.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('blog.my_posts', page=pagination.prev_num, status=status_filter) }}">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            </li>
+            {% endif %}
+            
+            {% for page_num in pagination.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
+                {% if page_num %}
+                    {% if page_num == pagination.page %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_num }}</span>
+                    </li>
+                    {% else %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('blog.my_posts', page=page_num, status=status_filter) }}">{{ page_num }}</a>
+                    </li>
+                    {% endif %}
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if pagination.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('blog.my_posts', page=pagination.next_num, status=status_filter) }}">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+    
+    {% else %}
+    <!-- Empty State -->
+    <div class="blog-empty">
+        <i class="bi bi-folder-open"></i>
+        <h3>No posts yet</h3>
+        <p>You haven't written any posts{% if status_filter %} with this status{% endif %}.</p>
+        <a href="{{ url_for('blog.new_post') }}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Write your first post
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Delete Modals -->
+{% for post in posts %}
+<div class="modal fade" id="deleteModal{{ post.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Delete Post</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete "<strong>{{ post.title }}</strong>"?</p>
+                <p class="text-danger">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form action="{{ url_for('blog.delete_post', post_id=post.id) }}" method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash"></i> Yes, Delete
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

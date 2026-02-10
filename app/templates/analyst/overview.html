@@ -1,0 +1,1059 @@
+{% extends "base.html" %}
+
+{% block title %}Overview – KI Asset Management{% endblock %}
+
+{% block extra_css %}
+<style>
+.portfolio-stat-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #fff 100%);
+    border: 1px solid var(--gray-200);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    text-align: center;
+}
+
+.portfolio-stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--gray-900);
+    margin-bottom: 0.25rem;
+}
+
+.portfolio-stat-value.positive {
+    color: var(--success);
+}
+
+.portfolio-stat-value.negative {
+    color: var(--danger);
+}
+
+.portfolio-stat-label {
+    font-size: 0.875rem;
+    color: var(--gray-600);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.chart-container {
+    background: var(--white);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.filter-card {
+    background: var(--white);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    border: 1px solid var(--gray-200);
+}
+
+.sector-badge {
+    font-size: 0.85rem;
+    padding: 0.5em 0.75em;
+    margin: 0.25em;
+}
+
+.ranking-card {
+    background: var(--white);
+    border-radius: 0.75rem;
+    border: 1px solid var(--gray-200);
+    height: 100%;
+}
+
+.ranking-card .card-header {
+    background: var(--gray-100);
+    border-bottom: 1px solid var(--gray-200);
+    border-radius: 0.75rem 0.75rem 0 0;
+    padding: 0.75rem 1rem;
+}
+
+.ranking-item {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--gray-100);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.ranking-item:last-child {
+    border-bottom: none;
+}
+
+.ranking-number {
+    font-weight: 700;
+    color: var(--primary);
+    width: 24px;
+}
+
+.stat-comparison-card {
+    background: linear-gradient(135deg, var(--primary) 0%, #1a1a4e 100%);
+    color: white;
+    border-radius: 1rem;
+    padding: 1.5rem;
+}
+
+.stat-comparison-card .stat-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+}
+
+.stat-comparison-card .stat-label {
+    font-size: 0.875rem;
+    opacity: 0.9;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1><i class="bi bi-grid-3x3-gap"></i> Overview</h1>
+        <p class="text-muted mb-0">
+            Portfolio overview, sector analysis, and analyst rankings
+            {% if from_cache %}
+                <span class="badge bg-info ms-2"><i class="bi bi-lightning"></i> Cached</span>
+            {% endif %}
+        </p>
+        {% if needs_refresh %}
+        <div class="alert alert-warning mt-2 mb-0 py-2">
+            <i class="bi bi-exclamation-triangle"></i> Data is {{ cache_status.oldest_cache_days }} days old. 
+            <a href="#" data-bs-toggle="modal" data-bs-target="#recalcModal">Recalculate now</a> for latest data.
+        </div>
+        {% endif %}
+    </div>
+    <div class="d-flex gap-2">
+        {% if current_user.is_admin and cache_status %}
+        <div class="dropdown d-inline-block">
+            <button class="btn btn-outline-warning dropdown-toggle" type="button" id="cacheDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-arrow-clockwise"></i> Cache
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="cacheDropdown">
+                <li><h6 class="dropdown-header">Cache Status</h6></li>
+                {% for category, status in cache_status.categories.items() %}
+                <li class="dropdown-item-text">
+                    <small>
+                        {% if status.exists == False %}
+                            <i class="bi bi-x-circle text-danger"></i> {{ category|replace('_', ' ')|title }}: None
+                        {% elif status.is_fresh %}
+                            <i class="bi bi-check-circle text-success"></i> {{ category|replace('_', ' ')|title }}: {{ status.age_days }}d
+                        {% else %}
+                            <i class="bi bi-exclamation-circle text-warning"></i> {{ category|replace('_', ' ')|title }}: {{ status.age_days }}d
+                        {% endif %}
+                    </small>
+                </li>
+                {% endfor %}
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <a class="dropdown-item text-warning" href="#" data-bs-toggle="modal" data-bs-target="#recalcModal">
+                        <i class="bi bi-arrow-clockwise"></i> Recalculate All Now
+                    </a>
+                </li>
+            </ul>
+        </div>
+        {% endif %}
+        
+        <div class="dropdown d-inline-block">
+            <button class="btn btn-outline-success dropdown-toggle" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-download"></i> Export
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="exportDropdown">
+                <li><h6 class="dropdown-header">Comprehensive Report</h6></li>
+                <li>
+                    <a class="dropdown-item" href="{{ url_for('admin.export_comprehensive') }}" id="downloadCachedLink">
+                        <i class="bi bi-filetype-xlsx"></i> Download Excel
+                        <small class="text-muted d-block" id="cacheStatus">Checking...</small>
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{{ url_for('admin.export_comprehensive', fresh='true') }}">
+                        <i class="bi bi-arrow-clockwise"></i> Generate Fresh Report
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script>
+// Check export cache status
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('{{ url_for("admin.export_status") }}')
+        .then(response => response.json())
+        .then(data => {
+            const statusEl = document.getElementById('cacheStatus');
+            const comprehensive = data.comprehensive;
+            
+            if (comprehensive.has_cache && comprehensive.is_valid) {
+                statusEl.textContent = `Cached ${comprehensive.age_days} days ago`;
+                statusEl.className = 'text-success d-block';
+            } else if (comprehensive.has_cache) {
+                statusEl.textContent = `Cache expired (${comprehensive.age_days} days old)`;
+                statusEl.className = 'text-warning d-block';
+            } else {
+                statusEl.textContent = 'No cache - will generate new';
+                statusEl.className = 'text-muted d-block';
+            }
+        })
+        .catch(err => {
+            console.error('Error checking cache status:', err);
+        });
+});
+</script>
+
+<!-- Filter Selection -->
+<div class="filter-card mb-4">
+    <form method="GET" action="{{ url_for('analyst.overview') }}" class="row g-3 align-items-center">
+        <div class="col-md-3">
+            <label class="form-label fw-bold"><i class="bi bi-funnel"></i> Filter View</label>
+        </div>
+        <div class="col-md-6">
+            <select name="filter" class="form-select" onchange="this.form.submit()">
+                <option value="purchased" {% if current_filter == 'purchased' %}selected{% endif %}>
+                    1. Purchased Only
+                </option>
+                <option value="board_approved" {% if current_filter == 'board_approved' %}selected{% endif %}>
+                    2. Board Approved (Yes votes > No votes)
+                </option>
+                <option value="all_approved" {% if current_filter == 'all_approved' %}selected{% endif %}>
+                    3. All Approved (On Watchlist)
+                </option>
+                <option value="approved_neutral" {% if current_filter == 'approved_neutral' %}selected{% endif %}>
+                    4. Approved + Neutral
+                </option>
+                <option value="all" {% if current_filter == 'all' %}selected{% endif %}>
+                    5. All Stocks
+                </option>
+            </select>
+        </div>
+        <div class="col-md-3 text-end">
+            <span class="badge bg-primary fs-6">
+                <i class="bi bi-layers"></i> {{ portfolio_performance.num_positions }} Positions
+            </span>
+        </div>
+    </form>
+</div>
+
+{% if portfolio_performance.num_positions > 0 %}
+<!-- Portfolio Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="portfolio-stat-card">
+            <div class="portfolio-stat-value" id="statPositions">{{ portfolio_performance.num_positions }}</div>
+            <div class="portfolio-stat-label">Positions</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="portfolio-stat-card">
+            <div class="portfolio-stat-value {% if portfolio_performance.total_return >= 0 %}positive{% else %}negative{% endif %}" id="statReturn">
+                {{ "%.2f"|format(portfolio_performance.total_return) }}%
+            </div>
+            <div class="portfolio-stat-label">Avg Return</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="portfolio-stat-card">
+            <div class="portfolio-stat-value {% if portfolio_performance.annualized_return >= 0 %}positive{% else %}negative{% endif %}" id="statAnnualized">
+                {{ "%.2f"|format(portfolio_performance.annualized_return) }}%
+            </div>
+            <div class="portfolio-stat-label">Annualized</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="portfolio-stat-card">
+            <div class="portfolio-stat-value" id="statInception">
+                {{ portfolio_performance.start_date[:10] if portfolio_performance.start_date else '--' }}
+            </div>
+            <div class="portfolio-stat-label">Inception</div>
+        </div>
+    </div>
+</div>
+
+<!-- Benchmark Comparison -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-center gap-3 text-center flex-wrap">
+            <div class="badge bg-primary fs-6">
+                Portfolio: {{ "%.2f"|format(portfolio_performance.total_return) }}%
+            </div>
+            <div class="badge bg-warning text-dark fs-6">
+                S&P 500: {{ "%.2f"|format(portfolio_performance.benchmark_spy) }}%
+            </div>
+            <div class="badge bg-info fs-6">
+                FTSE All-World: {{ "%.2f"|format(portfolio_performance.benchmark_ftse) }}%
+            </div>
+            <div class="badge bg-secondary fs-6">
+                EEMS: {{ "%.2f"|format(portfolio_performance.benchmark_eems) }}%
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Calculation Method Toggle -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <label class="fw-bold mb-0"><i class="bi bi-calculator"></i> Calculation Method:</label>
+                    <div class="btn-group" role="group">
+                        <a href="{{ url_for('analyst.overview', filter=current_filter, method='incremental') }}" 
+                           class="btn btn-sm {% if calc_method == 'incremental' %}btn-success{% else %}btn-outline-secondary{% endif %}">
+                            <i class="bi bi-graph-up-arrow"></i> Incremental Rebalancing
+                        </a>
+                        <a href="{{ url_for('analyst.overview', filter=current_filter, method='equal') }}" 
+                           class="btn btn-sm {% if calc_method == 'equal' %}btn-success{% else %}btn-outline-secondary{% endif %}">
+                            <i class="bi bi-bar-chart"></i> Equal-Weighted
+                        </a>
+                    </div>
+                </div>
+                <small class="text-muted">
+                    {% if calc_method == 'incremental' %}
+                        <i class="bi bi-info-circle"></i> 
+                        Simulates actual portfolio management with rebalancing at each stock addition. 
+                        <a href="{{ url_for('main.methodology') }}#portfolio" target="_blank">Learn more</a>
+                    {% else %}
+                        <i class="bi bi-info-circle"></i> 
+                        Simple average where each stock contributes equally regardless of entry date. 
+                        <a href="{{ url_for('main.methodology') }}#aggregation" target="_blank">Learn more</a>
+                    {% endif %}
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts -->
+<div class="row mb-4">
+    <div class="col-lg-6 mb-4">
+        <div class="chart-container">
+            <h6 class="mb-3 text-center">Portfolio Performance Since Inception</h6>
+            <p class="text-muted small text-center mb-2">
+                {% if calc_method == 'incremental' %}
+                    Incremental equal-weight rebalancing simulates realistic portfolio management.
+                {% else %}
+                    Equal-weighted average of all holdings from their entry dates.
+                {% endif %}
+                <a href="{{ url_for('main.methodology') }}#portfolio">What does this mean?</a>
+            </p>
+            <canvas id="inceptionChart" height="250"></canvas>
+        </div>
+    </div>
+    <div class="col-lg-6 mb-4">
+        <div class="chart-container">
+            <h6 class="mb-3 text-center">Portfolio Performance - Last 12 Months</h6>
+            <p class="text-muted small text-center mb-2">
+                {% if calc_method == 'incremental' %}
+                    Shows portfolio performance with progressive rebalancing over the last year.
+                {% else %}
+                    Equal-weighted average of all active positions over the last year.
+                {% endif %}
+            </p>
+            <canvas id="oneyearChart" height="250"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Summary - Single Line Layout -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-light border">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="text-center">
+                        <div class="h4 mb-0">{{ positive_ratio }}%</div>
+                        <small class="text-muted">Win Rate ({{ total_positions }} positions)</small>
+                    </div>
+                    <div class="vr"></div>
+                    <div>
+                        <small class="text-muted">
+                            <strong>Portfolio Line:</strong> Shows performance from entry dates using 
+                            {% if calc_method == 'incremental' %}incremental rebalancing{% else %}equal-weighting{% endif %}. 
+                            <strong>Benchmarks:</strong> SPY, FTSE All-World, EEMS normalized to start at 0%. 
+                            <a href="{{ url_for('main.methodology') }}#portfolio" target="_blank">Learn more about calculation methods</a>.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sector Statistics -->
+{% if sector_stats.all_sectors %}
+<div class="card mb-4">
+    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Sector Analysis</h5>
+        <small class="text-light">
+            {% if sector_stats.cache_info %}
+                {% if sector_stats.cache_info.is_fresh %}
+                    <i class="bi bi-check-circle text-success"></i> Cache: {{ sector_stats.cache_info.age_days }} days old
+                {% else %}
+                    <i class="bi bi-exclamation-triangle text-warning"></i> Cache: {{ sector_stats.cache_info.age_days }} days old
+                    <a href="{{ url_for('admin.refresh_sectors') }}" method="post" class="btn btn-sm btn-warning ms-2" 
+                       onclick="event.preventDefault(); if(confirm('Refresh all sector data? This may take a few minutes.')) window.location.href='{{ url_for('admin.refresh_sectors') }}';">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </a>
+                {% endif %}
+                ({{ sector_stats.cache_info.coverage_percent }}% coverage)
+            {% else %}
+                <i class="bi bi-x-circle text-danger"></i> No cache
+            {% endif %}
+        </small>
+    </div>
+    <div class="card-body">
+        <!-- Sector Distribution -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <h6 class="mb-3">Sector Distribution</h6>
+                <div class="d-flex flex-wrap">
+                    {% for sector in sector_stats.all_sectors|sort(attribute='count', reverse=True) %}
+                    <span class="badge bg-primary sector-badge">
+                        {{ sector.sector }}: {{ sector.count }}
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sector Statistics Table -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0">Sector Performance Details</h6>
+                    <a href="{{ url_for('main.methodology') }}#risk" class="btn btn-sm btn-outline-info">
+                        <i class="bi bi-info-circle"></i> How is Risk calculated?
+                    </a>
+                </div>
+                <div class="alert alert-light border mb-3">
+                    <small>
+                        <strong>Risk (Standard Deviation):</strong> Measures volatility of returns within each sector. 
+                        <span class="text-success">Low values (0-5%)</span> = consistent performance, 
+                        <span class="text-warning">High values (>15%)</span> = erratic/unpredictable results. 
+                        <a href="{{ url_for('main.methodology') }}#risk">Learn more</a>
+                    </small>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Sector</th>
+                                <th>Count</th>
+                                <th>Avg Return</th>
+                                <th>Positive Ratio</th>
+                                <th>
+                                    Risk (StdDev)
+                                    <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip" data-bs-placement="top"
+                                       title="Standard deviation of returns. Higher values indicate more volatile/unpredictable performance. Click for details."></i>
+                                </th>
+                                <th>Min</th>
+                                <th>Max</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sector in sector_stats.all_sectors|sort(attribute='avg_return', reverse=True) %}
+                            <tr>
+                                <td><strong>{{ sector.sector }}</strong></td>
+                                <td><span class="badge bg-secondary">{{ sector.count }}</span></td>
+                                <td class="{% if sector.avg_return >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ "%.2f"|format(sector.avg_return) }}%
+                                </td>
+                                <td>{{ "%.1f"|format(sector.positive_ratio) }}%</td>
+                                <td>{{ "%.2f"|format(sector.risk) }}</td>
+                                <td class="text-danger">{{ "%.2f"|format(sector.min_return) }}%</td>
+                                <td class="text-success">{{ "%.2f"|format(sector.max_return) }}%</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Sectors Summary -->
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h6 class="mb-0"><i class="bi bi-trophy"></i> Top 5 Sectors by Return</h6>
+                    </div>
+                    <div class="card-body p-0">
+                        <ul class="list-group list-group-flush">
+                            {% for sector in sector_stats.top_by_return %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ sector.sector }}
+                                <span class="badge bg-success">{{ "%.2f"|format(sector.avg_return) }}%</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-warning text-dark">
+                        <h6 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Top 5 Sectors by Risk</h6>
+                    </div>
+                    <div class="card-body p-0">
+                        <ul class="list-group list-group-flush">
+                            {% for sector in sector_stats.top_by_risk %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ sector.sector }}
+                                <span class="badge bg-warning text-dark">{{ "%.2f"|format(sector.risk) }}</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<!-- No Data State -->
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i>
+    No positions found for the selected filter. Try selecting a different filter option.
+</div>
+{% endif %}
+
+<!-- Analyst Rankings -->
+<div class="card mb-4">
+    <div class="card-header bg-dark text-white">
+        <h5 class="mb-0"><i class="bi bi-people"></i> Analyst Rankings</h5>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <!-- Top by Board Approved -->
+            <div class="col-md-6 col-lg-3">
+                <div class="ranking-card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="bi bi-clipboard-check"></i> Top 5 by Board Approved</h6>
+                    </div>
+                    <div class="card-body p-0">
+                        {% for analyst in analyst_rankings.top_board_approved %}
+                        <div class="ranking-item">
+                            <div class="d-flex align-items-center">
+                                <span class="ranking-number">{{ loop.index }}.</span>
+                                <span>{{ analyst.analyst_name }}</span>
+                            </div>
+                            <span class="badge bg-primary">{{ analyst.count }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top by Total Analyses -->
+            <div class="col-md-6 col-lg-3">
+                <div class="ranking-card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="bi bi-list-check"></i> Top 5 by Total Analyses (All Stock Picks)</h6>
+                    </div>
+                    <div class="card-body p-0">
+                        {% for analyst in analyst_rankings.top_total %}
+                        <div class="ranking-item">
+                            <div class="d-flex align-items-center">
+                                <span class="ranking-number">{{ loop.index }}.</span>
+                                <span>{{ analyst.analyst_name }}</span>
+                            </div>
+                            <span class="badge bg-info">{{ analyst.count }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top by Win Rate -->
+            <div class="col-md-6 col-lg-3">
+                <div class="ranking-card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="bi bi-percent"></i> Top 5 by Win Rate (3+ analyses)</h6>
+                    </div>
+                    <div class="card-body p-0">
+                        {% for analyst in analyst_rankings.top_win_rate %}
+                        <div class="ranking-item">
+                            <div class="d-flex align-items-center">
+                                <span class="ranking-number">{{ loop.index }}.</span>
+                                <span>{{ analyst.analyst_name }}</span>
+                            </div>
+                            <span class="badge bg-success">{{ "%.1f"|format(analyst.win_rate) }}%</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top by Performance -->
+            <div class="col-md-6 col-lg-3">
+                <div class="ranking-card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="bi bi-graph-up-arrow"></i> Top 5 by Performance</h6>
+                    </div>
+                    <div class="card-body p-0">
+                        {% for analyst in analyst_rankings.top_performance %}
+                        <div class="ranking-item">
+                            <div class="d-flex align-items-center">
+                                <span class="ranking-number">{{ loop.index }}.</span>
+                                <span>{{ analyst.analyst_name }}</span>
+                            </div>
+                            <span class="badge {% if analyst.avg_return >= 0 %}bg-success{% else %}bg-danger{% endif %}">
+                                {{ "%.2f"|format(analyst.avg_return) }}%
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</div>
+
+<!-- Recalculation Progress Modal -->
+{% if current_user.is_admin %}
+<div class="modal fade" id="recalcModal" tabindex="-1" aria-labelledby="recalcModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title" id="recalcModalLabel">
+                    <i class="bi bi-arrow-clockwise"></i> Recalculating Overview Data
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <div class="progress" style="height: 25px;">
+                        <div id="recalcProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 0%">0%</div>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <span id="recalcStatus" class="badge bg-primary">Initializing...</span>
+                    <span id="recalcCurrent" class="text-muted ms-2"></span>
+                </div>
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <i class="bi bi-terminal"></i> Console Log
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="recalcConsole" class="bg-dark text-light p-3" 
+                             style="height: 300px; overflow-y: auto; font-family: monospace; font-size: 0.85rem;">
+                            <div class="text-muted">Waiting to start...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" id="startRecalcBtn" class="btn btn-primary">
+                    <i class="bi bi-play-fill"></i> Start Recalculation
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Portfolio data from server
+const portfolioData = {
+    seriesAll: {{ series_all|tojson|safe }},
+    series1y: {{ series_1y|tojson|safe }}
+};
+
+let inceptionChart = null;
+let oneYearChart = null;
+
+function initCharts() {
+    if (!portfolioData.seriesAll || !portfolioData.series1y) return;
+    
+    // Inception Chart
+    const ctx1 = document.getElementById('inceptionChart').getContext('2d');
+    inceptionChart = new Chart(ctx1, {
+        type: 'line',
+        data: {
+            labels: portfolioData.seriesAll.dates,
+            datasets: [
+                {
+                    label: 'Portfolio',
+                    data: portfolioData.seriesAll.portfolio_series,
+                    borderColor: '#0d6efd',
+                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: 'S&P 500',
+                    data: portfolioData.seriesAll.spy_series,
+                    borderColor: '#ffc107',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    tension: 0.4
+                },
+                {
+                    label: 'FTSE All-World',
+                    data: portfolioData.seriesAll.vt_series,
+                    borderColor: '#0dcaf5',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [2, 2],
+                    tension: 0.4
+                },
+                {
+                    label: 'EEMS',
+                    data: portfolioData.seriesAll.eems_series,
+                    borderColor: '#6c757d',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [3, 3],
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: { usePointStyle: true, padding: 15 }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.raw + '%';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { maxTicksLimit: 6, maxRotation: 0 }
+                },
+                y: {
+                    title: { display: true, text: 'Return %' },
+                    ticks: { callback: function(value) { return value + '%'; } }
+                }
+            }
+        }
+    });
+    
+    // 1-Year Chart
+    const ctx2 = document.getElementById('oneyearChart').getContext('2d');
+    oneYearChart = new Chart(ctx2, {
+        type: 'line',
+        data: {
+            labels: portfolioData.series1y.dates,
+            datasets: [
+                {
+                    label: 'Portfolio',
+                    data: portfolioData.series1y.portfolio_series,
+                    borderColor: '#0d6efd',
+                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: 'S&P 500',
+                    data: portfolioData.series1y.spy_series,
+                    borderColor: '#ffc107',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    tension: 0.4
+                },
+                {
+                    label: 'FTSE All-World',
+                    data: portfolioData.series1y.vt_series,
+                    borderColor: '#0dcaf5',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [2, 2],
+                    tension: 0.4
+                },
+                {
+                    label: 'EEMS',
+                    data: portfolioData.series1y.eems_series,
+                    borderColor: '#6c757d',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [3, 3],
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: { usePointStyle: true, padding: 15 }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.raw + '%';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { maxTicksLimit: 6, maxRotation: 0 }
+                },
+                y: {
+                    title: { display: true, text: 'Return %' },
+                    ticks: { callback: function(value) { return value + '%'; } }
+                }
+            }
+        }
+    });
+}
+
+// Initialize on load
+document.addEventListener('DOMContentLoaded', function() {
+    initCharts();
+    
+    // Initialize Bootstrap tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Initialize recalculation modal
+    initRecalculationModal();
+});
+
+// Recalculation Modal Functions
+function initRecalculationModal() {
+    const startBtn = document.getElementById('startRecalcBtn');
+    const recalcModal = document.getElementById('recalcModal');
+    
+    if (!startBtn || !recalcModal) return;
+    
+    const modal = new bootstrap.Modal(recalcModal);
+    
+    // Handle start button click
+    startBtn.addEventListener('click', function() {
+        startRecalculation();
+    });
+    
+    // Update cache dropdown button to open modal instead of direct refresh
+    const cacheDropdownBtn = document.querySelector('[data-bs-toggle="dropdown"]');
+    if (cacheDropdownBtn) {
+        const refreshLink = document.querySelector('a[href*="refresh=true"]');
+        if (refreshLink) {
+            refreshLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                modal.show();
+            });
+        }
+    }
+}
+
+function startRecalculation() {
+    const startBtn = document.getElementById('startRecalcBtn');
+    const progressBar = document.getElementById('recalcProgressBar');
+    const statusBadge = document.getElementById('recalcStatus');
+    const currentText = document.getElementById('recalcCurrent');
+    const consoleDiv = document.getElementById('recalcConsole');
+    
+    // Disable start button and show initial state
+    startBtn.disabled = true;
+    startBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Starting...';
+    
+    // Clear console and show initial message
+    consoleDiv.innerHTML = '<div class="text-info">[System] Initializing recalculation...</div>';
+    
+    // First, trigger the recalculation to start in background
+    const csrfToken = '{{ csrf_token() }}';
+    console.log('Starting recalculation with CSRF token:', csrfToken.substring(0, 10) + '...');
+    addLogMessage('Sending request to start recalculation...');
+    
+    fetch('{{ url_for("analyst.recalculate_all") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        }
+    }).then(function(response) {
+        console.log('Response status:', response.status);
+        return response.text().then(function(text) {
+            console.log('Response body:', text.substring(0, 200));
+            try {
+                const data = JSON.parse(text);
+                if (!response.ok) {
+                    throw new Error(data.error || 'HTTP ' + response.status + ': ' + (text || 'Unknown error'));
+                }
+                return data;
+            } catch (e) {
+                if (!response.ok) {
+                    throw new Error('Server error ' + response.status + ': ' + text.substring(0, 100));
+                }
+                throw new Error('Invalid JSON response: ' + e.message);
+            }
+        });
+    }).then(function(data) {
+        console.log('Recalculation started:', data);
+        addLogMessage('✓ Recalculation started: ' + (data.message || 'OK'));
+        
+        // Now connect to SSE to get progress updates
+        connectToProgressStream();
+    }).catch(function(error) {
+        console.error('Error starting recalculation:', error);
+        addLogMessage('ERROR: ' + error.message);
+        statusBadge.className = 'badge bg-danger';
+        statusBadge.textContent = 'FAILED TO START';
+        startBtn.disabled = false;
+        startBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Retry';
+    });
+    
+    function addLogMessage(message) {
+        const timestamp = new Date().toLocaleTimeString();
+        const logEntry = document.createElement('div');
+        logEntry.innerHTML = `<span class="text-muted">[${timestamp}]</span> ${escapeHtml(message)}`;
+        consoleDiv.appendChild(logEntry);
+        consoleDiv.scrollTop = consoleDiv.scrollHeight;
+    }
+    
+    function connectToProgressStream() {
+        // Start SSE connection
+        const eventSource = new EventSource('{{ url_for("analyst.recalculate_progress") }}');
+        let reconnectAttempts = 0;
+        const maxReconnects = 3;
+        
+        eventSource.onopen = function() {
+            console.log('SSE connection opened');
+            addLogMessage('Connected to progress stream');
+            reconnectAttempts = 0;
+        };
+        
+        eventSource.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                console.log('Progress update:', data);
+                
+                // Update progress bar
+                progressBar.style.width = data.progress_pct + '%';
+                progressBar.textContent = data.progress_pct + '%';
+                
+                // Update status badge
+                const statusText = data.status.replace(/_/g, ' ').toUpperCase();
+                statusBadge.textContent = statusText;
+                
+                // Update status badge color based on state
+                if (data.status === 'completed') {
+                    statusBadge.className = 'badge bg-success';
+                } else if (data.status === 'error') {
+                    statusBadge.className = 'badge bg-danger';
+                } else if (data.status === 'fetching_prices') {
+                    statusBadge.className = 'badge bg-info';
+                } else if (data.status === 'calculating') {
+                    statusBadge.className = 'badge bg-primary';
+                } else {
+                    statusBadge.className = 'badge bg-secondary';
+                }
+                
+                // Update current company
+                if (data.current) {
+                    currentText.textContent = 'Processing: ' + data.current;
+                } else {
+                    currentText.textContent = '';
+                }
+                
+                // Update console with all logs
+                if (data.logs && data.logs.length > 0) {
+                    consoleDiv.innerHTML = data.logs.map(log => 
+                        '<div>' + escapeHtml(log) + '</div>'
+                    ).join('');
+                    consoleDiv.scrollTop = consoleDiv.scrollHeight;
+                }
+                
+                // Update button text based on status
+                if (data.status === 'fetching_prices') {
+                    startBtn.innerHTML = '<i class="bi bi-cloud-download"></i> Fetching prices...';
+                } else if (data.status === 'calculating') {
+                    startBtn.innerHTML = '<i class="bi bi-calculator"></i> Calculating...';
+                }
+                
+                // Check if completed or error
+                if (data.status === 'completed') {
+                    eventSource.close();
+                    statusBadge.className = 'badge bg-success';
+                    statusBadge.textContent = 'COMPLETED';
+                    startBtn.innerHTML = '<i class="bi bi-check-circle"></i> Done';
+                    addLogMessage('✓ Recalculation completed successfully!');
+                    
+                    // Reload page after a short delay
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 3000);
+                } else if (data.status === 'error') {
+                    eventSource.close();
+                    statusBadge.className = 'badge bg-danger';
+                    statusBadge.textContent = 'ERROR';
+                    startBtn.disabled = false;
+                    startBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Retry';
+                    addLogMessage('✗ Recalculation failed. Check logs above.');
+                }
+            } catch (e) {
+                console.error('Error parsing SSE data:', e);
+                addLogMessage('Error parsing progress update');
+            }
+        };
+        
+        eventSource.onerror = function(error) {
+            console.error('SSE connection error:', error);
+            addLogMessage('Connection error - attempting to reconnect...');
+            
+            eventSource.close();
+            
+            reconnectAttempts++;
+            if (reconnectAttempts < maxReconnects) {
+                setTimeout(function() {
+                    addLogMessage(`Reconnecting (attempt ${reconnectAttempts}/${maxReconnects})...`);
+                    connectToProgressStream();
+                }, 2000);
+            } else {
+                statusBadge.className = 'badge bg-warning';
+                statusBadge.textContent = 'CONNECTION LOST';
+                startBtn.disabled = false;
+                startBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Retry';
+                addLogMessage('Connection lost. Please try again.');
+            }
+        };
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}

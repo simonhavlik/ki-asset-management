@@ -1,0 +1,371 @@
+{% extends "base.html" %}
+
+{% block title %}CSV Upload – KI Asset Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-1"><i class="bi bi-upload"></i> CSV Upload</h1>
+            <p class="text-muted mb-0">Import analysis schedule from Notion</p>
+        </div>
+        <a href="https://www.notion.so/klubinvestoru/11f8c7709a728027ac0deb4211d87f1c?v=14b8c7709a72808893fe000c385c209f" 
+           target="_blank" class="btn btn-outline-primary">
+            <i class="bi bi-database"></i> Open Notion DB
+        </a>
+    </div>
+
+    <div class="row">
+        <!-- Upload Section -->
+        <div class="col-lg-5">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-cloud-upload"></i> Upload CSV</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('admin.upload_csv') }}" enctype="multipart/form-data" id="csvUploadForm">
+                        {{ form.csrf_token }}
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                <i class="bi bi-filetype-csv"></i> Select CSV File
+                            </label>
+                            {{ form.csv_file(class="form-control form-control-lg", accept=".csv") }}
+                            <div class="form-text">
+                                Export from Notion as Markdown & CSV format
+                            </div>
+                            {% if form.csv_file.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.csv_file.errors[0] }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            {{ form.auto_create_accounts(class="form-check-input") }}
+                            {{ form.auto_create_accounts.label(class="form-check-label") }}
+                            <div class="form-text">Automatically create placeholder accounts for analysts not in the system</div>
+                        </div>
+
+                        <div class="alert alert-info d-flex align-items-start">
+                            <i class="bi bi-info-circle-fill me-2 mt-1"></i>
+                            <div class="small">
+                                <strong>How to export from Notion:</strong>
+                                <ol class="mb-0 mt-1 ps-3">
+                                    <li>Open <a href="https://www.notion.so/klubinvestoru/11f8c7709a728027ac0deb4211d87f1c?v=14b8c7709a72808893fe000c385c209f" target="_blank">Analysis Schedule DB</a></li>
+                                    <li>Click <strong>⋯</strong> (three dots) in the top right → <strong>Export</strong></li>
+                                    <li>Select <strong>Markdown & CSV</strong> as the export format</li>
+                                    <li>Select <strong>No files or images</strong> (we only need the CSV data)</li>
+                                    <li>Click <strong>Export</strong> and download the ZIP file</li>
+                                    <li>Extract the ZIP and upload the <code>.csv</code> file here</li>
+                                </ol>
+                            </div>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-success btn-lg" id="uploadBtn">
+                                <i class="bi bi-upload"></i> Import CSV
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Quick Links -->
+            <div class="card shadow-sm border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-link-45deg"></i> Quick Links</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        <a href="https://www.notion.so/klubinvestoru/Asset-Management-11a8c7709a728099bda4c7bb296dea92" 
+                           target="_blank" class="list-group-item list-group-item-action d-flex align-items-center">
+                            <i class="bi bi-journal-text text-primary me-3 fs-5"></i>
+                            <div>
+                                <div class="fw-bold">KI AM Notion</div>
+                                <small class="text-muted">Wiki, docs & resources</small>
+                            </div>
+                        </a>
+                        <a href="https://www.notion.so/klubinvestoru/11f8c7709a728027ac0deb4211d87f1c?v=14b8c7709a72808893fe000c385c209f" 
+                           target="_blank" class="list-group-item list-group-item-action d-flex align-items-center">
+                            <i class="bi bi-database text-success me-3 fs-5"></i>
+                            <div>
+                                <div class="fw-bold">Analysis Schedule DB</div>
+                                <small class="text-muted">Export CSV from here</small>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div class="col-lg-7">
+            <!-- Processing Status (shown during upload) -->
+            <div class="card shadow-sm mb-4" id="processingCard" style="display: none;">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-hourglass-split"></i> Processing CSV</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Progress Bar -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span id="currentCompany">Initializing...</span>
+                            <span id="rowProgress">0 / 0</span>
+                        </div>
+                        <div class="progress" style="height: 25px;">
+                            <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-info" 
+                                 role="progressbar" style="width: 0%">
+                                <span id="progressPercent">0%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stats -->
+                    <div class="row text-center g-2">
+                        <div class="col-3">
+                            <div class="border rounded p-2 bg-success text-white">
+                                <div class="h4 mb-0" id="statCreated">0</div>
+                                <small>Created</small>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="border rounded p-2 bg-primary text-white">
+                                <div class="h4 mb-0" id="statUpdated">0</div>
+                                <small>Updated</small>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="border rounded p-2 bg-secondary text-white">
+                                <div class="h4 mb-0" id="statSkipped">0</div>
+                                <small>Skipped</small>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="border rounded p-2 bg-danger text-white">
+                                <div class="h4 mb-0" id="statErrors">0</div>
+                                <small>Errors</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Processing Log -->
+                    <div class="mt-3">
+                        <small class="text-muted fw-bold">Processing Log:</small>
+                        <div id="processingLog" class="border rounded p-2 mt-1 small text-muted" 
+                             style="max-height: 150px; overflow-y: auto; font-family: monospace; font-size: 0.8rem;">
+                            <div>Starting CSV import...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Last Import Summary -->
+            {% if last_import %}
+            <div class="card shadow-sm mb-4 border-success">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-check-circle"></i> Last Import Summary</h5>
+                    <span class="badge bg-light text-success">{{ last_import.filename }}</span>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center g-3 mb-3">
+                        <div class="col">
+                            <div class="p-2 border rounded">
+                                <div class="h3 text-success mb-0">{{ last_import.created }}</div>
+                                <small class="text-muted">Created</small>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div class="p-2 border rounded">
+                                <div class="h3 text-primary mb-0">{{ last_import.updated }}</div>
+                                <small class="text-muted">Updated</small>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div class="p-2 border rounded">
+                                <div class="h3 text-secondary mb-0">{{ last_import.skipped }}</div>
+                                <small class="text-muted">Skipped</small>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div class="p-2 border rounded">
+                                <div class="h3 {% if last_import.errors > 0 %}text-danger{% else %}text-success{% endif %} mb-0">
+                                    {{ last_import.errors }}
+                                </div>
+                                <small class="text-muted">Errors</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if last_import.ticker_resolutions %}
+                    <div class="mt-3">
+                        <h6 class="fw-bold"><i class="bi bi-tags"></i> Ticker Resolutions:</h6>
+                        <div class="d-flex flex-wrap gap-1 mt-2">
+                            {% for company, info in last_import.ticker_resolutions.items() %}
+                                {% if info.status == 'resolved' %}
+                                    <span class="badge bg-success" title="Resolved to ticker">
+                                        <i class="bi bi-check"></i> {{ company }} → {{ info.ticker }}
+                                    </span>
+                                {% elif info.status == 'other' %}
+                                    <span class="badge bg-info" title="Marked as Other event">
+                                        <i class="bi bi-calendar-event"></i> {{ company }} → Other
+                                    </span>
+                                {% elif info.status == 'pending' %}
+                                    <span class="badge bg-warning text-dark" title="Pending resolution">
+                                        <i class="bi bi-hourglass"></i> {{ company }} → ?
+                                    </span>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Recent Uploads -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="bi bi-clock-history"></i> Recent Uploads</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Filename</th>
+                                    <th>Uploaded</th>
+                                    <th class="text-center">Rows</th>
+                                    <th class="text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for upload in uploads %}
+                                <tr>
+                                    <td><small class="text-truncate d-inline-block" style="max-width: 200px;" title="{{ upload.filename }}">{{ upload.filename }}</small></td>
+                                    <td><small>{{ upload.uploaded_at.strftime('%Y‑%m‑%d %H:%M') }}</small></td>
+                                    <td class="text-center">{{ upload.row_count or '-' }}</td>
+                                    <td class="text-center">
+                                        {% if upload.processed_at %}
+                                            <span class="badge bg-success"><i class="bi bi-check"></i> Done</span>
+                                        {% else %}
+                                            <span class="badge bg-warning text-dark"><i class="bi bi-hourglass"></i> Pending</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-4">
+                                        <i class="bi bi-inbox fs-1"></i>
+                                        <p class="mb-0 mt-2">No uploads yet</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const form = document.getElementById('csvUploadForm');
+    const processingCard = document.getElementById('processingCard');
+    const uploadBtn = document.getElementById('uploadBtn');
+    
+    // Progress elements
+    const progressBar = document.getElementById('progressBar');
+    const progressPercent = document.getElementById('progressPercent');
+    const currentCompany = document.getElementById('currentCompany');
+    const rowProgress = document.getElementById('rowProgress');
+    const logDiv = document.getElementById('processingLog');
+    
+    // Stats elements
+    const statCreated = document.getElementById('statCreated');
+    const statUpdated = document.getElementById('statUpdated');
+    const statSkipped = document.getElementById('statSkipped');
+    const statErrors = document.getElementById('statErrors');
+    
+    function log(message) {
+        const div = document.createElement('div');
+        div.textContent = message;
+        logDiv.appendChild(div);
+        logDiv.scrollTop = logDiv.scrollHeight;
+    }
+    
+    function updateStats(stats) {
+        statCreated.textContent = stats.created || 0;
+        statUpdated.textContent = stats.updated || 0;
+        statSkipped.textContent = stats.skipped || 0;
+        statErrors.textContent = stats.errors || 0;
+    }
+    
+    function updateProgress(percent, current, total, company) {
+        progressBar.style.width = percent + '%';
+        progressPercent.textContent = percent + '%';
+        rowProgress.textContent = current + ' / ' + total;
+        if (company) {
+            currentCompany.textContent = company;
+        }
+    }
+
+    if (!form) return;
+    
+    form.addEventListener('submit', function(e) {
+        const fileInput = form.querySelector('input[type="file"]');
+        if (!fileInput.value) {
+            alert('Please select a CSV file to upload.');
+            e.preventDefault();
+            return;
+        }
+        
+        // Show processing card
+        processingCard.style.display = 'block';
+        processingCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        
+        // Disable submit button
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+        
+        log('Reading CSV file...');
+        
+        // Simulate progress (since we can't easily stream from server without WebSockets)
+        let progress = 0;
+        let fakeStats = { created: 0, updated: 0, skipped: 0, errors: 0 };
+        
+        const progressInterval = setInterval(() => {
+            progress += Math.random() * 10;
+            if (progress > 95) progress = 95; // Stop at 95%, wait for actual completion
+            
+            const current = Math.floor(progress / 100 * 100); // fake total
+            updateProgress(Math.floor(progress), current, 100, 'Processing...');
+            
+            // Randomly increment stats for visual feedback
+            if (Math.random() > 0.7) {
+                const stat = ['created', 'updated', 'skipped'][Math.floor(Math.random() * 3)];
+                fakeStats[stat]++;
+                updateStats(fakeStats);
+            }
+            
+        }, 300);
+        
+        // Store interval ID
+        window.csvProgressInterval = progressInterval;
+        
+        log('Submitting to server...');
+        // Form will submit normally, page will reload with results
+    });
+    
+    // Clean up on page unload
+    window.addEventListener('beforeunload', function() {
+        if (window.csvProgressInterval) {
+            clearInterval(window.csvProgressInterval);
+        }
+    });
+})();
+</script>
+{% endblock %}

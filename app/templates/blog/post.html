@@ -1,0 +1,265 @@
+{% extends "blog/base_blog.html" %}
+
+{% block title %}{{ seo_title }}{% endblock %}
+
+{% block extra_head %}
+<meta name="description" content="{{ seo_description }}">
+<meta name="keywords" content="{{ seo_keywords }}">
+
+<!-- Open Graph -->
+<meta property="og:title" content="{{ seo_title }}">
+<meta property="og:description" content="{{ seo_description }}">
+<meta property="og:type" content="article">
+<meta property="og:url" content="{{ request.url }}">
+<meta property="og:image" content="{{ og_image }}">
+<meta property="article:published_time" content="{{ post.published_at.isoformat() if post.published_at else post.created_at.isoformat() }}">
+<meta property="article:modified_time" content="{{ post.updated_at.isoformat() }}">
+<meta property="article:author" content="{{ post.author_name }}">
+{% if post.tag_list %}
+{% for tag in post.tag_list %}
+<meta property="article:tag" content="{{ tag }}">
+{% endfor %}
+{% endif %}
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ seo_title }}">
+<meta name="twitter:description" content="{{ seo_description }}">
+<meta name="twitter:image" content="{{ og_image }}">
+
+<!-- Structured Data (Schema.org) -->
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "{{ post.title }}",
+    "description": "{{ seo_description }}",
+    "image": "{{ og_image }}",
+    "author": {
+        "@type": "Person",
+        "name": "{{ post.author_name }}"
+    },
+    "publisher": {
+        "@type": "Organization",
+        "name": "KI Asset Management",
+        "logo": {
+            "@type": "ImageObject",
+            "url": "{{ url_for('static', filename='images/logo.png', _external=True) }}"
+        }
+    },
+    "datePublished": "{{ post.published_at.isoformat() if post.published_at else post.created_at.isoformat() }}",
+    "dateModified": "{{ post.updated_at.isoformat() }}",
+    "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": "{{ request.url }}"
+    }
+}
+</script>
+
+<link rel="canonical" href="{{ request.url }}">
+{% endblock %}
+
+{% block content %}
+{% if is_preview %}
+<div class="preview-banner">
+    <i class="bi bi-eye"></i> Preview Mode - This post is not yet published
+    {% if post.status == 'draft' %}
+    <form action="{{ url_for('blog.publish_post', post_id=post.id) }}" method="POST" class="d-inline ms-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-sm btn-success">
+            <i class="bi bi-check-circle"></i> Publish Now
+        </button>
+    </form>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Post Header -->
+<header class="blog-post-header">
+    <div class="container">
+        <!-- Breadcrumbs -->
+        <nav aria-label="breadcrumb" class="mb-3">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('main.index') }}" class="text-light">Home</a>
+                </li>
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('blog.index') }}" class="text-light">Blog</a>
+                </li>
+                {% if post.category %}
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('blog.index', category=post.category) }}" class="text-light">{{ post.category }}</a>
+                </li>
+                {% endif %}
+                <li class="breadcrumb-item active text-white-50" aria-current="page">Article</li>
+            </ol>
+        </nav>
+        
+        <!-- Title -->
+        <h1 class="blog-post-title">{{ post.title }}</h1>
+        
+        <!-- Meta -->
+        <div class="blog-post-meta">
+            <span class="blog-post-meta-item">
+                <i class="bi bi-person-circle"></i>
+                <a href="{{ url_for('blog.author_posts', user_id=post.author_id) }}" class="text-white">
+                    {{ post.author_name }}
+                </a>
+            </span>
+            <span class="blog-post-meta-item">
+                <i class="bi bi-calendar3"></i>
+                {{ post.formatted_date }}
+            </span>
+            <span class="blog-post-meta-item">
+                <i class="bi bi-clock"></i>
+                {{ post.reading_time }} min read
+            </span>
+            <span class="blog-post-meta-item">
+                <i class="bi bi-eye"></i>
+                {{ post.view_count }} views
+            </span>
+            {% if post.category %}
+            <span class="blog-post-meta-item">
+                <i class="bi bi-folder"></i>
+                <a href="{{ url_for('blog.index', category=post.category) }}" class="text-white">
+                    {{ post.category }}
+                </a>
+            </span>
+            {% endif %}
+        </div>
+        
+        <!-- Tags -->
+        {% if post.tag_list %}
+        <div class="mt-3">
+            {% for tag in post.tag_list %}
+            <a href="{{ url_for('blog.index', tag=tag) }}" class="badge bg-light text-dark me-1">
+                <i class="bi bi-tag"></i> {{ tag }}
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+        
+        <!-- Edit buttons for author/admin -->
+        {% if current_user.is_authenticated %}
+            {% if current_user.id == post.author_id or current_user.is_admin %}
+            <div class="mt-4">
+                <a href="{{ url_for('blog.edit_post', post_id=post.id) }}" class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-pencil"></i> Edit Post
+                </a>
+                {% if post.status == 'draft' %}
+                <form action="{{ url_for('blog.publish_post', post_id=post.id) }}" method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-success btn-sm">
+                        <i class="bi bi-check-circle"></i> Publish
+                    </button>
+                </form>
+                {% else %}
+                <form action="{{ url_for('blog.unpublish_post', post_id=post.id) }}" method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-warning btn-sm">
+                        <i class="bi bi-eye-slash"></i> Unpublish
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+            {% endif %}
+        {% endif %}
+    </div>
+</header>
+
+<!-- Post Content -->
+<article class="container mb-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Featured Image -->
+            {% if post.og_image %}
+            <img src="{{ post.og_image }}" alt="{{ post.title }}" class="img-fluid rounded-4 mb-4 w-100" style="max-height: 400px; object-fit: cover;">
+            {% endif %}
+            
+            <!-- Content -->
+            <div class="blog-post-content">
+                {{ post.content | safe }}
+            </div>
+            
+            <!-- Share buttons -->
+            <div class="mt-5 pt-4 border-top">
+                <h5 class="mb-3">Share this article</h5>
+                <div class="d-flex gap-2">
+                    <a href="https://twitter.com/intent/tweet?url={{ request.url | urlencode }}&text={{ post.title | urlencode }}" 
+                       target="_blank" class="btn btn-outline-primary">
+                        <i class="bi bi-twitter"></i> Twitter
+                    </a>
+                    <a href="https://www.linkedin.com/sharing/share-offsite/?url={{ request.url | urlencode }}" 
+                       target="_blank" class="btn btn-outline-primary">
+                        <i class="bi bi-linkedin"></i> LinkedIn
+                    </a>
+                    <a href="https://www.facebook.com/sharer/sharer.php?u={{ request.url | urlencode }}" 
+                       target="_blank" class="btn btn-outline-primary">
+                        <i class="bi bi-facebook"></i> Facebook
+                    </a>
+                    <button onclick="navigator.clipboard.writeText('{{ request.url }}'); alert('Link copied!')" 
+                            class="btn btn-outline-secondary">
+                        <i class="bi bi-link-45deg"></i> Copy Link
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Author Bio -->
+            <div class="author-card mt-5">
+                <div class="author-avatar">
+                    {{ post.author_name[0] | upper }}
+                </div>
+                <div class="author-info">
+                    <h4>{{ post.author_name }}</h4>
+                    <p class="text-muted mb-2">Analyst at KI Asset Management</p>
+                    <a href="{{ url_for('blog.author_posts', user_id=post.author_id) }}" class="btn btn-sm btn-outline-primary">
+                        View all articles
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Related Posts -->
+            {% if related_posts %}
+            <div class="related-posts">
+                <h3 class="mb-4">Related Articles</h3>
+                <div class="row g-4">
+                    {% for related in related_posts %}
+                    <div class="col-md-4">
+                        <article class="card h-100 border-0 shadow-sm">
+                            <div class="card-body">
+                                <small class="text-muted">
+                                    <i class="bi bi-calendar3"></i> {{ related.formatted_date }}
+                                </small>
+                                <h5 class="card-title mt-2">
+                                    <a href="{{ url_for('blog.post', slug=related.slug) }}" class="text-decoration-none">
+                                        {{ related.title }}
+                                    </a>
+                                </h5>
+                                <p class="card-text text-muted small">{{ related.get_excerpt(80) }}</p>
+                            </div>
+                        </article>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</article>
+
+<!-- CTA Section -->
+<section class="bg-light py-5">
+    <div class="container text-center">
+        <h3>Enjoyed this article?</h3>
+        <p class="text-muted">Explore more investment insights on our blog.</p>
+        <a href="{{ url_for('blog.index') }}" class="btn btn-primary btn-lg">
+            <i class="bi bi-journal-text"></i> Browse All Articles
+        </a>
+        {% if not current_user.is_authenticated %}
+        <a href="{{ url_for('auth.login') }}" class="btn btn-outline-primary btn-lg ms-2">
+            <i class="bi bi-person"></i> Join Our Team
+        </a>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

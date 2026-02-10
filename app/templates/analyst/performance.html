@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}My Performance – Analyst Performance Tracker{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-bar-chart"></i> My Performance</h1>
+    <a href="{{ url_for('analyst.dashboard') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Dashboard
+    </a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('analyst.performance') }}" class="row g-2 align-items-center">
+            <div class="col-auto">
+                <div class="form-check">
+                    {% if annualized %}
+                    <input class="form-check-input" type="checkbox" name="annualized" value="true" id="annualizedCheckbox" checked>
+                    {% else %}
+                    <input class="form-check-input" type="checkbox" name="annualized" value="true" id="annualizedCheckbox">
+                    {% endif %}
+                    <label class="form-check-label" for="annualizedCheckbox">
+                        Annualized returns (for investments longer than a year)
+                    </label>
+                </div>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-outline-primary">Apply</button>
+            </div>
+            <div class="col-auto">
+                <a href="{{ url_for('main.methodology') }}#returns" class="btn btn-sm btn-outline-info">
+                    <i class="bi bi-info-circle"></i> What is annualization?
+                </a>
+            </div>
+        </form>
+        <div class="alert alert-light border mt-3 mb-0">
+            <small>
+                <strong>About Annualization:</strong> Annualized returns show what the return would be if compressed to a one-year period. 
+                This allows fair comparison between stocks held for different lengths of time. 
+                Only holdings longer than 365 days are annualized.
+                <a href="{{ url_for('main.methodology') }}#returns">Learn more about the formula</a>.
+            </small>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">Analyses</h5>
+                <p class="display-4">{{ performance.num_analyses }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">Avg Return</h5>
+                <p class="display-4 {% if performance.avg_return >= 0 %}text-success{% else %}text-danger{% endif %}">
+                    {{ performance.avg_return }}%
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">Median Return</h5>
+                <p class="display-4">{{ performance.median_return }}%</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">Win Rate</h5>
+                <p class="display-4">{{ performance.win_rate }}%</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-list-check"></i> Approved Analyses</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Date</th>
+                        <th>Company</th>
+                        <th>Ticker</th>
+                        <th>Price at Analysis</th>
+                        <th>Current Price</th>
+                        <th>Return %</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in analysis_data %}
+                    <tr>
+                        <td>{{ item.analysis.analysis_date.strftime('%Y‑%m‑%d') }}</td>
+                        <td>
+                            <strong>{{ item.company.name }}</strong>
+                            <br><small class="text-muted">{{ item.company.sector }}</small>
+                        </td>
+                        <td>
+                            {% if item.company.ticker_symbol %}
+                                <code>{{ item.company.ticker_symbol }}</code>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.performance %}
+                                ${{ item.performance.price_at_analysis }}
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.performance %}
+                                ${{ item.performance.price_current }}
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.performance %}
+                                <span class="fw-bold {% if annualized and item.annualized_return is defined %}{% if item.annualized_return >= 0 %}text-success{% else %}text-danger{% endif %}{% else %}{% if item.performance.return_pct >= 0 %}text-success{% else %}text-danger{% endif %}{% endif %}">
+                                    {% if annualized and item.annualized_return is defined %}
+                                        {{ item.annualized_return|round(2) }}%
+                                    {% else %}
+                                        {{ item.performance.return_pct }}%
+                                    {% endif %}
+                                </span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-success">On Watchlist</span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-3">
+                            No approved analyses with performance data.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="alert alert-info mt-4">
+    <i class="bi bi-info-circle"></i>
+    Performance is calculated based on the latest available stock price. Returns are updated daily.
+</div>
+{% endblock %}

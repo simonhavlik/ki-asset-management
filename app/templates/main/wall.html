@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+
+{% block title %}Ideas Wall – KI Asset Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-1"><i class="bi bi-chat-square-text"></i> Ideas Wall</h1>
+            <p class="text-muted mb-0">Share and discuss stock ideas with the team</p>
+        </div>
+        {% if current_user.is_authenticated %}
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newIdeaModal">
+            <i class="bi bi-plus-lg"></i> Share Idea
+        </button>
+        {% endif %}
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3 align-items-center">
+                <div class="col-md-3">
+                    <label class="form-label mb-1"><i class="bi bi-funnel"></i> Sentiment</label>
+                    <select class="form-select" id="sentimentFilter">
+                        <option value="all">All Ideas</option>
+                        <option value="bullish">🐂 Bullish</option>
+                        <option value="bearish">🐻 Bearish</option>
+                        <option value="neutral">⚖️ Neutral</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label mb-1"><i class="bi bi-sort-down"></i> Sort By</label>
+                    <select class="form-select" id="sortFilter">
+                        <option value="newest">Newest First</option>
+                        <option value="popular">Most Popular</option>
+                        <option value="trending">Trending</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label mb-1"><i class="bi bi-search"></i> Search</label>
+                    <input type="text" class="form-control" id="searchIdeas" placeholder="Search by ticker, company, or keyword...">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ideas Grid -->
+    <div class="ideas-wall" id="ideasWall">
+        {% for idea in ideas %}
+        <div class="idea-card" data-sentiment="{{ idea.sentiment }}">
+            <div class="idea-card-header">
+                <div class="idea-author-avatar">
+                    {{ idea.author_name[0]|upper }}
+                </div>
+                <div class="idea-meta">
+                    <div class="idea-author">{{ idea.author_name }}</div>
+                    <div class="idea-date">{{ idea.created_at.strftime('%b %d, %Y') }}</div>
+                </div>
+                <span class="idea-badge {{ idea.sentiment }}">{{ idea.sentiment }}</span>
+            </div>
+            
+            <h5 class="idea-title">{{ idea.title }}</h5>
+            <p class="idea-content">{{ idea.content }}</p>
+            
+            {% if idea.ticker %}
+            <span class="idea-ticker">
+                <i class="bi bi-graph-up"></i> {{ idea.ticker }}
+            </span>
+            {% endif %}
+            
+            <div class="idea-actions">
+                <div class="idea-action" onclick="likeIdea({{ idea.id }})">
+                    <i class="bi bi-hand-thumbs-up"></i>
+                    <span id="likes-{{ idea.id }}">{{ idea.likes }}</span>
+                </div>
+                <div class="idea-action" onclick="toggleComments({{ idea.id }})">
+                    <i class="bi bi-chat"></i>
+                    <span>{{ idea.comments.count() }}</span>
+                </div>
+                <div class="idea-action">
+                    <i class="bi bi-share"></i>
+                </div>
+                {% if current_user.is_authenticated and (current_user.id == idea.author_id or current_user.is_admin) %}
+                <div class="dropdown ms-auto">
+                    <button class="btn btn-sm btn-link text-muted" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-three-dots-vertical"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#editIdeaModal{{ idea.id }}">
+                                <i class="bi bi-pencil"></i> Edit
+                            </button>
+                        </li>
+                        <li>
+                            <form method="POST" action="{{ url_for('main.delete_idea', idea_id=idea.id) }}" class="d-inline" onsubmit="return confirm('Delete this idea?')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="dropdown-item text-danger">
+                                    <i class="bi bi-trash"></i> Delete
+                                </button>
+                            </form>
+                        </li>
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Comments Section (Hidden by default) -->
+            <div id="comments-{{ idea.id }}" class="mt-3 pt-3 border-top" style="display: none;">
+                {% for comment in idea.comments %}
+                <div class="d-flex gap-2 mb-2">
+                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" 
+                         style="width: 28px; height: 28px; font-size: 0.75rem;">
+                        {{ comment.author_name[0]|upper }}
+                    </div>
+                    <div class="flex-grow-1">
+                        <small class="fw-bold">{{ comment.author_name }}</small>
+                        <p class="small mb-0 text-muted">{{ comment.content }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+                {% if current_user.is_authenticated %}
+                <div class="input-group input-group-sm mt-2">
+                    <input type="text" class="form-control" placeholder="Add a comment...">
+                    <button class="btn btn-outline-primary" type="button">Post</button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-chat-square-text display-1 text-muted"></i>
+            <h4 class="mt-3 text-muted">No ideas yet</h4>
+            <p class="text-muted">Be the first to share a stock idea!</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if pagination and pagination.pages > 1 %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if pagination.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('main.wall', page=pagination.prev_num) }}">Previous</a>
+            </li>
+            {% endif %}
+            
+            {% for page_num in pagination.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
+                {% if page_num %}
+                    {% if page_num == pagination.page %}
+                    <li class="page-item active"><span class="page-link">{{ page_num }}</span></li>
+                    {% else %}
+                    <li class="page-item"><a class="page-link" href="{{ url_for('main.wall', page=page_num) }}">{{ page_num }}</a></li>
+                    {% endif %}
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if pagination.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('main.wall', page=pagination.next_num) }}">Next</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<!-- New Idea Modal -->
+{% if current_user.is_authenticated %}
+<div class="modal fade" id="newIdeaModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-lightbulb"></i> Share Stock Idea</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('main.new_idea') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Title</label>
+                        <input type="text" name="title" class="form-control" placeholder="e.g., Why I'm bullish on AAPL" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Sentiment</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="sentiment" id="sentimentBullish" value="bullish" checked>
+                            <label class="btn btn-outline-success" for="sentimentBullish">🐂 Bullish</label>
+                            
+                            <input type="radio" class="btn-check" name="sentiment" id="sentimentNeutral" value="neutral">
+                            <label class="btn btn-outline-secondary" for="sentimentNeutral">⚖️ Neutral</label>
+                            
+                            <input type="radio" class="btn-check" name="sentiment" id="sentimentBearish" value="bearish">
+                            <label class="btn btn-outline-danger" for="sentimentBearish">🐻 Bearish</label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Stock Ticker (optional)</label>
+                        <input type="text" name="ticker" class="form-control" placeholder="e.g., AAPL">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Your Analysis</label>
+                        <textarea name="content" class="form-control" rows="5" placeholder="Share your investment thesis..." required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Share Idea</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Edit Idea Modals -->
+{% for idea in ideas %}
+{% if current_user.is_authenticated and (current_user.id == idea.author_id or current_user.is_admin) %}
+<div class="modal fade" id="editIdeaModal{{ idea.id }}" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil"></i> Edit Idea</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('main.edit_idea', idea_id=idea.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Title</label>
+                        <input type="text" name="title" class="form-control" value="{{ idea.title }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Sentiment</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="sentiment" id="sentimentBullish{{ idea.id }}" value="bullish" {% if idea.sentiment == 'bullish' %}checked{% endif %}>
+                            <label class="btn btn-outline-success" for="sentimentBullish{{ idea.id }}">🐂 Bullish</label>
+                            
+                            <input type="radio" class="btn-check" name="sentiment" id="sentimentNeutral{{ idea.id }}" value="neutral" {% if idea.sentiment == 'neutral' %}checked{% endif %}>
+                            <label class="btn btn-outline-secondary" for="sentimentNeutral{{ idea.id }}">⚖️ Neutral</label>
+                            
+                            <input type="radio" class="btn-check" name="sentiment" id="sentimentBearish{{ idea.id }}" value="bearish" {% if idea.sentiment == 'bearish' %}checked{% endif %}>
+                            <label class="btn btn-outline-danger" for="sentimentBearish{{ idea.id }}">🐻 Bearish</label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Stock Ticker (optional)</label>
+                        <input type="text" name="ticker" class="form-control" value="{{ idea.ticker or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Your Analysis</label>
+                        <textarea name="content" class="form-control" rows="5" required>{{ idea.content }}</textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Filter functionality
+document.getElementById('sentimentFilter')?.addEventListener('change', function() {
+    const sentiment = this.value;
+    document.querySelectorAll('.idea-card').forEach(card => {
+        if (sentiment === 'all' || card.dataset.sentiment === sentiment) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+});
+
+// Search functionality
+document.getElementById('searchIdeas')?.addEventListener('input', function() {
+    const query = this.value.toLowerCase();
+    document.querySelectorAll('.idea-card').forEach(card => {
+        const text = card.textContent.toLowerCase();
+        card.style.display = text.includes(query) ? 'block' : 'none';
+    });
+});
+
+// Like functionality
+function likeIdea(ideaId) {
+    // In production, this would make an AJAX call
+    const likesEl = document.getElementById('likes-' + ideaId);
+    likesEl.textContent = parseInt(likesEl.textContent) + 1;
+}
+
+// Toggle comments
+function toggleComments(ideaId) {
+    const commentsDiv = document.getElementById('comments-' + ideaId);
+    commentsDiv.style.display = commentsDiv.style.display === 'none' ? 'block' : 'none';
+}
+</script>
+{% endblock %}

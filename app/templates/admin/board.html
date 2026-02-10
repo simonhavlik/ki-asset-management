@@ -1,0 +1,753 @@
+{% extends "base.html" %}
+
+{% block title %}Board Portfolio – KI Asset Management{% endblock %}
+
+{% block extra_css %}
+<style>
+.voting-card {
+    transition: all 0.2s ease;
+    border: 1px solid var(--gray-200);
+}
+
+.voting-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.voting-card.purchased {
+    border-left: 4px solid var(--success);
+}
+
+.voting-card.rejected {
+    border-left: 4px solid var(--danger);
+}
+
+.voting-card.tie {
+    border-left: 4px solid var(--gray-400);
+}
+
+.vote-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25em 0.75em;
+}
+
+.portfolio-stat-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #fff 100%);
+    border: 1px solid var(--gray-200);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    text-align: center;
+}
+
+.portfolio-stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--gray-900);
+    margin-bottom: 0.25rem;
+}
+
+.portfolio-stat-value.positive {
+    color: var(--success);
+}
+
+.portfolio-stat-value.negative {
+    color: var(--danger);
+}
+
+.portfolio-stat-label {
+    font-size: 0.875rem;
+    color: var(--gray-600);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.chart-container {
+    background: var(--white);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.chart-toggle {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.chart-toggle .btn {
+    flex: 1;
+}
+
+.chart-toggle .btn.active {
+    background-color: var(--primary);
+    color: white;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1><i class="bi bi-clipboard-check"></i> Board Portfolio</h1>
+        <p class="text-muted mb-0">Voting and performance tracking for Board-approved positions</p>
+    </div>
+    <div class="d-flex gap-2">
+        <div class="dropdown">
+            <button class="btn btn-outline-success dropdown-toggle" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-download"></i> Export
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="exportDropdown">
+                <li><h6 class="dropdown-header">Quick Export</h6></li>
+                <li><a class="dropdown-item" href="{{ url_for('admin.export_board_csv') }}">
+                    <i class="bi bi-filetype-csv"></i> Board CSV
+                </a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><h6 class="dropdown-header">Comprehensive Report</h6></li>
+                <li>
+                    <a class="dropdown-item" href="{{ url_for('admin.export_comprehensive') }}" id="downloadCachedLink">
+                        <i class="bi bi-filetype-xlsx"></i> Download Excel
+                        <small class="text-muted d-block" id="cacheStatus">Checking cache...</small>
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{{ url_for('admin.export_comprehensive', fresh='true') }}">
+                        <i class="bi bi-arrow-clockwise"></i> Generate Fresh Report
+                    </a>
+                </li>
+            </ul>
+        </div>
+        <form method="POST" action="{{ url_for('admin.update_benchmarks') }}" style="display: inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline-info" onclick="return confirm('Fetch latest benchmark prices from Yahoo Finance?')">
+                <i class="bi bi-graph-up"></i> Update Benchmarks
+            </button>
+        </form>
+        <form method="POST" action="{{ url_for('admin.calculate_portfolio_performance') }}" style="display: inline;" id="updatePerformanceForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary" id="updatePerformanceBtn">
+                <i class="bi bi-calculator"></i> Update Performance
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+// Check export cache status
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('{{ url_for("admin.export_status") }}')
+        .then(response => response.json())
+        .then(data => {
+            const statusEl = document.getElementById('cacheStatus');
+            const comprehensive = data.comprehensive;
+            
+            if (comprehensive.has_cache && comprehensive.is_valid) {
+                statusEl.textContent = `Cached ${comprehensive.age_days} days ago`;
+                statusEl.className = 'text-success d-block';
+            } else if (comprehensive.has_cache) {
+                statusEl.textContent = `Cache expired (${comprehensive.age_days} days old)`;
+                statusEl.className = 'text-warning d-block';
+            } else {
+                statusEl.textContent = 'No cache - will generate new';
+                statusEl.className = 'text-muted d-block';
+            }
+        })
+        .catch(err => {
+            console.error('Error checking cache status:', err);
+        });
+});
+</script>
+
+<!-- Last Update Info -->
+<div class="alert alert-info mb-3 d-flex justify-content-between align-items-center">
+    <div>
+        <small><i class="bi bi-info-circle"></i> 
+        {% if last_recalc %}
+            Data last recalculated: <strong>{{ last_recalc.strftime('%Y-%m-%d %H:%M UTC') }}</strong>
+        {% else %}
+            No recalculation recorded yet
+        {% endif %}
+        <br><i class="bi bi-clock-history"></i> Automatic recalculation runs weekly (Sundays at 3:00 AM UTC)</small>
+    </div>
+    <form action="{{ url_for('admin.calculate_portfolio_performance') }}" method="post" class="ms-3">
+        <button type="submit" class="btn btn-warning btn-sm" onclick="return confirm('This will recalculate all performance data and refresh all caches. Continue?')">
+            <i class="bi bi-arrow-clockwise"></i> Recalculate Now
+        </button>
+    </form>
+</div>
+
+<!-- Portfolio Performance Summary -->
+{% if portfolio_performance %}
+<div class="card mb-4 border-0 shadow-sm">
+    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-graph-up"></i> Portfolio Performance vs Benchmarks</h5>
+        
+        <!-- Portfolio Toggle -->
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-light active" id="btnApproved" onclick="togglePortfolio('approved')">
+                All Approved
+            </button>
+            <button type="button" class="btn btn-outline-light" id="btnPurchased" onclick="togglePortfolio('purchased')">
+                Purchased Only
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- Stats Row -->
+        <div class="row g-3 mb-4" id="statsRow">
+            <div class="col-md-3">
+                <div class="portfolio-stat-card">
+                    <div class="portfolio-stat-value" id="statPositions">{{ portfolio_performance.num_positions }}</div>
+                    <div class="portfolio-stat-label">Positions</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="portfolio-stat-card">
+                    <div class="portfolio-stat-value {% if portfolio_performance.total_return >= 0 %}positive{% else %}negative{% endif %}" id="statReturn">
+                        {{ "%.2f"|format(portfolio_performance.total_return) }}%
+                    </div>
+                    <div class="portfolio-stat-label">Avg Return</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="portfolio-stat-card">
+                    <div class="portfolio-stat-value {% if portfolio_performance.annualized_return >= 0 %}positive{% else %}negative{% endif %}" id="statAnnualized">
+                        {{ "%.2f"|format(portfolio_performance.annualized_return) }}%
+                    </div>
+                    <div class="portfolio-stat-label">Annualized</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="portfolio-stat-card">
+                    <div class="portfolio-stat-value" id="statInception">{{ portfolio_performance.start_date[:10] if portfolio_performance.start_date else '--' }}</div>
+                    <div class="portfolio-stat-label">Inception</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Benchmark Comparison -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="d-flex justify-content-center gap-4 text-center flex-wrap" id="benchmarkRow">
+                    <div>
+                        <span class="badge bg-primary fs-6" id="benchPortfolio">
+                            Portfolio: {{ "%.2f"|format(portfolio_performance.total_return) }}%
+                        </span>
+                    </div>
+                    <div>
+                        <span class="badge bg-warning text-dark fs-6" id="benchSpy">
+                            S&P 500: {{ "%.2f"|format(portfolio_performance.benchmark_spy) }}%
+                        </span>
+                    </div>
+                    <div>
+                        <span class="badge bg-info fs-6" id="benchFtse">
+                            FTSE All-World: {{ "%.2f"|format(portfolio_performance.benchmark_ftse) }}%
+                        </span>
+                    </div>
+                    <div>
+                        <span class="badge bg-secondary fs-6" id="benchEems">
+                            EEMS: {{ "%.2f"|format(portfolio_performance.benchmark_eems) }}%
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Charts -->
+        <div class="row">
+            <div class="col-lg-6 mb-4">
+                <div class="chart-container">
+                    <h6 class="mb-3 text-center">Portfolio Performance Since Inception</h6>
+                    <p class="text-muted small text-center mb-2">
+                        Each stock contributes from its purchase date. Portfolio = equal-weighted average of all holdings.
+                    </p>
+                    <canvas id="inceptionChart" height="250"></canvas>
+                </div>
+            </div>
+            <div class="col-lg-6 mb-4">
+                <div class="chart-container">
+                    <h6 class="mb-3 text-center">Portfolio Performance - Last 12 Months</h6>
+                    <p class="text-muted small text-center mb-2">
+                        Equal-weighted average of all active positions from their entry dates.
+                    </p>
+                    <canvas id="oneyearChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Info Card -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="d-flex align-items-start">
+            <i class="bi bi-info-circle-fill text-primary fs-4 me-3 mt-1"></i>
+            <div>
+                <h5 class="mb-2">How Board Voting Works</h5>
+                <p class="mb-0 text-muted">
+                    This page shows all analyses with status <strong>"On Watchlist"</strong>. Board members vote on whether to add each stock to the portfolio.
+                    If more votes are in favor than against, the stock is considered <strong>purchased</strong> and included in portfolio performance calculations.
+                    Use the toggle above to switch between "All Approved" (all stocks with Yes majority) and "Purchased Only" (stocks marked as purchased).
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Voting Table -->
+{% if analyses %}
+<div class="card shadow-sm">
+    <div class="card-header bg-light">
+        <h5 class="mb-0"><i class="bi bi-list-check"></i> Voting Queue ({{ analyses|length }} stocks)</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Company</th>
+                        <th>Ticker</th>
+                        <th>Analysis Date</th>
+                        <th>Analysts</th>
+                        <th>Votes</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for analysis in analyses %}
+                    <tr class="{% if analysis.id in purchased_ids %}table-success{% endif %}">
+                        <td>
+                            <strong>{{ analysis.company.name }}</strong>
+                        </td>
+                        <td>
+                            {% if analysis.company.ticker_symbol %}
+                                <span class="badge bg-secondary">{{ analysis.company.ticker_symbol }}</span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ analysis.analysis_date.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            {% for analyst in analysis.analysts %}
+                                <span class="badge bg-info">{{ analyst.full_name or analyst.email }}</span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% set votes_yes = analysis.votes|selectattr('vote', 'equalto', true)|list|length %}
+                            {% set votes_no = analysis.votes|selectattr('vote', 'equalto', false)|list|length %}
+                            <div class="d-flex gap-1">
+                                <span class="vote-badge bg-success">{{ votes_yes }} Yes</span>
+                                <span class="vote-badge bg-danger">{{ votes_no }} No</span>
+                                {% if votes_yes > votes_no %}
+                                    <span class="vote-badge bg-primary">Approved</span>
+                                {% elif votes_no > votes_yes %}
+                                    <span class="vote-badge bg-warning text-dark">Rejected</span>
+                                {% else %}
+                                    <span class="vote-badge bg-secondary">Tie</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            {% if analysis.id in purchased_ids %}
+                                <span class="badge bg-success"><i class="bi bi-check-circle"></i> In Portfolio</span>
+                            {% else %}
+                                <span class="badge bg-light text-dark border"><i class="bi bi-circle"></i> Not Added</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex gap-1 flex-wrap">
+                                <div class="btn-group btn-group-sm">
+                                    <form method="POST" action="{{ url_for('admin.board_vote', analysis_id=analysis.id) }}" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <input type="hidden" name="vote" value="yes">
+                                        <button type="submit" class="btn btn-outline-success" title="Vote Yes">
+                                            <i class="bi bi-hand-thumbs-up"></i>
+                                        </button>
+                                    </form>
+                                    <form method="POST" action="{{ url_for('admin.board_vote', analysis_id=analysis.id) }}" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <input type="hidden" name="vote" value="no">
+                                        <button type="submit" class="btn btn-outline-danger" title="Vote No">
+                                            <i class="bi bi-hand-thumbs-down"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                                {% if analysis.id in purchased_ids %}
+                                <!-- Purchase Date Picker -->
+                                {% set purchase = purchases|selectattr('analysis_id', 'equalto', analysis.id)|first %}
+                                <form method="POST" action="{{ url_for('admin.board_purchase', analysis_id=analysis.id) }}" class="d-inline d-flex align-items-center gap-1">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="date" name="purchase_date" value="{{ purchase.purchase_date.strftime('%Y-%m-%d') if purchase else analysis.analysis_date.strftime('%Y-%m-%d') }}" 
+                                           class="form-control form-control-sm" style="width: 130px;" 
+                                           onchange="this.form.submit()" title="Click to change purchase date">
+                                </form>
+                                <form method="POST" action="{{ url_for('admin.remove_purchase', analysis_id=analysis.id) }}" class="d-inline" onsubmit="return confirm('Remove this stock from portfolio?')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Remove Purchase">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                                {% else %}
+                                <!-- Mark as Purchased with Date -->
+                                <form method="POST" action="{{ url_for('admin.board_purchase', analysis_id=analysis.id) }}" class="d-inline d-flex align-items-center gap-1">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="date" name="purchase_date" value="{{ analysis.analysis_date.strftime('%Y-%m-%d') }}" 
+                                           class="form-control form-control-sm" style="width: 130px;">
+                                    <button type="submit" class="btn btn-sm btn-outline-primary" title="Mark as Purchased">
+                                        <i class="bi bi-cart-plus"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                                {% if analysis.id in user_votes %}
+                                <form method="POST" action="{{ url_for('admin.remove_vote', analysis_id=analysis.id) }}" class="d-inline" onsubmit="return confirm('Remove your vote?')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Remove My Vote">
+                                        <i class="bi bi-x-circle"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-light">
+                <h6 class="mb-0"><i class="bi bi-question-circle"></i> Legend</h6>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li><strong>Approved</strong>: More Yes votes than No votes</li>
+                    <li><strong>Rejected</strong>: More No votes than Yes votes</li>
+                    <li><strong>In Portfolio</strong>: Stock has been marked as purchased</li>
+                    <li>Use the toggle at top to switch between All Approved / Purchased Only views</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-light">
+                <h6 class="mb-0"><i class="bi bi-info-circle"></i> Portfolio Calculation</h6>
+            </div>
+            <div class="card-body">
+                <p class="mb-2">Each administrator can vote once per analysis. Changing your vote will replace your previous vote.</p>
+                <p class="mb-2 text-muted small">
+                    <strong>How the portfolio line works:</strong> When the first stock is added, the line shows its performance. 
+                    When a second stock enters, from that moment the line shows the average of both. With three stocks, 
+                    each contributes 33% to the portfolio performance. Each stock's contribution starts from its purchase date.
+                </p>
+                <p class="mb-0 text-muted small">
+                    Benchmarks (S&P 500, FTSE All-World, EEMS) are shown for comparison over the same time period.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="alert alert-info d-flex align-items-center">
+    <i class="bi bi-info-circle-fill me-2 fs-5"></i>
+    <div>
+        <strong>No analyses found.</strong> Upload a CSV with approved analyses to start voting.
+        <a href="{{ url_for('admin.upload_csv') }}" class="alert-link">Go to CSV Upload</a>
+    </div>
+</div>
+{% endif %}
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Portfolio data
+const approvedData = {
+    performance: {{ portfolio_performance|tojson|safe }},
+    seriesAll: {{ portfolio_series_all|tojson|safe }},
+    series1y: {{ portfolio_series_1y|tojson|safe }}
+};
+
+const purchasedData = {
+    performance: {{ purchased_performance|tojson|safe }},
+    seriesAll: {{ purchased_series_all|tojson|safe }},
+    series1y: {{ purchased_series_1y|tojson|safe }}
+};
+
+let currentView = 'approved';
+let inceptionChart = null;
+let oneYearChart = null;
+
+function initCharts() {
+    const data = currentView === 'approved' ? approvedData : purchasedData;
+    
+    if (!data.seriesAll || !data.series1y) return;
+    
+    // Inception Chart
+    const ctx1 = document.getElementById('inceptionChart').getContext('2d');
+    inceptionChart = new Chart(ctx1, {
+        type: 'line',
+        data: {
+            labels: data.seriesAll.dates,
+            datasets: [
+                {
+                    label: 'Portfolio',
+                    data: data.seriesAll.portfolio_series,
+                    borderColor: '#0d6efd',
+                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: 'S&P 500',
+                    data: data.seriesAll.spy_series,
+                    borderColor: '#ffc107',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    tension: 0.4
+                },
+                {
+                    label: 'FTSE All-World',
+                    data: data.seriesAll.vt_series,
+                    borderColor: '#0dcaf5',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [2, 2],
+                    tension: 0.4
+                },
+                {
+                    label: 'EEMS',
+                    data: data.seriesAll.eems_series,
+                    borderColor: '#6c757d',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [3, 3],
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: { usePointStyle: true, padding: 15 }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.raw + '%';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { maxTicksLimit: 6, maxRotation: 0 }
+                },
+                y: {
+                    title: { display: true, text: 'Return %' },
+                    ticks: { callback: function(value) { return value + '%'; } }
+                }
+            }
+        }
+    });
+    
+    // 1-Year Chart
+    const ctx2 = document.getElementById('oneyearChart').getContext('2d');
+    oneYearChart = new Chart(ctx2, {
+        type: 'line',
+        data: {
+            labels: data.series1y.dates,
+            datasets: [
+                {
+                    label: 'Portfolio',
+                    data: data.series1y.portfolio_series,
+                    borderColor: '#0d6efd',
+                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: 'S&P 500',
+                    data: data.series1y.spy_series,
+                    borderColor: '#ffc107',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    tension: 0.4
+                },
+                {
+                    label: 'FTSE All-World',
+                    data: data.series1y.vt_series,
+                    borderColor: '#0dcaf5',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [2, 2],
+                    tension: 0.4
+                },
+                {
+                    label: 'EEMS',
+                    data: data.series1y.eems_series,
+                    borderColor: '#6c757d',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [3, 3],
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: { usePointStyle: true, padding: 15 }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.raw + '%';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { maxTicksLimit: 6, maxRotation: 0 }
+                },
+                y: {
+                    title: { display: true, text: 'Return %' },
+                    ticks: { callback: function(value) { return value + '%'; } }
+                }
+            }
+        }
+    });
+}
+
+function togglePortfolio(view) {
+    currentView = view;
+    const data = view === 'approved' ? approvedData : purchasedData;
+    
+    // Update toggle buttons
+    document.getElementById('btnApproved').classList.toggle('active', view === 'approved');
+    document.getElementById('btnPurchased').classList.toggle('active', view === 'purchased');
+    
+    if (!data.performance) return;
+    
+    // Update stats
+    document.getElementById('statPositions').textContent = data.performance.num_positions;
+    document.getElementById('statReturn').textContent = data.performance.total_return.toFixed(2) + '%';
+    document.getElementById('statReturn').className = 'portfolio-stat-value ' + (data.performance.total_return >= 0 ? 'positive' : 'negative');
+    document.getElementById('statAnnualized').textContent = data.performance.annualized_return.toFixed(2) + '%';
+    document.getElementById('statAnnualized').className = 'portfolio-stat-value ' + (data.performance.annualized_return >= 0 ? 'positive' : 'negative');
+    document.getElementById('statInception').textContent = data.performance.start_date ? data.performance.start_date.slice(0, 10) : '--';
+    
+    // Update benchmarks
+    document.getElementById('benchPortfolio').textContent = 'Portfolio: ' + data.performance.total_return.toFixed(2) + '%';
+    document.getElementById('benchSpy').textContent = 'S&P 500: ' + data.performance.benchmark_spy.toFixed(2) + '%';
+    document.getElementById('benchFtse').textContent = 'FTSE All-World: ' + data.performance.benchmark_ftse.toFixed(2) + '%';
+    document.getElementById('benchEems').textContent = 'EEMS: ' + data.performance.benchmark_eems.toFixed(2) + '%';
+    
+    // Update charts
+    if (inceptionChart && data.seriesAll) {
+        inceptionChart.data.labels = data.seriesAll.dates;
+        inceptionChart.data.datasets[0].data = data.seriesAll.portfolio_series;
+        inceptionChart.data.datasets[1].data = data.seriesAll.spy_series;
+        inceptionChart.data.datasets[2].data = data.seriesAll.vt_series;
+        inceptionChart.data.datasets[3].data = data.seriesAll.eems_series;
+        inceptionChart.update();
+    }
+    
+    if (oneYearChart && data.series1y) {
+        oneYearChart.data.labels = data.series1y.dates;
+        oneYearChart.data.datasets[0].data = data.series1y.portfolio_series;
+        oneYearChart.data.datasets[1].data = data.series1y.spy_series;
+        oneYearChart.data.datasets[2].data = data.series1y.vt_series;
+        oneYearChart.data.datasets[3].data = data.series1y.eems_series;
+        oneYearChart.update();
+    }
+}
+
+// Initialize on load
+document.addEventListener('DOMContentLoaded', function() {
+    initCharts();
+    
+    // Handle Update Performance form submission with progress modal
+    const updateForm = document.getElementById('updatePerformanceForm');
+    if (updateForm) {
+        updateForm.addEventListener('submit', function(e) {
+            if (!confirm('Calculate updated portfolio performance? This may take a few minutes.')) {
+                e.preventDefault();
+                return;
+            }
+            // Show progress modal
+            const modal = new bootstrap.Modal(document.getElementById('progressModal'));
+            modal.show();
+            document.getElementById('progressText').textContent = 'Updating performance calculations...';
+            document.getElementById('progressBar').style.width = '50%';
+        });
+    }
+});
+</script>
+
+<!-- Progress Modal -->
+<div class="modal fade" id="progressModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-arrow-repeat spin"></i> Updating Performance...</h5>
+            </div>
+            <div class="modal-body">
+                <div class="progress mb-3">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                         id="progressBar" role="progressbar" style="width: 50%"></div>
+                </div>
+                <p id="progressText">Fetching latest prices and recalculating returns...</p>
+                <div class="alert alert-info">
+                    <small><i class="bi bi-info-circle"></i> This may take a few minutes. Please don't close the page.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.spin {
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+</style>
+{% endblock %}

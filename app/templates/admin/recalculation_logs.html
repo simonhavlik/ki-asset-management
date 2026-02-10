@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+
+{% block title %}Recalculation Logs – KI Asset Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1><i class="bi bi-journal-text"></i> Recalculation Logs</h1>
+            <p class="text-muted mb-0">History of all system recalculation runs</p>
+        </div>
+        <a href="{{ url_for('admin.unified_update') }}" class="btn btn-outline-primary">
+            <i class="bi bi-arrow-left"></i> Back to Unified Update
+        </a>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="h2 mb-0">{{ logs.items|length }}</div>
+                    <small class="text-muted">Total Runs</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="h2 mb-0 text-success">{{ logs.items|selectattr('status', 'equalto', 'completed')|list|length }}</div>
+                    <small class="text-muted">Successful</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="h2 mb-0 text-danger">{{ logs.items|selectattr('status', 'equalto', 'failed')|list|length }}</div>
+                    <small class="text-muted">Failed</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="h2 mb-0 text-info">{{ logs.items|selectattr('status', 'equalto', 'running')|list|length }}</div>
+                    <small class="text-muted">Running</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logs Table -->
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Run Type</th>
+                            <th>Started</th>
+                            <th>Completed</th>
+                            <th>Duration</th>
+                            <th>Status</th>
+                            <th>Analyses</th>
+                            <th>Prices</th>
+                            <th>Calculations</th>
+                            <th>Errors</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs.items %}
+                        <tr>
+                            <td>
+                                {% if log.run_type == 'manual' %}
+                                    <i class="bi bi-person text-primary"></i> Manual
+                                {% elif log.run_type == 'scheduled' %}
+                                    <i class="bi bi-clock text-warning"></i> Scheduled
+                                {% elif log.run_type == 'automated' %}
+                                    <i class="bi bi-gear text-info"></i> Automated
+                                {% else %}
+                                    <i class="bi bi-question-circle"></i> {{ log.run_type }}
+                                {% endif %}
+                            </td>
+                            <td>{{ log.started_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            <td>
+                                {% if log.completed_at %}
+                                    {{ log.completed_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.duration_seconds %}
+                                    {{ '%.1f'|format(log.duration_seconds) }}s
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge {% if log.status == 'completed' %}bg-success{% elif log.status == 'failed' %}bg-danger{% else %}bg-info{% endif %}">
+                                    {{ log.status }}
+                                </span>
+                            </td>
+                            <td>{{ log.analyses_processed or '-' }}</td>
+                            <td>{{ log.prices_updated or '-' }}</td>
+                            <td>{{ log.calculations_updated or '-' }}</td>
+                            <td>
+                                {% if log.errors_count and log.errors_count > 0 %}
+                                    <span class="text-danger fw-bold">{{ log.errors_count }}</span>
+                                {% else %}
+                                    <span class="text-success">0</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#logModal{{ log.id }}">
+                                    <i class="bi bi-eye"></i> Details
+                                </button>
+                            </td>
+                        </tr>
+
+                        <!-- Details Modal -->
+                        <div class="modal fade" id="logModal{{ log.id }}" tabindex="-1">
+                            <div class="modal-dialog modal-lg">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Recalculation Details</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="row mb-3">
+                                            <div class="col-md-6">
+                                                <strong>Run Type:</strong> {{ log.run_type }}
+                                            </div>
+                                            <div class="col-md-6">
+                                                <strong>Status:</strong> 
+                                                <span class="badge {% if log.status == 'completed' %}bg-success{% elif log.status == 'failed' %}bg-danger{% else %}bg-info{% endif %}">
+                                                    {{ log.status }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div class="row mb-3">
+                                            <div class="col-md-6">
+                                                <strong>Started:</strong> {{ log.started_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                                            </div>
+                                            <div class="col-md-6">
+                                                <strong>Completed:</strong> 
+                                                {% if log.completed_at %}
+                                                    {{ log.completed_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                                                {% else %}
+                                                    Still running...
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        <div class="row mb-3">
+                                            <div class="col-md-6">
+                                                <strong>Duration:</strong> 
+                                                {% if log.duration_seconds %}
+                                                    {{ '%.1f'|format(log.duration_seconds) }} seconds
+                                                {% else %}
+                                                    Calculating...
+                                                {% endif %}
+                                            </div>
+                                        </div>
+
+                                        <hr>
+
+                                        <h6>Statistics</h6>
+                                        <div class="row g-2">
+                                            <div class="col-md-3">
+                                                <div class="border rounded p-2 text-center">
+                                                    <div class="h4 mb-0">{{ log.analyses_processed or 0 }}</div>
+                                                    <small>Analyses Processed</small>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="border rounded p-2 text-center">
+                                                    <div class="h4 mb-0">{{ log.prices_updated or 0 }}</div>
+                                                    <small>Prices Updated</small>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="border rounded p-2 text-center">
+                                                    <div class="h4 mb-0">{{ log.calculations_updated or 0 }}</div>
+                                                    <small>Calculations Updated</small>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="border rounded p-2 text-center {% if log.errors_count and log.errors_count > 0 %}bg-danger-subtle{% endif %}">
+                                                    <div class="h4 mb-0">{{ log.errors_count or 0 }}</div>
+                                                    <small>Errors</small>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {% if log.error_message %}
+                                        <div class="alert alert-danger mt-3">
+                                            <strong>Error:</strong> {{ log.error_message }}
+                                        </div>
+                                        {% endif %}
+
+                                        {% if log.details %}
+                                        <div class="mt-3">
+                                            <h6>Additional Details</h6>
+                                            <pre class="bg-light p-3 rounded" style="max-height: 200px; overflow-y: auto;">{{ log.details|tojson(indent=2) }}</pre>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <tr>
+                            <td colspan="10" class="text-center text-muted py-5">
+                                <i class="bi bi-inbox fs-1"></i>
+                                <p class="mb-0 mt-2">No recalculation logs found</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if logs.pages > 1 %}
+    <nav aria-label="Log pagination" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if logs.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('admin.recalculation_logs', page=logs.prev_num) }}">Previous</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">Previous</span>
+            </li>
+            {% endif %}
+
+            {% for page_num in logs.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+                {% if page_num %}
+                    {% if page_num == logs.page %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_num }}</span>
+                    </li>
+                    {% else %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('admin.recalculation_logs', page=page_num) }}">{{ page_num }}</a>
+                    </li>
+                    {% endif %}
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if logs.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('admin.recalculation_logs', page=logs.next_num) }}">Next</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">Next</span>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

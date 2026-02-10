@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}My Analyses – Analyst Performance Tracker{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-file-text"></i> My Analyses</h1>
+    <a href="{{ url_for('analyst.dashboard') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Dashboard
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Date</th>
+                        <th>Company</th>
+                        <th>Sector</th>
+                        <th>Analysts</th>
+                        <th>Opponents</th>
+                        <th>Status</th>
+                        <th>Return</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for analysis in pagination.items %}
+                    <tr>
+                        <td>{{ analysis.analysis_date.strftime('%Y‑%m‑%d') }}</td>
+                        <td>
+                            <strong>{{ analysis.company.name }}</strong>
+                            {% if analysis.company.ticker_symbol %}
+                                <br><small class="text-muted">{{ analysis.company.ticker_symbol }}</small>
+                            {% endif %}
+                        </td>
+                        <td>{{ analysis.company.sector or '—' }}</td>
+                        <td>
+                            {% for user in analysis.analysts_list %}
+                                <span class="badge bg-primary">{{ user.full_name or user.email }}</span>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% for user in analysis.opponents_list %}
+                                <span class="badge bg-secondary">{{ user.full_name or user.email }}</span>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% if analysis.status == 'On Watchlist' %}
+                                <span class="badge bg-success">Watchlist</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ analysis.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% set pc = analysis.performance_calculations|sort(attribute='calculation_date', reverse=true)|first %}
+                            {% if pc %}
+                                <span class="fw-bold {% if pc.return_pct >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ pc.return_pct }}%
+                                </span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="#" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye"></i> View
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-3">No analyses found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% if pagination.pages > 1 %}
+    <div class="card-footer">
+        <nav aria-label="Analysis pagination">
+            <ul class="pagination justify-content-center mb-0">
+                {% if pagination.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('analyst.analyses', page=pagination.prev_num) }}">Previous</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">Previous</span></li>
+                {% endif %}
+
+                {% for page_num in pagination.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
+                    {% if page_num %}
+                        <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('analyst.analyses', page=page_num) }}">{{ page_num }}</a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if pagination.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('analyst.analyses', page=pagination.next_num) }}">Next</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">Next</span></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+
+<div class="alert alert-info mt-4">
+    <i class="bi bi-info-circle"></i>
+    This table lists all analyses where you are listed as an analyst or opponent. Only analyses with status “On Watchlist” are included in performance calculations.
+</div>
+{% endblock %}

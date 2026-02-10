@@ -1,0 +1,481 @@
+{% extends "base.html" %}
+
+{% block title %}Analyst Dashboard – KI Asset Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-1"><i class="bi bi-speedometer2"></i> {% if current_user.is_admin and not session.get('admin_view_as_user') %}Admin & Analyst{% else %}Analyst{% endif %} Dashboard</h1>
+            <p class="text-muted mb-0">Welcome back, {{ current_user.full_name or current_user.email.split('@')[0] }}</p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if current_user.is_admin and not session.get('admin_view_as_user') %}
+            <a href="{{ url_for('admin.users') }}" class="btn btn-outline-dark">
+                <i class="bi bi-shield-lock"></i> User Management
+            </a>
+            {% endif %}
+            <a href="https://meet.google.com/new" target="_blank" class="btn btn-outline-success">
+                <i class="bi bi-camera-video"></i> Start Meeting
+            </a>
+            <a href="{{ url_for('admin.analyst_details', analyst_id=current_user.id) }}" class="btn btn-outline-primary">
+                <i class="bi bi-bar-chart"></i> Detailed Performance
+            </a>
+        </div>
+    </div>
+
+    {% if current_user.is_admin and admin_stats and not session.get('admin_view_as_user') %}
+    <!-- Admin Section -->
+    <div class="card mb-4 border-dark">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0"><i class="bi bi-shield-lock"></i> Admin Overview</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-2 mb-3">
+                    <div class="text-center">
+                        <h3 class="text-primary">{{ admin_stats.total_users }}</h3>
+                        <small class="text-muted">Total Users</small>
+                    </div>
+                </div>
+                <div class="col-md-2 mb-3">
+                    <div class="text-center">
+                        <h3 class="text-success">{{ admin_stats.active_users }}</h3>
+                        <small class="text-muted">Active Users</small>
+                    </div>
+                </div>
+                <div class="col-md-2 mb-3">
+                    <div class="text-center">
+                        <h3 class="text-info">{{ admin_stats.total_analyses }}</h3>
+                        <small class="text-muted">Total Analyses</small>
+                    </div>
+                </div>
+                <div class="col-md-2 mb-3">
+                    <div class="text-center">
+                        <h3 class="text-warning">{{ admin_stats.approved_analyses }}</h3>
+                        <small class="text-muted">Approved</small>
+                    </div>
+                </div>
+                <div class="col-md-2 mb-3">
+                    <div class="text-center">
+                        <h3 class="text-secondary">{{ admin_stats.total_companies }}</h3>
+                        <small class="text-muted">Companies</small>
+                    </div>
+                </div>
+                <div class="col-md-2 mb-3">
+                    <div class="text-center">
+                        <h3 class="text-dark">{{ admin_stats.csv_uploads }}</h3>
+                        <small class="text-muted">CSV Uploads</small>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-3">
+                <a href="{{ url_for('admin.users') }}" class="btn btn-sm btn-outline-primary">Users</a>
+                <a href="{{ url_for('admin.upload_csv') }}" class="btn btn-sm btn-outline-primary">Upload CSV</a>
+                <a href="{{ url_for('admin.performance') }}" class="btn btn-sm btn-outline-primary">Performance</a>
+                <a href="{{ url_for('admin.board') }}" class="btn btn-sm btn-outline-primary">Board</a>
+                <a href="{{ url_for('presentation.index') }}" class="btn btn-sm btn-outline-success">
+                    <i class="bi bi-easel"></i> Presentations
+                </a>
+                <a href="{{ url_for('admin.debug_performance') }}" class="btn btn-sm btn-outline-warning">Debug Data</a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Quick Stats Row -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card bg-primary text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="card-title mb-1"><i class="bi bi-file-text"></i> Total Analyses</h6>
+                            <p class="display-5 mb-0">{{ total_analyses }}</p>
+                        </div>
+                        <div class="bg-white bg-opacity-25 rounded p-2">
+                            <i class="bi bi-file-text fs-4"></i>
+                        </div>
+                    </div>
+                    <p class="card-text mt-2 mb-0 small">All analyses you are involved in</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card bg-success text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="card-title mb-1"><i class="bi bi-check-circle"></i> Approved</h6>
+                            <p class="display-5 mb-0">{{ approved_analyses }}</p>
+                        </div>
+                        <div class="bg-white bg-opacity-25 rounded p-2">
+                            <i class="bi bi-check-circle fs-4"></i>
+                        </div>
+                    </div>
+                    <p class="card-text mt-2 mb-0 small">Analyses on watchlist</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card bg-info text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="card-title mb-1"><i class="bi bi-graph-up"></i> Avg Return</h6>
+                            <p class="display-5 mb-0">
+                                {% if performance.avg_return is not none %}
+                                    {{ "%.1f"|format(performance.avg_return) }}%
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="bg-white bg-opacity-25 rounded p-2">
+                            <i class="bi bi-graph-up fs-4"></i>
+                        </div>
+                    </div>
+                    <p class="card-text mt-2 mb-0 small">Across approved analyses</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card bg-warning text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="card-title mb-1"><i class="bi bi-trophy"></i> Win Rate</h6>
+                            <p class="display-5 mb-0">
+                                {% if performance.win_rate is not none %}
+                                    {{ "%.0f"|format(performance.win_rate) }}%
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="bg-white bg-opacity-25 rounded p-2">
+                            <i class="bi bi-trophy fs-4"></i>
+                        </div>
+                    </div>
+                    <p class="card-text mt-2 mb-0 small">Positive return ratio</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Left Column -->
+        <div class="col-lg-8">
+            <!-- Performance Comparison -->
+            <div class="comparison-card mb-4">
+                <div class="comparison-header">
+                    <i class="bi bi-people"></i>
+                    <h5 class="comparison-title">How You Compare</h5>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="comparison-item">
+                            <div>
+                                <div class="comparison-label">Your Average Return</div>
+                                <div class="comparison-bar">
+                                    <div class="comparison-bar-fill {% if (performance.avg_return or 0) > 0 %}positive{% elif (performance.avg_return or 0) < 0 %}negative{% else %}neutral{% endif %}" 
+                                         style="width: {{ min(abs(performance.avg_return or 0), 100) }}%"></div>
+                                </div>
+                            </div>
+                            <span class="comparison-value {% if (performance.avg_return or 0) > 0 %}positive{% elif (performance.avg_return or 0) < 0 %}negative{% else %}neutral{% endif %}">
+                                {{ "%.1f"|format(performance.avg_return or 0) }}%
+                            </span>
+                        </div>
+                        <div class="comparison-item">
+                            <div>
+                                <div class="comparison-label">Team Average</div>
+                                <div class="comparison-bar">
+                                    <div class="comparison-bar-fill {% if (team_avg_return or 0) > 0 %}positive{% elif (team_avg_return or 0) < 0 %}negative{% else %}neutral{% endif %}" 
+                                         style="width: {{ min(abs(team_avg_return or 0), 100) }}%"></div>
+                                </div>
+                            </div>
+                            <span class="comparison-value {% if (team_avg_return or 0) > 0 %}positive{% elif (team_avg_return or 0) < 0 %}negative{% else %}neutral{% endif %}">
+                                {{ "%.1f"|format(team_avg_return or 0) }}%
+                            </span>
+                        </div>
+                        <div class="comparison-item">
+                            <div>
+                                <div class="comparison-label">Best Analyst</div>
+                                <div class="comparison-bar">
+                                    <div class="comparison-bar-fill positive" 
+                                         style="width: {{ min(abs(best_analyst_return or 0), 100) }}%"></div>
+                                </div>
+                            </div>
+                            <span class="comparison-value positive">
+                                {{ "%.1f"|format(best_analyst_return or 0) }}%
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="comparison-item">
+                            <div>
+                                <div class="comparison-label">vs S&P 500 (SPY)</div>
+                                <div class="comparison-bar">
+                                    <div class="comparison-bar-fill {% if (benchmark_comparison.spy_diff or 0) > 0 %}positive{% elif (benchmark_comparison.spy_diff or 0) < 0 %}negative{% else %}neutral{% endif %}" 
+                                         style="width: {{ min(abs(benchmark_comparison.spy_diff or 0) * 2, 100) }}%"></div>
+                                </div>
+                            </div>
+                            <span class="comparison-value {% if (benchmark_comparison.spy_diff or 0) > 0 %}positive{% elif (benchmark_comparison.spy_diff or 0) < 0 %}negative{% else %}neutral{% endif %}">
+                                {{ "+%.1f"|format(benchmark_comparison.spy_diff or 0) if (benchmark_comparison.spy_diff or 0) > 0 else "%.1f"|format(benchmark_comparison.spy_diff or 0) }}%
+                            </span>
+                        </div>
+                        <div class="comparison-item">
+                            <div>
+                                <div class="comparison-label">vs FTSE All-World (VT)</div>
+                                <div class="comparison-bar">
+                                    <div class="comparison-bar-fill {% if (benchmark_comparison.vt_diff or 0) > 0 %}positive{% elif (benchmark_comparison.vt_diff or 0) < 0 %}negative{% else %}neutral{% endif %}" 
+                                         style="width: {{ min(abs(benchmark_comparison.vt_diff or 0) * 2, 100) }}%"></div>
+                                </div>
+                            </div>
+                            <span class="comparison-value {% if (benchmark_comparison.vt_diff or 0) > 0 %}positive{% elif (benchmark_comparison.vt_diff or 0) < 0 %}negative{% else %}neutral{% endif %}">
+                                {{ "+%.1f"|format(benchmark_comparison.vt_diff or 0) if (benchmark_comparison.vt_diff or 0) > 0 else "%.1f"|format(benchmark_comparison.vt_diff or 0) }}%
+                            </span>
+                        </div>
+                        <div class="comparison-item">
+                            <div>
+                                <div class="comparison-label">Your Rank</div>
+                            </div>
+                            <span class="comparison-value">
+                                #{{ analyst_rank }} of {{ total_analysts }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stock Impact Analysis -->
+            {% if stock_impacts %}
+            <div class="stock-impact-card mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Stock Impact on Your Portfolio</h5>
+                    <small class="text-muted">Click a stock to isolate impact</small>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Stock</th>
+                                <th class="text-end">Return</th>
+                                <th class="text-end">Weight</th>
+                                <th class="text-end">Contribution</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for stock in stock_impacts %}
+                            <tr class="stock-row" data-ticker="{{ stock.ticker }}" style="cursor: pointer;">
+                                <td>
+                                    <strong>{{ stock.name }}</strong>
+                                    <span class="text-muted">({{ stock.ticker }})</span>
+                                </td>
+                                <td class="text-end">
+                                    <span class="{% if stock.return_pct > 0 %}text-success{% elif stock.return_pct < 0 %}text-danger{% endif %}">
+                                        {{ "%.1f"|format(stock.return_pct) }}%
+                                    </span>
+                                </td>
+                                <td class="text-end">{{ "%.1f"|format(stock.weight * 100) }}%</td>
+                                <td class="text-end">
+                                    <span class="fw-bold {% if stock.contribution > 0 %}text-success{% elif stock.contribution < 0 %}text-danger{% endif %}">
+                                        {{ "+%.2f"|format(stock.contribution) if stock.contribution > 0 else "%.2f"|format(stock.contribution) }}%
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="alert alert-light border mt-3 mb-0">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle"></i> 
+                        <strong>Understanding impact:</strong> Weight = portion of your approved analyses. 
+                        Contribution = how much this stock added/subtracted from your total return.
+                    </small>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Recent Analyses -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-clock-history"></i> Recent Analyses</h5>
+                    <a href="{{ url_for('analyst.analyses') }}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Company</th>
+                                    <th>Status</th>
+                                    <th>Return</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for analysis in recent_analyses %}
+                                <tr>
+                                    <td>{{ analysis.analysis_date.strftime('%Y‑%m‑%d') }}</td>
+                                    <td>
+                                        <strong>{{ analysis.company.name }}</strong>
+                                        {% if analysis.company.ticker_symbol %}
+                                            <br><small class="text-muted">{{ analysis.company.ticker_symbol }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if analysis.status == 'On Watchlist' %}
+                                            <span class="badge bg-success">Watchlist</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ analysis.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% set pc = analysis.performance_calculations|sort(attribute='calculation_date', reverse=true)|first %}
+                                        {% if pc %}
+                                            <span class="fw-bold {% if pc.return_pct >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                                {{ pc.return_pct }}%
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="#" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-4">No analyses found.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="col-lg-4">
+            <!-- AI Insights -->
+            {% if ai_insights %}
+            <div class="ai-insights-card mb-4">
+                <div class="ai-insights-title">
+                    <i class="bi bi-stars"></i> AI Performance Insights
+                </div>
+                {% for insight in ai_insights %}
+                <div class="ai-insight-item">
+                    <div class="ai-insight-type">{{ insight.type }}</div>
+                    <p class="ai-insight-text">{{ insight.text }}</p>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Profile Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-person-circle"></i> Profile</h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <div class="d-inline-flex align-items-center justify-content-center bg-primary text-white rounded-circle mb-2" 
+                             style="width: 80px; height: 80px; font-size: 2rem;">
+                            {{ (current_user.full_name or current_user.email)[0]|upper }}
+                        </div>
+                        <h5 class="mb-0">{{ current_user.full_name or current_user.email.split('@')[0] }}</h5>
+                        <small class="text-muted">{{ current_user.email }}</small>
+                    </div>
+                    <hr>
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="h4 mb-0">{{ performance.num_analyses }}</div>
+                            <small class="text-muted">Analyses</small>
+                        </div>
+                        <div class="col-6">
+                            <div class="h4 mb-0">{{ "%.1f"|format(performance.median_return or 0) }}%</div>
+                            <small class="text-muted">Median Return</small>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <span>Best:</span>
+                        <span class="text-success fw-bold">{{ "%.1f"|format(performance.best_return or 0) }}%</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Worst:</span>
+                        <span class="text-danger fw-bold">{{ "%.1f"|format(performance.worst_return or 0) }}%</span>
+                    </div>
+                    <div class="d-flex justify-content-between mt-2">
+                        <span>Member since:</span>
+                        <span>{{ current_user.created_at.strftime('%b %Y') }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Links -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-link-45deg"></i> Quick Links</h5>
+                </div>
+                <div class="card-body">
+                    <div class="quick-links-grid">
+                        <a href="https://www.notion.so/klubinvestoru/Asset-Management-11a8c7709a728099bda4c7bb296dea92" 
+                           target="_blank" class="quick-link-card notion">
+                            <div class="quick-link-icon"><i class="bi bi-journal-text"></i></div>
+                            <div>
+                                <div class="quick-link-text">KI AM Notion</div>
+                                <div class="quick-link-subtext">Wiki & Docs</div>
+                            </div>
+                        </a>
+                        <a href="https://app.slack.com/client/T019TTXV71D/C01AYFNJB08" 
+                           target="_blank" class="quick-link-card slack">
+                            <div class="quick-link-icon"><i class="bi bi-slack"></i></div>
+                            <div>
+                                <div class="quick-link-text">Slack</div>
+                                <div class="quick-link-subtext">Team Chat</div>
+                            </div>
+                        </a>
+                        <a href="https://www.facebook.com/messages/t/8451226848295959" 
+                           target="_blank" class="quick-link-card messenger">
+                            <div class="quick-link-icon"><i class="bi bi-messenger"></i></div>
+                            <div>
+                                <div class="quick-link-text">Messenger</div>
+                                <div class="quick-link-subtext">KI AM Chat</div>
+                            </div>
+                        </a>
+                        <a href="https://meet.google.com/new" 
+                           target="_blank" class="quick-link-card meet">
+                            <div class="quick-link-icon"><i class="bi bi-camera-video"></i></div>
+                            <div>
+                                <div class="quick-link-text">Google Meet</div>
+                                <div class="quick-link-subtext">Start Meeting</div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Stock row click handler for impact isolation
+document.querySelectorAll('.stock-row').forEach(row => {
+    row.addEventListener('click', function() {
+        const ticker = this.dataset.ticker;
+        // Could open a modal with detailed impact analysis
+        console.log('Clicked on stock:', ticker);
+    });
+});
+</script>
+{% endblock %}

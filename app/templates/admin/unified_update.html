@@ -1,0 +1,626 @@
+{% extends "base.html" %}
+
+{% block title %}Unified Update – KI Asset Management{% endblock %}
+
+{% block extra_css %}
+<style>
+.step-card {
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    height: 100%;
+}
+
+.step-number {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.action-btn {
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+.log-entry {
+    font-family: monospace;
+    font-size: 0.85rem;
+}
+
+.log-entry .timestamp {
+    color: var(--gray-500);
+}
+
+.log-entry.status-running .badge {
+    background-color: var(--info) !important;
+}
+
+.log-entry.status-completed .badge {
+    background-color: var(--success) !important;
+}
+
+.log-entry.status-failed .badge {
+    background-color: var(--danger) !important;
+}
+
+.setting-row {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.setting-row:last-child {
+    border-bottom: none;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1><i class="bi bi-arrow-repeat"></i> Unified Update</h1>
+            <p class="text-muted mb-0">Import data, resolve tickers, recalculate performance, and debug</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('admin.recalculation_logs') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-journal-text"></i> View Logs
+            </a>
+        </div>
+    </div>
+
+    <!-- Step Progress -->
+    <div class="alert alert-info mb-4">
+        <div class="d-flex align-items-center">
+            <i class="bi bi-info-circle-fill me-2 fs-5"></i>
+            <div>
+                <strong>Update Workflow:</strong>
+                <ol class="mb-0 mt-1 d-inline">
+                    <li>Upload CSV (from Notion or file)</li>
+                    <li>Resolve missing tickers</li>
+                    <li>Full recalculation</li>
+                    <li>Debug & verify</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Steps -->
+    <div class="row g-4 mb-4">
+        <!-- Step 1: CSV Import -->
+        <div class="col-lg-3">
+            <div class="step-card">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="step-number">1</div>
+                    <h5 class="mb-0 ms-2">CSV Import</h5>
+                </div>
+                
+                <div class="mb-3">
+                    <small class="text-muted">Upload analysis schedule from Notion export or CSV file.</small>
+                </div>
+
+                <!-- Notion Integration -->
+                <div class="card mb-3">
+                    <div class="card-header bg-light py-2">
+                        <small class="fw-bold"><i class="bi bi-database"></i> Notion Import</small>
+                    </div>
+                    <div class="card-body py-2">
+                        {% if notion_configured %}
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-check-circle text-success me-2"></i>
+                                <small class="text-success">Notion configured</small>
+                            </div>
+                            <form method="POST" action="{{ url_for('admin.download_notion_csv') }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-primary btn-sm w-100" onclick="return confirm('Download latest data from Notion? This will import all records.')">
+                                    <i class="bi bi-cloud-download"></i> Download from Notion
+                                </button>
+                            </form>
+                        {% else %}
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-exclamation-circle text-warning me-2"></i>
+                                <small class="text-warning">Notion not configured</small>
+                            </div>
+                            <small class="text-muted d-block mb-2">Set NOTION_API_KEY and NOTION_DATABASE_ID in .env</small>
+                        {% endif %}
+                        <small class="text-muted d-block mt-2">
+                            <a href="https://www.notion.so/klubinvestoru/11f8c7709a728027ac0deb4211d87f1c?v=14b8c7709a72808893fe000c385c209f" target="_blank">View Notion Database</a>
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Manual Upload -->
+                <form method="GET" action="{{ url_for('admin.upload_csv') }}">
+                    <button type="submit" class="btn btn-outline-primary action-btn">
+                        <i class="bi bi-upload"></i> Manual CSV Upload
+                    </button>
+                </form>
+
+                <!-- Recent Uploads -->
+                {% if recent_uploads %}
+                <div class="mt-3">
+                    <small class="text-muted fw-bold">Recent Uploads:</small>
+                    <ul class="list-group list-group-flush mt-1" style="font-size: 0.85rem;">
+                        {% for upload in recent_uploads[:3] %}
+                        <li class="list-group-item px-0 py-1 d-flex justify-content-between">
+                            <span class="text-truncate" style="max-width: 150px;">{{ upload.filename }}</span>
+                            <span class="text-muted">{{ upload.uploaded_at.strftime('%m-%d %H:%M') }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Step 2: Ticker Resolution -->
+        <div class="col-lg-3">
+            <div class="step-card">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="step-number">2</div>
+                    <h5 class="mb-0 ms-2">Resolve Tickers</h5>
+                </div>
+                
+                <div class="mb-3">
+                    <small class="text-muted">Automatically resolve missing tickers for companies without symbols.</small>
+                </div>
+
+                <!-- Stats -->
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <div class="border rounded p-2 text-center">
+                            <div class="h5 mb-0">{{ missing_tickers }}</div>
+                            <small class="text-muted">Missing Tickers</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="border rounded p-2 text-center">
+                            <div class="h5 mb-0">{{ total_analyses }}</div>
+                            <small class="text-muted">Total Analyses</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Resolve Button -->
+                <form method="POST" action="{{ url_for('admin.resolve_missing_tickers') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-outline-warning action-btn" onclick="return confirm('Resolve all missing tickers using AI? This may take a few minutes.')">
+                        <i class="bi bi-magic"></i> Resolve Missing Tickers
+                    </button>
+                </form>
+
+                <!-- Quick Links -->
+                <div class="mt-3">
+                    <a href="{{ url_for('admin.company_tickers') }}" class="btn btn-link btn-sm p-0">
+                        <i class="bi bi-arrow-right"></i> Manage Ticker Mappings
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Full Recalculation -->
+        <div class="col-lg-3">
+            <div class="step-card">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="step-number">3</div>
+                    <h5 class="mb-0 ms-2">Full Recalculation</h5>
+                </div>
+                
+                <div class="mb-3">
+                    <small class="text-muted">Recalculate all prices, performance metrics, benchmarks, and refresh caches.</small>
+                </div>
+
+                <!-- What Gets Updated -->
+                <div class="card mb-3">
+                    <div class="card-body py-2 px-3">
+                        <ul class="mb-0 ps-3" style="font-size: 0.85rem;">
+                            <li>Stock prices (Yahoo Finance)</li>
+                            <li>Benchmark prices (SPY, VT, EEMS)</li>
+                            <li>Performance calculations</li>
+                            <li>Overview cache</li>
+                            <li>Board portfolio cache</li>
+                            <li>Public page caches</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Recalculate Button -->
+                <button type="button" class="btn btn-success action-btn" id="fullRecalcForm" onclick="showRecalcModal()">
+                    <i class="bi bi-arrow-repeat"></i> Full Recalculation
+                </button>
+
+                <script>
+                function showRecalcModal() {
+                    const modalEl = document.getElementById('recalcModal');
+                    const modal = new bootstrap.Modal(modalEl);
+                    modal.show();
+                }
+                </script>
+            </div>
+        </div>
+
+        <!-- Step 4: Debug -->
+        <div class="col-lg-3">
+            <div class="step-card">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="step-number">4</div>
+                    <h5 class="mb-0 ms-2">Debug & Verify</h5>
+                </div>
+                
+                <div class="mb-3">
+                    <small class="text-muted">Check data integrity and troubleshoot performance calculations.</small>
+                </div>
+
+                <!-- Debug Buttons -->
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('admin.debug_performance') }}" class="btn btn-outline-info">
+                        <i class="bi bi-bug"></i> Debug Performance
+                    </a>
+                    <a href="{{ url_for('admin.performance') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-bar-chart"></i> View Performance
+                    </a>
+                    <a href="{{ url_for('admin.board') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-clipboard-check"></i> View Board
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Automated Settings -->
+    <div class="card mb-4">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-clock"></i> Automated Recalculation Settings</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('admin.unified_update_settings') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                
+                <div class="row">
+                    <!-- Enable Toggle -->
+                    <div class="col-md-4">
+                        <div class="setting-row">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="autoRecalcEnabled" 
+                                       name="auto_recalc_enabled" {% if auto_recalc_enabled %}checked{% endif %}>
+                                <label class="form-check-label fw-bold" for="autoRecalcEnabled">
+                                    Enable Automated Recalculation
+                                </label>
+                            </div>
+                            <small class="text-muted">Automatically run full recalculation on schedule</small>
+                        </div>
+                    </div>
+
+                    <!-- Schedule -->
+                    <div class="col-md-4">
+                        <div class="setting-row">
+                            <label class="fw-bold">Schedule</label>
+                            <div class="d-flex gap-2 align-items-center">
+                                <select class="form-select form-select-sm" name="auto_recalc_day" style="width: auto;">
+                                    <option value="mon" {% if auto_recalc_day == 'mon' %}selected{% endif %}>Monday</option>
+                                    <option value="tue" {% if auto_recalc_day == 'tue' %}selected{% endif %}>Tuesday</option>
+                                    <option value="wed" {% if auto_recalc_day == 'wed' %}selected{% endif %}>Wednesday</option>
+                                    <option value="thu" {% if auto_recalc_day == 'thu' %}selected{% endif %}>Thursday</option>
+                                    <option value="fri" {% if auto_recalc_day == 'fri' %}selected{% endif %}>Friday</option>
+                                    <option value="sat" {% if auto_recalc_day == 'sat' %}selected{% endif %}>Saturday</option>
+                                    <option value="sun" {% if auto_recalc_day == 'sun' %}selected{% endif %}>Sunday</option>
+                                </select>
+                                <span>at</span>
+                                <input type="number" class="form-control form-control-sm" name="auto_recalc_hour" 
+                                       value="{{ auto_recalc_hour }}" min="0" max="23" style="width: 70px;" placeholder="HH">
+                                <span>:</span>
+                                <input type="number" class="form-control form-control-sm" name="auto_recalc_minute" 
+                                       value="{{ auto_recalc_minute }}" min="0" max="59" style="width: 70px;" placeholder="MM">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Save Button -->
+                    <div class="col-md-4">
+                        <div class="setting-row d-flex align-items-center">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save"></i> Save Settings
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Recent Logs -->
+    <div class="card">
+        <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-journal-text"></i> Recent Recalculation Logs</h5>
+            <a href="{{ url_for('admin.recalculation_logs') }}" class="btn btn-sm btn-outline-light">
+                View All
+            </a>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Run Type</th>
+                            <th>Started</th>
+                            <th>Duration</th>
+                            <th>Status</th>
+                            <th>Analyses</th>
+                            <th>Prices</th>
+                            <th>Errors</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in recent_logs %}
+                        <tr class="log-entry status-{{ log.status }}">
+                            <td>
+                                {% if log.run_type == 'manual' %}
+                                    <i class="bi bi-person"></i> Manual
+                                {% elif log.run_type == 'scheduled' %}
+                                    <i class="bi bi-clock"></i> Scheduled
+                                {% else %}
+                                    <i class="bi bi-gear"></i> {{ log.run_type }}
+                                {% endif %}
+                            </td>
+                            <td class="timestamp">{{ log.started_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            <td>{{ '%.1f'|format(log.duration_seconds) if log.duration_seconds else '-' }}s</td>
+                            <td>
+                                <span class="badge {% if log.status == 'completed' %}bg-success{% elif log.status == 'failed' %}bg-danger{% else %}bg-info{% endif %}">
+                                    {{ log.status }}
+                                </span>
+                            </td>
+                            <td>{{ log.analyses_processed or '-' }}</td>
+                            <td>{{ log.prices_updated or '-' }}</td>
+                            <td>
+                                {% if log.errors_count and log.errors_count > 0 %}
+                                    <span class="text-danger">{{ log.errors_count }}</span>
+                                {% else %}
+                                    0
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">
+                                <i class="bi bi-inbox fs-1"></i>
+                                <p class="mb-0 mt-2">No recalculation logs yet</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recalculation Progress Modal -->
+<div class="modal fade" id="recalcModal" tabindex="-1" aria-labelledby="recalcModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title" id="recalcModalLabel">
+                    <i class="bi bi-arrow-clockwise"></i> Full Recalculation Progress
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <div class="progress" style="height: 25px;">
+                        <div id="recalcProgressBar" class="progress-bar progress-bar-striped progress-bar-animated"
+                             role="progressbar" style="width: 0%">0%</div>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <span id="recalcStatus" class="badge bg-primary">Initializing...</span>
+                    <span id="recalcCurrent" class="text-muted ms-2"></span>
+                </div>
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <i class="bi bi-terminal"></i> Console Log
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="recalcConsole" class="bg-dark text-light p-3"
+                             style="height: 300px; overflow-y: auto; font-family: monospace; font-size: 0.85rem;">
+                            <div class="text-muted">Waiting to start...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" id="startRecalcBtn" class="btn btn-success">
+                    <i class="bi bi-play-fill"></i> Start Full Recalculation
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const recalcForm = document.getElementById('fullRecalcForm');
+    const startRecalcBtn = document.getElementById('startRecalcBtn');
+    const progressBar = document.getElementById('recalcProgressBar');
+    const statusBadge = document.getElementById('recalcStatus');
+    const currentText = document.getElementById('recalcCurrent');
+    const consoleDiv = document.getElementById('recalcConsole');
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function addLogMessage(message) {
+        const timestamp = new Date().toLocaleTimeString();
+        const logEntry = document.createElement('div');
+        logEntry.innerHTML = '<span class="text-muted">[' + timestamp + ']</span> ' + escapeHtml(message);
+        consoleDiv.appendChild(logEntry);
+        consoleDiv.scrollTop = consoleDiv.scrollHeight;
+    }
+
+    function connectToProgressStream() {
+        const eventSource = new EventSource('{{ url_for("admin.recalculate_progress") }}');
+        let reconnectAttempts = 0;
+        const maxReconnects = 3;
+
+        eventSource.onopen = function() {
+            console.log('SSE connection opened');
+            addLogMessage('Connected to progress stream');
+            reconnectAttempts = 0;
+        };
+
+        eventSource.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                console.log('Progress update:', data);
+
+                progressBar.style.width = data.progress_pct + '%';
+                progressBar.textContent = data.progress_pct + '%';
+
+                const statusText = (data.status || 'unknown').replace(/_/g, ' ').toUpperCase();
+                statusBadge.textContent = statusText;
+
+                if (data.status === 'completed') {
+                    statusBadge.className = 'badge bg-success';
+                } else if (data.status === 'error') {
+                    statusBadge.className = 'badge bg-danger';
+                } else if (data.status === 'fetching_prices') {
+                    statusBadge.className = 'badge bg-info';
+                } else if (data.status === 'calculating') {
+                    statusBadge.className = 'badge bg-primary';
+                } else {
+                    statusBadge.className = 'badge bg-secondary';
+                }
+
+                if (data.current) {
+                    currentText.textContent = 'Processing: ' + data.current;
+                } else {
+                    currentText.textContent = '';
+                }
+
+                if (data.logs && data.logs.length > 0) {
+                    consoleDiv.innerHTML = data.logs.map(log =>
+                        '<div>' + escapeHtml(log) + '</div>'
+                    ).join('');
+                    consoleDiv.scrollTop = consoleDiv.scrollHeight;
+                }
+
+                if (data.status === 'fetching_prices') {
+                    startRecalcBtn.innerHTML = '<i class="bi bi-cloud-download"></i> Fetching prices...';
+                } else if (data.status === 'calculating') {
+                    startRecalcBtn.innerHTML = '<i class="bi bi-calculator"></i> Calculating...';
+                }
+
+                if (data.status === 'completed') {
+                    eventSource.close();
+                    statusBadge.className = 'badge bg-success';
+                    statusBadge.textContent = 'COMPLETED';
+                    startRecalcBtn.innerHTML = '<i class="bi bi-check-circle"></i> Done';
+                    addLogMessage('Recalculation completed successfully!');
+
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 3000);
+                } else if (data.status === 'error') {
+                    eventSource.close();
+                    statusBadge.className = 'badge bg-danger';
+                    statusBadge.textContent = 'ERROR';
+                    startRecalcBtn.disabled = false;
+                    startRecalcBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Retry';
+                    addLogMessage('Recalculation failed. Check logs above.');
+                }
+            } catch (e) {
+                console.error('Error parsing SSE data:', e);
+                addLogMessage('Error parsing progress update');
+            }
+        };
+
+        eventSource.onerror = function(error) {
+            console.error('SSE connection error:', error);
+            addLogMessage('Connection error - attempting to reconnect...');
+
+            eventSource.close();
+
+            reconnectAttempts++;
+            if (reconnectAttempts < maxReconnects) {
+                setTimeout(function() {
+                    addLogMessage('Reconnecting (attempt ' + reconnectAttempts + '/' + maxReconnects + ')...');
+                    connectToProgressStream();
+                }, 2000);
+            } else {
+                statusBadge.className = 'badge bg-warning';
+                statusBadge.textContent = 'CONNECTION LOST';
+                startRecalcBtn.disabled = false;
+                startRecalcBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Retry';
+                addLogMessage('Connection lost. Please try again.');
+            }
+        };
+    }
+
+    function startRecalculation() {
+        const csrfToken = '{{ csrf_token() }}';
+
+        startRecalcBtn.disabled = true;
+        startRecalcBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Starting...';
+
+        consoleDiv.innerHTML = '<div class="text-info">[System] Initializing recalculation...</div>';
+        addLogMessage('Sending request to start recalculation...');
+
+        fetch('{{ url_for("admin.full_recalculation") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        }).then(function(response) {
+            return response.text().then(function(text) {
+                try {
+                    const data = JSON.parse(text);
+                    if (!response.ok) {
+                        throw new Error(data.error || 'HTTP ' + response.status);
+                    }
+                    return data;
+                } catch (e) {
+                    if (!response.ok) {
+                        throw new Error('Server error ' + response.status + ': ' + text.substring(0, 100));
+                    }
+                    throw e;
+                }
+            });
+        }).then(function(data) {
+            console.log('Recalculation started:', data);
+            addLogMessage('Recalculation started: ' + (data.message || 'OK'));
+            connectToProgressStream();
+        }).catch(function(error) {
+            console.error('Error starting recalculation:', error);
+            addLogMessage('ERROR: ' + error.message);
+            statusBadge.className = 'badge bg-danger';
+            statusBadge.textContent = 'FAILED TO START';
+            startRecalcBtn.disabled = false;
+            startRecalcBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Retry';
+        });
+    }
+
+    if (startRecalcBtn) {
+        startRecalcBtn.addEventListener('click', function() {
+            if (confirm('Start full recalculation? This may take 5-10 minutes.')) {
+                startRecalculation();
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

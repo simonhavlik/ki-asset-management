@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Privacy Policy – Analyst Performance Tracker{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <h1 class="display-4 fw-bold mb-4">Privacy Policy</h1>
+    
+    <div class="row">
+        <div class="col-lg-8">
+            <p class="lead">
+                This Privacy Policy explains how the Analyst Performance Tracker collects, uses, and protects
+                your personal information.
+            </p>
+            
+            <h3 class="mt-5">1. Information We Collect</h3>
+            <p>
+                We collect the following information when you use the platform:
+            </p>
+            <ul>
+                <li><strong>Email address</strong> – used for authentication and notifications. Must end with <code>@klubinvestoru.com</code>.</li>
+                <li><strong>Full name</strong> (optional) – for display purposes within the platform.</li>
+                <li><strong>Activity logs</strong> – records of your interactions (logins, uploads, etc.) for security and auditing.</li>
+                <li><strong>Analysis data</strong> – information about investment analyses you are associated with, as provided in uploaded CSV files.</li>
+            </ul>
+            
+            <h3 class="mt-5">2. How We Use Your Information</h3>
+            <p>
+                Your information is used solely for the operation of the Analyst Performance Tracker:
+            </p>
+            <ul>
+                <li>To authenticate your access to the platform.</li>
+                <li>To send you password‑setup and password‑reset emails.</li>
+                <li>To calculate and display your personal performance metrics.</li>
+                <li>To enable administrators to manage users and uploads.</li>
+                <li>To maintain security and detect unauthorized access.</li>
+            </ul>
+            
+            <h3 class="mt-5">3. Data Storage and Security</h3>
+            <p>
+                All data is stored in a secure SQLite database located on the application server. Access to the database
+                is restricted to the application itself and authorized administrators. Passwords are hashed using
+                industry‑standard bcrypt hashing; we never store plain‑text passwords.
+            </p>
+            
+            <h3 class="mt-5">4. Data Sharing</h3>
+            <p>
+                We do not share your personal information with any third parties, except as required by law.
+                Aggregated, anonymized performance statistics may be shared within the Prague Club of Investors
+                for internal evaluation purposes.
+            </p>
+            
+            <h3 class="mt-5">5. Your Rights</h3>
+            <p>
+                You have the right to:
+            </p>
+            <ul>
+                <li>Access the personal data we hold about you.</li>
+                <li>Request correction of inaccurate data.</li>
+                <li>Request deletion of your account and associated data (subject to legitimate business needs).</li>
+            </ul>
+            <p>
+                To exercise these rights, please contact the platform administrators.
+            </p>
+            
+            <h3 class="mt-5">6. Changes to This Policy</h3>
+            <p>
+                We may update this Privacy Policy from time to time. The latest version will always be posted on this page.
+            </p>
+            
+            <div class="mt-5">
+                <a href="{{ url_for('main.index') }}" class="btn btn-outline-primary">
+                    <i class="bi bi-arrow-left"></i> Back to Home
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

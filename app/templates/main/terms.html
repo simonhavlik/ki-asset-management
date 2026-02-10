@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Terms of Service – Analyst Performance Tracker{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <h1 class="display-4 fw-bold mb-4">Terms of Service</h1>
+    
+    <div class="row">
+        <div class="col-lg-8">
+            <p class="lead">
+                Please read these Terms of Service (“Terms”) carefully before using the Analyst Performance Tracker
+                platform operated by the Prague Club of Investors.
+            </p>
+            
+            <h3 class="mt-5">1. Acceptance of Terms</h3>
+            <p>
+                By accessing or using the platform, you agree to be bound by these Terms. If you disagree with any part
+                of the Terms, you may not use the platform.
+            </p>
+            
+            <h3 class="mt-5">2. Eligibility</h3>
+            <p>
+                The platform is exclusively available to members of the Prague Club of Investors who possess an email
+                address ending with <code>@klubinvestoru.com</code>. By registering, you represent that you meet this
+                eligibility requirement.
+            </p>
+            
+            <h3 class="mt-5">3. User Accounts</h3>
+            <p>
+                You are responsible for maintaining the confidentiality of your account credentials and for all
+                activities that occur under your account. You must notify administrators immediately of any unauthorized
+                use of your account.
+            </p>
+            
+            <h3 class="mt-5">4. Acceptable Use</h3>
+            <p>
+                You agree not to use the platform:
+            </p>
+            <ul>
+                <li>For any unlawful purpose or in violation of any applicable laws.</li>
+                <li>To upload malicious code, viruses, or any other harmful content.</li>
+                <li>To attempt to gain unauthorized access to other users’ accounts or to the platform’s infrastructure.</li>
+                <li>To upload content that infringes on intellectual property rights or contains confidential information of third parties.</li>
+            </ul>
+            
+            <h3 class="mt-5">5. Data Ownership</h3>
+            <p>
+                The data you upload (CSV files, analysis information) remains your property. By uploading, you grant
+                the platform a limited license to process, store, and display that data for the purpose of providing
+                the service.
+            </p>
+            
+            <h3 class="mt-5">6. Disclaimer of Warranties</h3>
+            <p>
+                The platform is provided “as is” without warranties of any kind, express or implied. We do not guarantee
+                the accuracy, completeness, or reliability of stock prices, performance calculations, or any other
+                information provided by the platform.
+            </p>
+            
+            <h3 class="mt-5">7. Limitation of Liability</h3>
+            <p>
+                To the fullest extent permitted by law, the Prague Club of Investors and its administrators shall not
+                be liable for any indirect, incidental, special, consequential, or punitive damages resulting from your
+                use of or inability to use the platform.
+            </p>
+            
+            <h3 class="mt-5">8. Termination</h3>
+            <p>
+                We reserve the right to suspend or terminate your access to the platform at any time, with or without
+                cause, and with or without notice.
+            </p>
+            
+            <h3 class="mt-5">9. Changes to Terms</h3>
+            <p>
+                We may revise these Terms at any time. The updated version will be posted on this page. Your continued
+                use of the platform after any changes constitutes acceptance of the new Terms.
+            </p>
+            
+            <h3 class="mt-5">10. Governing Law</h3>
+            <p>
+                These Terms shall be governed by and construed in accordance with the laws of the Czech Republic.
+            </p>
+            
+            <div class="mt-5">
+                <a href="{{ url_for('main.index') }}" class="btn btn-outline-primary">
+                    <i class="bi bi-arrow-left"></i> Back to Home
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

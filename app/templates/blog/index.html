@@ -1,0 +1,251 @@
+{% extends "blog/base_blog.html" %}
+
+{% block title %}{{ seo_title }}{% endblock %}
+
+{% block extra_head %}
+<meta name="description" content="{{ seo_description }}">
+<meta name="keywords" content="investment, analysis, KI Asset Management, finance, blog">
+
+<!-- Open Graph -->
+<meta property="og:title" content="{{ seo_title }}">
+<meta property="og:description" content="{{ seo_description }}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ request.url }}">
+<meta property="og:image" content="{{ url_for('static', filename='images/og-default.jpg', _external=True) }}">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ seo_title }}">
+<meta name="twitter:description" content="{{ seo_description }}">
+<meta name="twitter:image" content="{{ url_for('static', filename='images/og-default.jpg', _external=True) }}">
+
+<link rel="alternate" type="application/rss+xml" title="KI Asset Management Blog RSS" href="{{ url_for('blog.rss_feed') }}">
+{% endblock %}
+
+{% block content %}
+<!-- Blog Hero -->
+<section class="blog-hero">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <h1>KI Asset Management Blog</h1>
+                <p>Expert investment analysis, market insights, and research from our team of student analysts. Institutional-grade research with a fresh perspective.</p>
+                {% if current_user.is_authenticated %}
+                <a href="{{ url_for('blog.new_post') }}" class="btn btn-light btn-lg mt-3">
+                    <i class="bi bi-pencil-square"></i> Write a Post
+                </a>
+                <a href="{{ url_for('blog.my_posts') }}" class="btn btn-outline-light btn-lg mt-3 ms-2">
+                    <i class="bi bi-folder"></i> My Posts
+                </a>
+                {% endif %}
+            </div>
+            <div class="col-lg-4 text-end d-none d-lg-block">
+                <i class="bi bi-journal-text" style="font-size: 8rem; opacity: 0.2;"></i>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="container mb-5">
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-lg-8">
+            {% if featured_posts and not current_category and not current_tag %}
+            <!-- Featured Posts -->
+            <div class="featured-post">
+                <span class="badge bg-warning text-dark mb-2">
+                    <i class="bi bi-star-fill"></i> Featured
+                </span>
+                <h2>{{ featured_posts[0].title }}</h2>
+                <p>{{ featured_posts[0].get_excerpt(200) }}</p>
+                <a href="{{ url_for('blog.post', slug=featured_posts[0].slug) }}" class="btn btn-light">
+                    Read Article <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+            {% endif %}
+            
+            <!-- Filters -->
+            {% if current_category or current_tag %}
+            <div class="d-flex align-items-center gap-2 mb-4">
+                <span class="text-muted">Filtered by:</span>
+                {% if current_category %}
+                <span class="badge bg-primary">Category: {{ current_category }}</span>
+                {% endif %}
+                {% if current_tag %}
+                <span class="badge bg-info">Tag: {{ current_tag }}</span>
+                {% endif %}
+                <a href="{{ url_for('blog.index') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-x"></i> Clear
+                </a>
+            </div>
+            {% endif %}
+            
+            <!-- Posts Grid -->
+            {% if posts %}
+            <div class="row g-4">
+                {% for post in posts %}
+                <div class="col-md-6">
+                    <article class="blog-card">
+                        <div class="blog-card-image">
+                            {% if post.og_image %}
+                            <img src="{{ post.og_image }}" alt="{{ post.title }}">
+                            {% else %}
+                            <div class="d-flex align-items-center justify-content-center h-100">
+                                <i class="bi bi-journal-text" style="font-size: 3rem; opacity: 0.5;"></i>
+                            </div>
+                            {% endif %}
+                            {% if post.category %}
+                            <span class="blog-card-category">{{ post.category }}</span>
+                            {% endif %}
+                            {% if post.is_featured %}
+                            <span class="position-absolute top-0 end-0 m-2 badge bg-warning text-dark">
+                                <i class="bi bi-star-fill"></i>
+                            </span>
+                            {% endif %}
+                        </div>
+                        <div class="blog-card-content">
+                            <h3 class="blog-card-title">
+                                <a href="{{ url_for('blog.post', slug=post.slug) }}">{{ post.title }}</a>
+                            </h3>
+                            <p class="blog-card-excerpt">{{ post.get_excerpt(120) }}</p>
+                            <div class="blog-card-meta">
+                                <span>
+                                    <i class="bi bi-person"></i>
+                                    <a href="{{ url_for('blog.author_posts', user_id=post.author_id) }}" class="text-muted">{{ post.author_name }}</a>
+                                </span>
+                                <span>
+                                    <i class="bi bi-calendar3"></i> {{ post.formatted_date }}
+                                </span>
+                                <span>
+                                    <i class="bi bi-clock"></i> {{ post.reading_time }} min read
+                                </span>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Pagination -->
+            {% if pagination.pages > 1 %}
+            <nav aria-label="Blog pagination" class="blog-pagination">
+                <ul class="pagination">
+                    {% if pagination.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('blog.index', page=pagination.prev_num, category=current_category, tag=current_tag) }}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for page_num in pagination.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
+                        {% if page_num %}
+                            {% if page_num == pagination.page %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ page_num }}</span>
+                            </li>
+                            {% else %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('blog.index', page=page_num, category=current_category, tag=current_tag) }}">{{ page_num }}</a>
+                            </li>
+                            {% endif %}
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">...</span>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if pagination.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('blog.index', page=pagination.next_num, category=current_category, tag=current_tag) }}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+            
+            {% else %}
+            <!-- Empty State -->
+            <div class="blog-empty">
+                <i class="bi bi-inbox"></i>
+                <h3>No posts yet</h3>
+                <p>Check back soon for new articles!</p>
+                {% if current_user.is_authenticated %}
+                <a href="{{ url_for('blog.new_post') }}" class="btn btn-primary">
+                    <i class="bi bi-pencil-square"></i> Write the first post
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Sidebar -->
+        <aside class="col-lg-4">
+            <div class="blog-sidebar">
+                <!-- Categories -->
+                {% if categories %}
+                <div class="blog-sidebar-card">
+                    <h4><i class="bi bi-folder"></i> Categories</h4>
+                    <ul class="category-list">
+                        {% for category in categories %}
+                        <li>
+                            <a href="{{ url_for('blog.index', category=category) }}">
+                                <span>{{ category }}</span>
+                                <span class="badge bg-light text-dark">
+                                    {{ category_counts.get(category, 0) }}
+                                </span>
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                
+                <!-- Subscribe -->
+                <div class="blog-sidebar-card">
+                    <h4><i class="bi bi-rss"></i> Stay Updated</h4>
+                    <p class="text-muted small">Get the latest investment insights delivered to your feed reader.</p>
+                    <a href="{{ url_for('blog.rss_feed') }}" class="btn btn-outline-primary w-100">
+                        <i class="bi bi-rss-fill"></i> Subscribe via RSS
+                    </a>
+                </div>
+                
+                <!-- About Blog -->
+                <div class="blog-sidebar-card">
+                    <h4><i class="bi bi-info-circle"></i> About Our Blog</h4>
+                    <p class="text-muted small">
+                        Written by KI Asset Management analysts, our blog features deep-dive investment analysis, 
+                        market commentary, and educational content for investors of all levels.
+                    </p>
+                    <a href="{{ url_for('main.index') }}#team" class="btn btn-sm btn-outline-secondary w-100">
+                        Meet the Team
+                    </a>
+                </div>
+                
+                {% if current_user.is_authenticated %}
+                <!-- Quick Actions -->
+                <div class="blog-sidebar-card">
+                    <h4><i class="bi bi-lightning"></i> Quick Actions</h4>
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('blog.new_post') }}" class="btn btn-primary">
+                            <i class="bi bi-plus-lg"></i> New Post
+                        </a>
+                        <a href="{{ url_for('blog.my_posts') }}" class="btn btn-outline-primary">
+                            <i class="bi bi-folder"></i> My Posts
+                        </a>
+                        {% if current_user.is_admin %}
+                        <a href="{{ url_for('blog.admin_posts') }}" class="btn btn-outline-dark">
+                            <i class="bi bi-shield"></i> Manage All Posts
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </aside>
+    </div>
+</div>
+{% endblock %}

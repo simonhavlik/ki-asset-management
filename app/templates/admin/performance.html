@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+
+{% block title %}Analyst Performance – KI Asset Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-bar-chart"></i> Analyst Performance</h1>
+    <div>
+        {% if current_user.is_admin %}
+        <button type="button" class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#recalculateModal">
+            <i class="bi bi-calculator"></i> Recalculate
+        </button>
+        {% endif %}
+        
+        <div class="dropdown d-inline-block ms-2">
+            <button class="btn btn-outline-success dropdown-toggle" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-download"></i> Export
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="exportDropdown">
+                <li><h6 class="dropdown-header">Quick Export</h6></li>
+                <li><a class="dropdown-item" href="{{ url_for('admin.export_csv') }}">
+                    <i class="bi bi-filetype-csv"></i> Performance CSV
+                </a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><h6 class="dropdown-header">Comprehensive Report</h6></li>
+                <li>
+                    <a class="dropdown-item" href="{{ url_for('admin.export_comprehensive') }}" id="downloadCachedLink">
+                        <i class="bi bi-filetype-xlsx"></i> Download Excel
+                        <small class="text-muted d-block" id="cacheStatus">Checking cache...</small>
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{{ url_for('admin.export_comprehensive', fresh='true') }}">
+                        <i class="bi bi-arrow-clockwise"></i> Generate Fresh Report
+                    </a>
+                </li>
+            </ul>
+        </div>
+        
+        {% if current_user.is_admin %}
+        <a href="{{ url_for('admin.debug_performance') }}" class="btn btn-outline-info ms-2">
+            <i class="bi bi-bug"></i> Debug
+        </a>
+        <a href="{{ url_for('admin.company_tickers') }}" class="btn btn-outline-secondary ms-2">
+            <i class="bi bi-building"></i> Tickers
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+// Check export cache status
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('{{ url_for("admin.export_status") }}')
+        .then(response => response.json())
+        .then(data => {
+            const statusEl = document.getElementById('cacheStatus');
+            const comprehensive = data.comprehensive;
+            
+            if (comprehensive.has_cache && comprehensive.is_valid) {
+                statusEl.textContent = `Cached ${comprehensive.age_days} days ago`;
+                statusEl.className = 'text-success d-block';
+            } else if (comprehensive.has_cache) {
+                statusEl.textContent = `Cache expired (${comprehensive.age_days} days old)`;
+                statusEl.className = 'text-warning d-block';
+            } else {
+                statusEl.textContent = 'No cache - will generate new';
+                statusEl.className = 'text-muted d-block';
+            }
+        })
+        .catch(err => {
+            console.error('Error checking cache status:', err);
+        });
+});
+</script>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('admin.performance') }}" class="row g-2 align-items-center">
+            <div class="col-auto">
+                <label for="filter" class="col-form-label">Filter by decision:</label>
+            </div>
+            <div class="col-auto">
+                <select name="filter" id="filter" class="form-select">
+                    <option value="approved_only" {% if current_filter == 'approved_only' %}selected{% endif %}>Approved/On Watchlist only</option>
+                    <option value="neutral_approved" {% if current_filter == 'neutral_approved' %}selected{% endif %}>Neutral + Approved/On Watchlist</option>
+                    <option value="all_stock" {% if current_filter == 'all_stock' %}selected{% endif %}>All stock picks (any decision)</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="annualized" value="true" id="annualizedCheckbox" {% if annualized %}checked{% endif %}>
+                    <label class="form-check-label" for="annualizedCheckbox">
+                        Annualized returns
+                    </label>
+                </div>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-outline-primary">Apply</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if analyst_performance %}
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Rank</th>
+                        <th>Analyst</th>
+                        <th>Analyses</th>
+                        <th>Avg Return %</th>
+                        <th>Median Return %</th>
+                        <th>Win Rate %</th>
+                        <th>Best Return %</th>
+                        <th>Worst Return %</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for analyst in analyst_performance %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>
+                            <strong>{{ analyst.analyst_name }}</strong>
+                            <br><small class="text-muted">ID: {{ analyst.analyst_id }}</small>
+                        </td>
+                        <td>
+                            <span class="badge bg-primary">{{ analyst.num_analyses }}</span>
+                        </td>
+                        <td>
+                            {% if analyst.avg_return is not none %}
+                                <span class="fw-bold {% if analyst.avg_return >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ analyst.avg_return }}%
+                                </span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if analyst.median_return is not none %}
+                                {{ analyst.median_return }}%
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if analyst.win_rate is not none %}
+                                <span class="badge bg-{% if analyst.win_rate >= 50 %}success{% else %}warning{% endif %}">
+                                    {{ analyst.win_rate }}%
+                                </span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if analyst.best_return is not none %}
+                                <span class="text-success">{{ analyst.best_return }}%</span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if analyst.worst_return is not none %}
+                                <span class="text-danger">{{ analyst.worst_return }}%</span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('admin.analyst_details', analyst_id=analyst.analyst_id) }}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye"></i> Details
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Summary</h6>
+            </div>
+            <div class="card-body">
+                <p>Total analysts: <strong>{{ analyst_performance|length }}</strong></p>
+                <p>Total analyses: <strong>{{ total_analyses }}</strong></p>
+                <p>Average return (across analysts): <strong>{{ avg_return|round(2) if avg_return else '—' }}%</strong></p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Legend</h6>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li><strong>Avg Return</strong>: Average percentage return across all approved analyses for the analyst.</li>
+                    <li><strong>Median Return</strong>: Median return (less sensitive to outliers).</li>
+                    <li><strong>Win Rate</strong>: Percentage of analyses with positive return.</li>
+                    <li><strong>Best/Worst Return</strong>: Highest and lowest single‑analysis return.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i>
+    No performance data available. Upload a CSV with analyses and run recalculation.
+</div>
+{% endif %}
+</div>
+
+{% if current_user.is_admin %}
+<!-- Recalculation Modal with Progress -->
+<div class="modal fade" id="recalculateModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title"><i class="bi bi-calculator"></i> Recalculate Performance</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" id="closeModalBtn"></button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <p>This will recalculate performance for all approved analyses. Existing calculations will be updated.</p>
+                <p><strong>Companies marked as "Other" events will be excluded.</strong></p>
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> This process fetches latest stock prices from Yahoo Finance.
+                </div>
+            </div>
+            <div class="modal-footer" id="modalFooter">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning" id="startRecalcBtn">
+                    <i class="bi bi-calculator"></i> Start Recalculation
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('startRecalcBtn').addEventListener('click', function() {
+    // Switch to progress view
+    document.getElementById('modalBody').innerHTML = `
+        <div class="mb-3">
+            <div class="d-flex justify-content-between mb-1">
+                <span id="recalcStatus">Initializing...</span>
+                <span id="recalcProgress">0 / 0</span>
+            </div>
+            <div class="progress" style="height: 25px;">
+                <div id="recalcProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-warning" 
+                     role="progressbar" style="width: 0%">
+                    <span id="recalcPercent">0%</span>
+                </div>
+            </div>
+        </div>
+        <div class="row text-center g-2" id="recalcStats">
+            <div class="col-3">
+                <div class="border rounded p-2 bg-success text-white">
+                    <div class="h5 mb-0" id="statCalculated">0</div>
+                    <small>Calculated</small>
+                </div>
+            </div>
+            <div class="col-3">
+                <div class="border rounded p-2 bg-secondary text-white">
+                    <div class="h5 mb-0" id="statOther">0</div>
+                    <small>Other</small>
+                </div>
+            </div>
+            <div class="col-3">
+                <div class="border rounded p-2 bg-warning text-dark">
+                    <div class="h5 mb-0" id="statNoTicker">0</div>
+                    <small>No Ticker</small>
+                </div>
+            </div>
+            <div class="col-3">
+                <div class="border rounded p-2 bg-info text-white">
+                    <div class="h5 mb-0" id="statNoPrice">0</div>
+                    <small>No Price</small>
+                </div>
+            </div>
+        </div>
+        <div class="mt-3">
+            <small class="text-muted" id="recalcLog">Starting recalculation...</small>
+        </div>
+    `;
+    
+    document.getElementById('modalFooter').innerHTML = `
+        <button type="button" class="btn btn-secondary" onclick="window.location.reload()">Cancel</button>
+    `;
+    
+    // Start the recalculation
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
+    
+    fetch('{{ url_for("admin.recalculate_performance") }}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        if (response.redirected) {
+            window.location.href = response.url;
+        } else {
+            return response.text();
+        }
+    })
+    .then(html => {
+        // Server redirected, follow it
+        window.location.reload();
+    })
+    .catch(error => {
+        document.getElementById('recalcLog').textContent = 'Error: ' + error.message;
+        document.getElementById('recalcLog').className = 'text-danger';
+    });
+    
+    // Animate progress while waiting
+    let progress = 0;
+    const interval = setInterval(() => {
+        progress += Math.random() * 15;
+        if (progress > 90) progress = 90;
+        document.getElementById('recalcProgressBar').style.width = progress + '%';
+        document.getElementById('recalcPercent').textContent = Math.floor(progress) + '%';
+    }, 500);
+});
+</script>
+{% endif %}
+{% endblock %}

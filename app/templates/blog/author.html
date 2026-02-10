@@ -1,0 +1,145 @@
+{% extends "blog/base_blog.html" %}
+
+{% block title %}{{ seo_title }}{% endblock %}
+
+{% block extra_head %}
+<meta name="description" content="{{ seo_description }}">
+<meta name="keywords" content="investment, analysis, {{ author_name }}, KI Asset Management">
+
+<!-- Open Graph -->
+<meta property="og:title" content="{{ seo_title }}">
+<meta property="og:description" content="{{ seo_description }}">
+<meta property="og:type" content="profile">
+<meta property="og:url" content="{{ request.url }}">
+
+<!-- Structured Data -->
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "ProfilePage",
+    "mainEntity": {
+        "@type": "Person",
+        "name": "{{ author_name }}",
+        "url": "{{ request.url }}",
+        "worksFor": {
+            "@type": "Organization",
+            "name": "KI Asset Management"
+        }
+    }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<!-- Author Header -->
+<section class="blog-hero">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-auto">
+                <div class="author-avatar" style="width: 100px; height: 100px; font-size: 2.5rem;">
+                    {{ author_name[0] | upper }}
+                </div>
+            </div>
+            <div class="col">
+                <h1>{{ author_name }}</h1>
+                <p class="mb-2">Analyst at KI Asset Management</p>
+                <p class="opacity-75">
+                    <i class="bi bi-journal-text"></i> {{ posts | length }} article{% if posts | length != 1 %}s{% endif %} published
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="container mb-5">
+    <!-- Posts Grid -->
+    {% if posts %}
+    <div class="row g-4">
+        {% for post in posts %}
+        <div class="col-md-6 col-lg-4">
+            <article class="blog-card">
+                <div class="blog-card-image">
+                    {% if post.og_image %}
+                    <img src="{{ post.og_image }}" alt="{{ post.title }}">
+                    {% else %}
+                    <div class="d-flex align-items-center justify-content-center h-100">
+                        <i class="bi bi-journal-text" style="font-size: 3rem; opacity: 0.5;"></i>
+                    </div>
+                    {% endif %}
+                    {% if post.category %}
+                    <span class="blog-card-category">{{ post.category }}</span>
+                    {% endif %}
+                </div>
+                <div class="blog-card-content">
+                    <h3 class="blog-card-title">
+                        <a href="{{ url_for('blog.post', slug=post.slug) }}">{{ post.title }}</a>
+                    </h3>
+                    <p class="blog-card-excerpt">{{ post.get_excerpt(120) }}</p>
+                    <div class="blog-card-meta">
+                        <span>
+                            <i class="bi bi-calendar3"></i> {{ post.formatted_date }}
+                        </span>
+                        <span>
+                            <i class="bi bi-clock"></i> {{ post.reading_time }} min read
+                        </span>
+                    </div>
+                </div>
+            </article>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+    <nav aria-label="Author posts pagination" class="blog-pagination">
+        <ul class="pagination">
+            {% if pagination.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('blog.author_posts', user_id=author.id, page=pagination.prev_num) }}">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            </li>
+            {% endif %}
+            
+            {% for page_num in pagination.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
+                {% if page_num %}
+                    {% if page_num == pagination.page %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_num }}</span>
+                    </li>
+                    {% else %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('blog.author_posts', user_id=author.id, page=page_num) }}">{{ page_num }}</a>
+                    </li>
+                    {% endif %}
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if pagination.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('blog.author_posts', user_id=author.id, page=pagination.next_num) }}">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+    
+    {% else %}
+    <!-- Empty State -->
+    <div class="blog-empty">
+        <i class="bi bi-journal-x"></i>
+        <h3>No published articles</h3>
+        <p>{{ author_name }} hasn't published any articles yet.</p>
+        <a href="{{ url_for('blog.index') }}" class="btn btn-primary">
+            <i class="bi bi-arrow-left"></i> Back to Blog
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

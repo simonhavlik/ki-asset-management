@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+
+{% block title %}Presentation Exports – KI Asset Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-1"><i class="bi bi-easel"></i> Presentation Exports</h1>
+            <p class="text-muted mb-0">Generate fiscal.ai-style charts and tables for presentations</p>
+        </div>
+        {% if exports %}
+        <a href="{{ url_for('presentation.download_all', filter=filter_type) }}" class="btn btn-success">
+            <i class="bi bi-download"></i> Download All (ZIP)
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Generation Form -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-sliders"></i> Generate Exports</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('presentation.generate') }}" class="row g-3 align-items-end">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-3">
+                    <label class="form-label">Filter Type</label>
+                    <select name="filter_type" class="form-select">
+                        <option value="board_approved" {% if filter_type == 'board_approved' %}selected{% endif %}>Board Approved</option>
+                        <option value="all_approved" {% if filter_type == 'all_approved' %}selected{% endif %}>All Approved</option>
+                        <option value="purchased" {% if filter_type == 'purchased' %}selected{% endif %}>Purchased Only</option>
+                        <option value="all" {% if filter_type == 'all' %}selected{% endif %}>All Analyses</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check mt-4">
+                        <input class="form-check-input" type="checkbox" name="high_resolution" value="true" id="highResCheck" {% if high_resolution %}checked{% endif %}>
+                        <label class="form-check-label" for="highResCheck">
+                            High-res charts
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-magic"></i> Generate
+                    </button>
+                </div>
+                <div class="col-md-3 text-end">
+                    <form method="POST" action="{{ url_for('presentation.refresh_cache') }}" class="d-inline" onsubmit="return confirm('Force refresh all cached data? This may take a minute.');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-warning">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh All Cache
+                        </button>
+                    </form>
+                </div>
+                {% if exports %}
+                <div class="col-md-4 text-end text-muted">
+                    Generated in {{ exports.generation_time_seconds|round(1) }}s
+                    <br><small>{{ exports.generated_at }}</small>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    {% if exports %}
+    <!-- Charts Section -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-images"></i> Charts</h5>
+            <span class="badge bg-primary">{{ exports.charts|length }} charts</span>
+        </div>
+        <div class="card-body">
+            <div class="row g-4">
+                {% if exports.charts.performance %}
+                <div class="col-md-6">
+                    <div class="chart-card">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0">Portfolio Performance</h6>
+                            <a href="{{ url_for('presentation.chart_performance', filter=filter_type) }}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-download"></i> PNG
+                            </a>
+                        </div>
+                        <img src="data:image/png;base64,{{ exports.charts.performance }}" 
+                             class="img-fluid rounded border" alt="Performance Chart">
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if exports.charts.growth_timeline %}
+                <div class="col-md-6">
+                    <div class="chart-card">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0">Analysis Growth Timeline</h6>
+                            <a href="{{ url_for('presentation.chart_growth') }}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-download"></i> PNG
+                            </a>
+                        </div>
+                        <img src="data:image/png;base64,{{ exports.charts.growth_timeline }}" 
+                             class="img-fluid rounded border" alt="Growth Timeline">
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if exports.charts.sector_returns %}
+                <div class="col-md-6">
+                    <div class="chart-card">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0">Top Sectors by Return</h6>
+                            <a href="{{ url_for('presentation.chart_sectors') }}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-download"></i> PNG
+                            </a>
+                        </div>
+                        <img src="data:image/png;base64,{{ exports.charts.sector_returns }}" 
+                             class="img-fluid rounded border" alt="Sector Returns">
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if exports.charts.sector_risk %}
+                <div class="col-md-6">
+                    <div class="chart-card">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0">Sectors by Risk</h6>
+                        </div>
+                        <img src="data:image/png;base64,{{ exports.charts.sector_risk }}" 
+                             class="img-fluid rounded border" alt="Sector Risk">
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Analyst Summary Table -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-people"></i> Analyst Summary</h5>
+            <span class="badge bg-info">{{ exports.tables.analysts.summary.total_analysts }} analysts</span>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm">
+                    <thead class="table-dark">
+                        <tr>
+                            {% for col in exports.tables.analysts.columns %}
+                            <th class="text-{{ col.align }}">{{ col.label }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in exports.tables.analysts.rows %}
+                        <tr>
+                            {% for col in exports.tables.analysts.columns %}
+                            <td class="text-{{ col.align }}">
+                                {% if col.format == 'percent' %}
+                                    {% if row[col.key] is none %}
+                                    <span class="text-muted">—</span>
+                                    {% elif row[col.key] > 0 %}
+                                    <span class="text-success">+{{ "%.1f"|format(row[col.key]) }}%</span>
+                                    {% elif row[col.key] < 0 %}
+                                    <span class="text-danger">{{ "%.1f"|format(row[col.key]) }}%</span>
+                                    {% else %}
+                                    <span class="text-muted">—</span>
+                                    {% endif %}
+                                {% else %}
+                                    {{ row[col.key] if row[col.key] is not none else '—' }}
+                                {% endif %}
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-group-divider">
+                        <tr class="fw-bold">
+                            <td>Total</td>
+                            <td class="text-center">{{ exports.tables.analysts.summary.total_analyses }}</td>
+                            <td class="text-center">{{ exports.tables.analysts.summary.total_approved }}</td>
+                            <td class="text-center">{{ exports.tables.analysts.summary.total_investments }}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sector Analysis Tables -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-trophy"></i> Best Sectors by Return</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead class="table-success">
+                                <tr>
+                                    {% for col in exports.tables.best_sectors.columns %}
+                                    <th class="text-{{ col.align }}">{{ col.label }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in exports.tables.best_sectors.rows %}
+                                <tr>
+                                    {% for col in exports.tables.best_sectors.columns %}
+                                    <td class="text-{{ col.align }}">
+                                        {% if col.format == 'percent' %}
+                                            {% if row[col.key] > 0 %}
+                                            <span class="text-success">+{{ "%.1f"|format(row[col.key]) }}%</span>
+                                            {% elif row[col.key] < 0 %}
+                                            <span class="text-danger">{{ "%.1f"|format(row[col.key]) }}%</span>
+                                            {% else %}
+                                            {{ "%.1f"|format(row[col.key]) }}%
+                                            {% endif %}
+                                        {% else %}
+                                            {{ row[col.key] }}
+                                        {% endif %}
+                                    </td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Sectors by Risk</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead class="table-warning">
+                                <tr>
+                                    {% for col in exports.tables.risk_sectors.columns %}
+                                    <th class="text-{{ col.align }}">{{ col.label }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in exports.tables.risk_sectors.rows %}
+                                <tr>
+                                    {% for col in exports.tables.risk_sectors.columns %}
+                                    <td class="text-{{ col.align }}">
+                                        {% if col.format == 'percent' %}
+                                            {% if row[col.key] > 0 %}
+                                            <span class="text-success">+{{ "%.1f"|format(row[col.key]) }}%</span>
+                                            {% elif row[col.key] < 0 %}
+                                            <span class="text-danger">{{ "%.1f"|format(row[col.key]) }}%</span>
+                                            {% else %}
+                                            {{ "%.1f"|format(row[col.key]) }}%
+                                            {% endif %}
+                                        {% else %}
+                                            {{ row[col.key] }}
+                                        {% endif %}
+                                    </td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- Empty State -->
+    <div class="text-center py-5">
+        <i class="bi bi-easel display-1 text-muted"></i>
+        <h4 class="mt-3">Generate Presentation Exports</h4>
+        <p class="text-muted">Click "Generate Charts & Tables" to create beautiful charts and comprehensive tables.</p>
+        <div class="alert alert-info d-inline-block text-start mt-3">
+            <h6><i class="bi bi-info-circle"></i> What you'll get:</h6>
+            <ul class="mb-0">
+                <li>High-resolution performance charts (PNG)</li>
+                <li>Analysis growth timeline visualization</li>
+                <li>Sector performance & risk analysis charts</li>
+                <li>Analyst summary tables</li>
+                <li>All data as JSON for custom presentations</li>
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.chart-card {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.5rem;
+}
+.chart-card img {
+    background: white;
+}
+</style>
+{% endblock %}

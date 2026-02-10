@@ -1,0 +1,1249 @@
+{% extends "base.html" %}
+
+{% block title %}KI Asset Management – Prague Club of Investors{% endblock %}
+
+{% block content %}
+<!-- Hero Section - Corporate Professional -->
+<section class="hero-section" id="home">
+    <div class="hero-bg"></div>
+    <div class="hero-grid"></div>
+    
+    <div class="hero-content">
+        <div class="hero-corporate">
+            <!-- Left Side - Company Info -->
+            <div class="hero-left">
+                <div class="hero-badge">
+                    <span>Prague Club of Investors</span>
+                </div>
+                
+                <h1 class="hero-title display-1">
+                    KI Asset<br>
+                    <span class="highlight">Management</span>
+                </h1>
+                
+                <p class="hero-subtitle" data-i18n="hero.subtitle">
+                    Student-driven investment management delivering institutional-grade research 
+                    and superior risk-adjusted returns through emerging market opportunities.
+                </p>
+                
+                <div class="hero-stats-row">
+                    <div class="hero-stat-compact">
+                        <div class="value">{{ stats.total_meetings }}+</div>
+                        <div class="label" data-i18n="stats.meetings">Meetings</div>
+                    </div>
+                    <div class="hero-stat-compact">
+                        <div class="value">{{ stats.total_users }}</div>
+                        <div class="label" data-i18n="stats.members">Analysts</div>
+                    </div>
+                    <div class="hero-stat-compact">
+                        <div class="value">{{ stats.approved_analyses }}</div>
+                        <div class="label" data-i18n="stats.approved">Analyses</div>
+                    </div>
+                    <div class="hero-stat-compact">
+                        <div class="value">{{ stats.portfolio_positions }}</div>
+                        <div class="label" data-i18n="stats.stocks">Positions</div>
+                    </div>
+                </div>
+                
+                <div class="hero-cta">
+                    {% if not current_user.is_authenticated %}
+                        <a href="https://www.klubinvestoru.com/clenstvi" target="_blank" class="btn-hero-primary" data-i18n="hero.join">
+                            <i class="bi bi-person-plus"></i>
+                            Join the Team
+                        </a>
+                        <a href="{{ url_for('auth.login') }}" class="btn-hero-secondary" data-i18n="hero.login">
+                            <i class="bi bi-box-arrow-in-right"></i>
+                            Analyst Login
+                        </a>
+                    {% else %}
+                        {% if current_user.is_admin %}
+                            <a href="{{ url_for('analyst.dashboard') }}" class="btn-hero-primary" data-i18n="btn.dashboard">
+                                <i class="bi bi-speedometer2"></i>
+                                Admin Dashboard
+                            </a>
+                        {% else %}
+                            <a href="{{ url_for('analyst.dashboard') }}" class="btn-hero-primary" data-i18n="btn.my_dashboard">
+                                <i class="bi bi-speedometer2"></i>
+                                My Dashboard
+                            </a>
+                        {% endif %}
+                    {% endif %}
+                </div>
+                
+                {% if not current_user.is_authenticated %}
+                <div class="czech-note">
+                    <i class="bi bi-info-circle-fill"></i>
+                    <span>
+                        <span data-i18n="hero.czech_note">Currently accepting analysts working in</span> 
+                        <strong data-i18n="hero.czech_lang">Czech language</strong> 
+                        <span data-i18n="hero.only">only</span>
+                    </span>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Right Side - Performance Dashboard -->
+            <div class="hero-right">
+                {% if stats.portfolio_return is not none %}
+                <div class="performance-dashboard">
+                    <div class="performance-header">
+                        <h3><i class="bi bi-graph-up-arrow"></i> Board-Approved Portfolio</h3>
+                        <span class="status">Live</span>
+                    </div>
+                    
+                    <div class="performance-main">
+                        <div class="return-value {% if stats.portfolio_return >= 0 %}positive{% else %}negative{% endif %}">
+                            {{ "%.2f"|format(stats.portfolio_return) }}%
+                        </div>
+                        <div class="return-label">Total Return Since Inception</div>
+                        <div class="return-meta">
+                            <span>{{ stats.portfolio_positions }}</span> Active Positions &nbsp;|&nbsp; 
+                            Updated {{ stats.portfolio_updated.strftime('%Y-%m-%d') if stats.portfolio_updated else 'Recently' }}
+                        </div>
+                    </div>
+                    
+                    <!-- Risk-Adjusted Metrics Grid -->
+                    <div class="risk-metrics">
+                        <div class="risk-metric">
+                            <div class="metric-label">Alpha vs S&P 500</div>
+                            <div class="metric-value {% if stats.alpha_spy is not none and stats.alpha_spy >= 0 %}positive{% else %}negative{% endif %}">
+                                {% if stats.alpha_spy is not none %}{{ "%.1f"|format(stats.alpha_spy) }}%{% else %}--{% endif %}
+                            </div>
+                            <div class="metric-subtext">Excess Return</div>
+                        </div>
+                        <div class="risk-metric">
+                            <div class="metric-label">Sharpe Ratio</div>
+                            <div class="metric-value {% if stats.sharpe_ratio is not none and stats.sharpe_ratio >= 1 %}positive{% endif %}">
+                                {% if stats.sharpe_ratio is not none %}{{ "%.2f"|format(stats.sharpe_ratio) }}{% else %}--{% endif %}
+                            </div>
+                            <div class="metric-subtext">Risk-Adjusted</div>
+                        </div>
+                        <div class="risk-metric">
+                            <div class="metric-label">Max Drawdown</div>
+                            <div class="metric-value negative">
+                                {% if stats.max_drawdown is not none %}{{ "%.1f"|format(stats.max_drawdown) }}%{% else %}--{% endif %}
+                            </div>
+                            <div class="metric-subtext">Peak to Trough</div>
+                        </div>
+                        <div class="risk-metric">
+                            <div class="metric-label">Volatility</div>
+                            <div class="metric-value">
+                                {% if stats.volatility is not none %}{{ "%.1f"|format(stats.volatility) }}%{% else %}--{% endif %}
+                            </div>
+                            <div class="metric-subtext">Annualized</div>
+                        </div>
+                        <div class="risk-metric">
+                            <div class="metric-label">Beta</div>
+                            <div class="metric-value">
+                                {% if stats.beta is not none %}{{ "%.2f"|format(stats.beta) }}{% else %}--{% endif %}
+                            </div>
+                            <div class="metric-subtext">Market Sens.</div>
+                        </div>
+                        <div class="risk-metric">
+                            <div class="metric-label">Win Rate</div>
+                            <div class="metric-value {% if stats.win_rate is not none and stats.win_rate >= 50 %}positive{% endif %}">
+                                {% if stats.win_rate is not none %}{{ "%.1f"|format(stats.win_rate) }}%{% else %}--{% endif %}
+                            </div>
+                            <div class="metric-subtext">Positions</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Benchmark Comparison -->
+                    <div class="benchmark-comparison">
+                        <div class="benchmark-item">
+                            <div class="benchmark-name">S&P 500</div>
+                            <div class="benchmark-value">{{ "%.1f"|format(stats.benchmark_spy) }}%</div>
+                        </div>
+                        <div class="benchmark-item">
+                            <div class="benchmark-name">FTSE All-World</div>
+                            <div class="benchmark-value">{{ "%.1f"|format(stats.benchmark_ftse) }}%</div>
+                        </div>
+                        <div class="benchmark-item">
+                            <div class="benchmark-name">EEMS (Benchmark)</div>
+                            <div class="benchmark-value">{{ "%.1f"|format(stats.benchmark_eems) }}%</div>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <!-- Placeholder when no data -->
+                <div class="performance-dashboard">
+                    <div class="performance-header">
+                        <h3><i class="bi bi-graph-up-arrow"></i> Investment Performance</h3>
+                    </div>
+                    <div class="performance-main" style="padding: 4rem 1.5rem;">
+                        <div class="return-value positive" style="font-size: 2.5rem;">Track Record</div>
+                        <div class="return-label">Real-time portfolio tracking vs major benchmarks</div>
+                        <div class="return-meta">Performance data will appear once positions are established</div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- About / Mission Section -->
+<section class="section" id="about">
+    <div class="container">
+        <div class="section-header reveal">
+            <span class="section-label" data-i18n="section.mission">Our Mission</span>
+            <h2 class="section-title">Institutional-Grade Research.<br>Student-Driven Excellence.</h2>
+            <p class="section-subtitle" data-i18n="mission.subtitle">
+                Founded with a clear purpose: to bridge the gap between academic theory and real-world 
+                investment management. We operate on par with the finest Czech investment institutions.
+            </p>
+        </div>
+        
+        <div class="row align-items-center">
+            <div class="col-lg-6 reveal">
+                <div class="pe-lg-5">
+                    <h3 class="mb-4" data-i18n="ambition.title">KI AM Ambition</h3>
+                    <blockquote class="border-start border-4 ps-4 mb-4" style="border-color: var(--primary-green) !important;">
+                        <p class="mb-2 fst-italic" style="color: var(--color-gray-700);">
+                            "Umožnit motivovaným studentům získat reálnou zkušenost se správou kapitálu 
+                            & zhodnocovat prostředky spolku"
+                        </p>
+                        <footer class="blockquote-footer" style="color: var(--color-gray-500);">
+                            Enable motivated students to gain real capital management experience 
+                            & grow the club's assets
+                        </footer>
+                    </blockquote>
+                    
+                    <p class="text-muted mb-4">
+                        Our primary objective is to outperform the EEMS index through disciplined 
+                        fundamental analysis and a concentrated portfolio of 15-25 carefully selected positions.
+                    </p>
+                    
+                    {% if chart_data %}
+                    <!-- Portfolio Performance Chart -->
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <div>
+                                    <h5 class="mb-1" style="color: var(--primary-green);">
+                                        <i class="bi bi-graph-up-arrow"></i> Portfolio Performance
+                                    </h5>
+                                    <p class="text-muted small mb-0">Since Inception vs Benchmarks</p>
+                                </div>
+                            </div>
+                            <div style="height: 200px;">
+                                <canvas id="ambitionPortfolioChart"></canvas>
+                            </div>
+                            <div class="d-flex justify-content-center gap-3 mt-3 flex-wrap">
+                                <small class="text-muted">
+                                    <span class="badge" style="background: #1a9c5e;">&nbsp;</span> Portfolio
+                                </small>
+                                <small class="text-muted">
+                                    <span class="badge" style="background: #b8860b;">&nbsp;</span> S&P 500
+                                </small>
+                                <small class="text-muted">
+                                    <span class="badge" style="background: #2b6cb0;">&nbsp;</span> FTSE All-World
+                                </small>
+                                <small class="text-muted">
+                                    <span class="badge" style="background: #6b7682;">&nbsp;</span> EEMS
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="col-lg-6 reveal reveal-delay-2">
+                <div class="feature-grid" style="grid-template-columns: 1fr;">
+                    <div class="feature-card mb-3">
+                        <div class="feature-icon primary">
+                            <i class="bi bi-lightbulb"></i>
+                        </div>
+                        <h4 class="feature-title" data-i18n="values.patience">Patience</h4>
+                        <p class="feature-text" data-i18n="values.patience.desc">Long-term thinking over short-term speculation. We believe in the power of compound growth and disciplined capital allocation.</p>
+                    </div>
+                    
+                    <div class="feature-card mb-3">
+                        <div class="feature-icon secondary">
+                            <i class="bi bi-eye"></i>
+                        </div>
+                        <h4 class="feature-title" data-i18n="values.foresight">Foresight</h4>
+                        <p class="feature-text" data-i18n="values.foresight.desc">Anticipating market trends before they materialize through rigorous fundamental analysis and industry research.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <div class="feature-icon accent">
+                            <i class="bi bi-shield-check"></i>
+                        </div>
+                        <h4 class="feature-title" data-i18n="values.integrity">Integrity</h4>
+                        <p class="feature-text" data-i18n="values.integrity.desc">Transparent analysis and honest reporting. We hold ourselves to the highest ethical standards in everything we do.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Investment Process Section -->
+<section class="section process-section" id="process">
+    <div class="container">
+        <div class="section-header reveal">
+            <span class="section-label" style="background: rgba(26, 156, 94, 0.2); color: #2cce7e;">Our Process</span>
+            <h2 class="section-title">Investment Process</h2>
+            <p class="section-subtitle">
+                A rigorous, multi-stage approach ensuring thorough due diligence 
+                and consensus-driven investment decisions.
+            </p>
+        </div>
+        
+        <div class="process-flow reveal">
+            <div class="process-step">
+                <div class="step-number">1</div>
+                <div class="step-title">Screening</div>
+                <div class="step-desc">Initial screening using quantitative metrics (ROIC, margins, growth) and qualitative factors</div>
+            </div>
+            <div class="process-step">
+                <div class="step-number">2</div>
+                <div class="step-title">Analysis</div>
+                <div class="step-desc">In-depth 20-page write-up covering business model, competitive advantages, and valuation</div>
+            </div>
+            <div class="process-step">
+                <div class="step-number">3</div>
+                <div class="step-title">Peer Review</div>
+                <div class="step-desc">Internal discussion and critique by fellow analysts to challenge assumptions</div>
+            </div>
+            <div class="process-step">
+                <div class="step-number">4</div>
+                <div class="step-title">Committee Vote</div>
+                <div class="step-desc">Presentation to Investment Committee with absolute consensus required for approval</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Strategy Section -->
+<section class="section section-alt" id="strategy">
+    <div class="container">
+        <div class="section-header reveal">
+            <span class="section-label" data-i18n="section.strategy">Investment Approach</span>
+            <h2 class="section-title" data-i18n="strategy.title">Our Strategy Pillars</h2>
+            <p class="section-subtitle" data-i18n="strategy.subtitle">
+                A disciplined approach combining emerging markets exposure with small-mid cap opportunities 
+                and compelling equity stories.
+            </p>
+        </div>
+        
+        <div class="row g-4">
+            <div class="col-lg-7 reveal">
+                <div class="strategy-grid">
+                    <div class="strategy-card">
+                        <h4 style="color: #c53030;">
+                            <i class="bi bi-x-octagon"></i>
+                            No Leverage
+                        </h4>
+                        <p class="mb-0">
+                            We avoid leverage to prevent increased volatility and drawdowns. 
+                            Asymmetric risk with unlimited loss potential has no place in our strategy.
+                        </p>
+                    </div>
+                    
+                    <div class="strategy-card">
+                        <h4 style="color: #c53030;">
+                            <i class="bi bi-x-octagon"></i>
+                            No Shorts
+                        </h4>
+                        <p class="mb-0">
+                            Short selling introduces margin call risks and borrow costs. 
+                            We prefer allocating time to finding winners rather than speculating on losers.
+                        </p>
+                    </div>
+                    
+                    <div class="strategy-card">
+                        <h4 style="color: #c53030;">
+                            <i class="bi bi-x-octagon"></i>
+                            No Hedging
+                        </h4>
+                        <p class="mb-0">
+                            We don't hedge currencies as they provide natural diversification. 
+                            FX risk is monitored during high volatility periods.
+                        </p>
+                    </div>
+                    
+                    <div class="strategy-card">
+                        <h4 style="color: var(--primary-green);">
+                            <i class="bi bi-check-circle"></i>
+                            Non-Replicable Strategy
+                        </h4>
+                        <p class="mb-0">
+                            Our portfolio cannot be replicated by standard ETFs. We actively select 
+                            and manage 15-25 positions for true diversification, not "di-worse-ification".
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-5 reveal reveal-delay-2">
+                <div class="allocation-chart">
+                    <h4 class="mb-4" data-i18n="allocation.title">Target Allocation</h4>
+                    
+                    <div class="allocation-item">
+                        <div class="allocation-color" style="background: #1a9c5e;"></div>
+                        <div class="allocation-info">
+                            <div class="allocation-label" data-i18n="allocation.smid">SMID Caps</div>
+                            <div class="allocation-desc" data-i18n="allocation.smid.desc">Small-Mid Cap Opportunities</div>
+                        </div>
+                        <div class="allocation-percent">60%</div>
+                    </div>
+                    
+                    <div class="allocation-item">
+                        <div class="allocation-color" style="background: #147a4a;"></div>
+                        <div class="allocation-info">
+                            <div class="allocation-label" data-i18n="allocation.em">Emerging Markets</div>
+                            <div class="allocation-desc" data-i18n="allocation.em.desc">EM Exposure</div>
+                        </div>
+                        <div class="allocation-percent">30%</div>
+                    </div>
+                    
+                    <div class="allocation-item">
+                        <div class="allocation-color" style="background: #b8860b;"></div>
+                        <div class="allocation-info">
+                            <div class="allocation-label" data-i18n="allocation.stories">Equity Stories</div>
+                            <div class="allocation-desc" data-i18n="allocation.stories.desc">Special Situations & Themes</div>
+                        </div>
+                        <div class="allocation-percent">10%</div>
+                    </div>
+                    
+                    <div class="mt-4 pt-4 border-top">
+                        <p class="small text-muted mb-0">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Developed markets are at highs while retail investors fear EM. 
+                            Our unique composition of three complementary pillars provides 
+                            uncorrelated alpha opportunities.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Risk Management Section -->
+<section class="section" id="risk">
+    <div class="container">
+        <div class="section-header reveal">
+            <span class="section-label">Risk Framework</span>
+            <h2 class="section-title">Risk Management</h2>
+            <p class="section-subtitle">
+                Robust risk controls ensuring capital preservation and sustainable returns 
+                through disciplined position sizing and continuous monitoring.
+            </p>
+        </div>
+        
+        <div class="risk-grid">
+            <div class="risk-card reveal">
+                <div class="risk-header">
+                    <div class="risk-icon"><i class="bi bi-layers"></i></div>
+                    <h4 class="risk-title">Position Sizing</h4>
+                </div>
+                <p class="risk-desc">
+                    Maximum 10% of portfolio per position at cost basis. 
+                    Growth tolerance up to 20% before trimming. Gradual entry with max 5% initial allocation.
+                </p>
+            </div>
+            
+            <div class="risk-card reveal reveal-delay-1">
+                <div class="risk-header">
+                    <div class="risk-icon"><i class="bi bi-grid-3x3"></i></div>
+                    <h4 class="risk-title">Diversification</h4>
+                </div>
+                <p class="risk-desc">
+                    Maximum 20% exposure per sector and 30% per region. 
+                    Portfolio of 15-25 positions for optimal diversification without over-concentration.
+                </p>
+            </div>
+            
+            <div class="risk-card reveal reveal-delay-2">
+                <div class="risk-header">
+                    <div class="risk-icon"><i class="bi bi-shield-exclamation"></i></div>
+                    <h4 class="risk-title">Stop-Loss Policy</h4>
+                </div>
+                <p class="risk-desc">
+                    Soft stop-loss at 20% decline triggers thesis review by independent analyst. 
+                    Regular revalidation of all portfolio positions on monthly basis.
+                </p>
+            </div>
+            
+            <div class="risk-card reveal reveal-delay-3">
+                <div class="risk-header">
+                    <div class="risk-icon"><i class="bi bi-droplet"></i></div>
+                    <h4 class="risk-title">Liquidity Control</h4>
+                </div>
+                <p class="risk-desc">
+                    Position size limited to 5x average daily trading volume. 
+                    Preference for dual-listed securities to minimize currency and liquidity risk.
+                </p>
+            </div>
+            
+            <div class="risk-card reveal">
+                <div class="risk-header">
+                    <div class="risk-icon"><i class="bi bi-cash-stack"></i></div>
+                    <h4 class="risk-title">Cash Management</h4>
+                </div>
+                <p class="risk-desc">
+                    Excess cash held in interest-bearing accounts (CZK, EUR, USD). 
+                    Higher cash allocation during elevated valuations, deployment during corrections.
+                </p>
+            </div>
+            
+            <div class="risk-card reveal reveal-delay-1">
+                <div class="risk-header">
+                    <div class="risk-icon"><i class="bi bi-check2-circle"></i></div>
+                    <h4 class="risk-title">Consensus Requirement</h4>
+                </div>
+                <p class="risk-desc">
+                    Absolute consensus required for all investment decisions. 
+                    Any dissenting vote blocks position entry until concerns are addressed.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Investment Universe Section -->
+<section class="section section-alt" id="universe">
+    <div class="container">
+        <div class="section-header reveal">
+            <span class="section-label">Investment Universe</span>
+            <h2 class="section-title">Where We Invest</h2>
+            <p class="section-subtitle">
+                Focused on market segments where our student-driven approach 
+                provides genuine competitive advantage.
+            </p>
+        </div>
+        
+        <div class="row g-4">
+            <div class="col-md-4 reveal">
+                <div class="feature-card h-100">
+                    <div class="feature-icon primary">
+                        <i class="bi bi-building"></i>
+                    </div>
+                    <h4 class="feature-title">Small/Mid Caps</h4>
+                    <p class="feature-text">
+                        Market capitalization under $25B. Under-covered by analysts, too small for hedge funds. 
+                        Structural inefficiencies create mispricing opportunities for diligent researchers.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="col-md-4 reveal reveal-delay-1">
+                <div class="feature-card h-100">
+                    <div class="feature-icon secondary">
+                        <i class="bi bi-globe"></i>
+                    </div>
+                    <h4 class="feature-title">Emerging Markets</h4>
+                    <p class="feature-text">
+                        CEE, LATAM, and Asia exposure. Our regional expertise, language skills, 
+                        and Erasmus network provide local insights overlooked by Western investors.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="col-md-4 reveal reveal-delay-2">
+                <div class="feature-card h-100">
+                    <div class="feature-icon accent">
+                        <i class="bi bi-lightning"></i>
+                    </div>
+                    <h4 class="feature-title">Equity Stories</h4>
+                    <p class="feature-text">
+                        Special situations, thematic investments, and contrarian opportunities. 
+                        Market skepticism or neglect creating asymmetric risk/reward profiles.
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Anti-Investment Universe -->
+        <div class="row mt-5">
+            <div class="col-12 reveal">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-4">
+                        <h5 class="mb-3" style="color: #c53030;">
+                            <i class="bi bi-x-octagon"></i> Exclusion Criteria
+                        </h5>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="d-flex align-items-start gap-2">
+                                    <i class="bi bi-x-circle-fill" style="color: #c53030; margin-top: 2px;"></i>
+                                    <div>
+                                        <strong style="font-size: 0.9rem;">Harmful Industries</strong>
+                                        <p class="text-muted small mb-0">Tobacco, weapons, gambling, and companies causing significant environmental or social harm</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="d-flex align-items-start gap-2">
+                                    <i class="bi bi-x-circle-fill" style="color: #c53030; margin-top: 2px;"></i>
+                                    <div>
+                                        <strong style="font-size: 0.9rem;">"Cursed" Sectors</strong>
+                                        <p class="text-muted small mb-0">Chronically low ROIC industries like airlines with structural profitability challenges</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="d-flex align-items-start gap-2">
+                                    <i class="bi bi-x-circle-fill" style="color: #c53030; margin-top: 2px;"></i>
+                                    <div>
+                                        <strong style="font-size: 0.9rem;">Dishonest Management</strong>
+                                        <p class="text-muted small mb-0">Any history of accounting fraud, integrity failures, or governance red flags</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Stats Section -->
+<section class="stats-section" id="stats">
+    <div class="container">
+        <div class="stats-grid">
+            <div class="stat-item reveal">
+                <div class="stat-number" data-count="{{ stats.total_meetings }}">0</div>
+                <div class="stat-label" data-i18n="stats.meetings">Analytical Meetings</div>
+            </div>
+            <div class="stat-item reveal reveal-delay-1">
+                <div class="stat-number" data-count="{{ stats.total_users }}">0</div>
+                <div class="stat-label" data-i18n="stats.members">Team Members</div>
+            </div>
+            <div class="stat-item reveal reveal-delay-2">
+                <div class="stat-number" data-count="{{ stats.approved_analyses }}">0</div>
+                <div class="stat-label" data-i18n="stats.approved">Approved Analyses</div>
+            </div>
+            <div class="stat-item reveal reveal-delay-3">
+                <div class="stat-number" data-count="{{ stats.portfolio_positions }}">0</div>
+                <div class="stat-label" data-i18n="stats.stocks">Stocks in Portfolio</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Platform Perks Section (for analysts) -->
+<section class="section perks-section" id="platform">
+    <div class="container">
+        <div class="section-header reveal">
+            <span class="section-label" data-i18n="section.platform">For Our Analysts</span>
+            <h2 class="section-title" data-i18n="perks.title">Platform Perks</h2>
+            <p class="section-subtitle" data-i18n="perks.subtitle">
+                Exclusive tools and features available to KI Asset Management analysts.
+            </p>
+        </div>
+        
+        <div class="row g-4">
+            <div class="col-md-4 reveal">
+                <div class="perk-card">
+                    <div class="perk-icon primary">
+                        <i class="bi bi-graph-up-arrow"></i>
+                    </div>
+                    <h4 data-i18n="perks.tracking.title">Real-Time Tracking</h4>
+                    <p class="text-muted" data-i18n="perks.tracking.desc">
+                        Automatic price fetching from Yahoo Finance ensures our performance 
+                        data is always current and accurate.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="col-md-4 reveal reveal-delay-1">
+                <div class="perk-card">
+                    <div class="perk-icon secondary">
+                        <i class="bi bi-bar-chart-line"></i>
+                    </div>
+                    <h4 data-i18n="perks.benchmark.title">Benchmark Comparison</h4>
+                    <p class="text-muted" data-i18n="perks.benchmark.desc">
+                        Compare our portfolio against SPY, FTSE All-World, and EEMS 
+                        with normalized starting points for fair comparison.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="col-md-4 reveal reveal-delay-2">
+                <div class="perk-card">
+                    <div class="perk-icon accent">
+                        <i class="bi bi-file-earmark-spreadsheet"></i>
+                    </div>
+                    <h4 data-i18n="perks.reports.title">Detailed Reports</h4>
+                    <p class="text-muted" data-i18n="perks.reports.desc">
+                        Export comprehensive CSV reports with individual analyst performance, 
+                        portfolio breakdown, and historical data.
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Analytics Dashboard Row -->
+        <div class="row g-4 mt-3">
+            <!-- Growth Timeline Chart -->
+            <div class="col-lg-7 reveal reveal-delay-1">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <div>
+                                <h5 class="mb-1" style="color: var(--primary-green);"><i class="bi bi-graph-up-arrow"></i> KI AM Growth Over Time</h5>
+                                <p class="text-muted small mb-0">Cumulative analyses and approved positions since inception</p>
+                            </div>
+                            {% if growth_data and growth_data.summary %}
+                            <div class="text-end">
+                                <div class="h4 mb-0" style="color: var(--primary-green);">{{ growth_data.summary.total }}</div>
+                                <small class="text-muted">Total Analyses</small>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div style="height: 280px;">
+                            {% if growth_data and growth_data.labels %}
+                            <canvas id="growthChart"></canvas>
+                            {% else %}
+                            <div class="d-flex align-items-center justify-content-center h-100 text-muted">
+                                <i class="bi bi-graph-up me-2"></i> Growth data loading...
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Top Sectors -->
+            <div class="col-lg-5 reveal reveal-delay-2">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <div>
+                                <h5 class="mb-1" style="color: var(--primary-green);"><i class="bi bi-trophy"></i> Top Sectors</h5>
+                                <p class="text-muted small mb-0">Best performing sectors by average return</p>
+                            </div>
+                            <span class="badge bg-success">Across all analyses</span>
+                        </div>
+                        {% if top_sectors and top_sectors.rows %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Sector</th>
+                                        <th class="text-center">#</th>
+                                        <th class="text-end">Return</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for row in top_sectors.rows[:5] %}
+                                    <tr>
+                                        <td class="text-truncate" style="max-width: 150px;" title="{{ row.sector }}">{{ row.sector }}</td>
+                                        <td class="text-center">{{ row.count }}</td>
+                                        <td class="text-end">
+                                            <span class="{% if row.avg_return > 0 %}text-success{% else %}text-danger{% endif %}">
+                                                {% if row.avg_return > 0 %}+{% endif %}{{ "%.1f"|format(row.avg_return) }}%
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="d-flex align-items-center justify-content-center h-75 text-muted">
+                            <i class="bi bi-pie-chart me-2"></i> Sector data loading...
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Team Section -->
+<section class="section" id="team">
+    <div class="container">
+        <div class="section-header reveal">
+            <span class="section-label" data-i18n="section.team">Leadership</span>
+            <h2 class="section-title" data-i18n="team.title">Meet the Team</h2>
+            <p class="section-subtitle" data-i18n="team.subtitle">
+                Guided by experienced leaders and driven by passionate students, 
+                our team combines academic excellence with practical expertise.
+            </p>
+        </div>
+        
+        <div class="team-grid">
+            <!-- Adam Kolomazník -->
+            <div class="team-card reveal">
+                <div class="team-image-wrapper">
+                    <img src="{{ url_for('static', filename='images/team-leader.jpg') }}" 
+                         alt="Adam Kolomazník" 
+                         class="team-image"
+                         onerror="this.style.display='none'">
+                    <div class="team-image-overlay"></div>
+                </div>
+                <div class="team-content">
+                    <h3 class="team-name">Adam Kolomazník</h3>
+                    <div class="team-role">President of the Investment Committee</div>
+                    <div class="team-edu">
+                        <i class="bi bi-mortarboard"></i> CTU & WU Alumni
+                    </div>
+                    <p class="team-quote">
+                        "Leading strategic vision and investment decisions for the Prague Club of Investors. 
+                        Our mission is to provide students with real capital management experience while 
+                        delivering superior risk-adjusted returns."
+                    </p>
+                    <a href="https://www.linkedin.com/in/adam-kolomaznik/" target="_blank" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-linkedin"></i> LinkedIn
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Šimon Havlík -->
+            <div class="team-card reveal reveal-delay-2">
+                <div class="team-image-wrapper">
+                    <img src="{{ url_for('static', filename='images/team-member.png') }}" 
+                         alt="Šimon Havlík" 
+                         class="team-image"
+                         onerror="this.style.display='none'">
+                    <div class="team-image-overlay"></div>
+                </div>
+                <div class="team-content">
+                    <h3 class="team-name">Šimon Havlík</h3>
+                    <div class="team-role">Analyst & Lead Developer</div>
+                    <div class="team-edu">
+                        <i class="bi bi-mortarboard"></i> VŠE Economics Student
+                    </div>
+                    <p class="team-quote">
+                        "Join us and gain real-world investment experience while building production-grade 
+                        financial technology. Here, you'll learn equity research, portfolio management, 
+                        and software development—all while managing real capital."
+                    </p>
+                    <a href="https://www.linkedin.com/in/havliksimon/" target="_blank" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-linkedin"></i> LinkedIn
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% if latest_blog_posts %}
+<!-- Blog Section - Latest Articles -->
+<section class="section section-alt" id="blog">
+    <div class="container">
+        <div class="section-header reveal">
+            <span class="section-label">Latest Insights</span>
+            <h2 class="section-title">From Our Blog</h2>
+            <p class="section-subtitle">
+                Expert investment analysis, market insights, and research from our team of student analysts.
+            </p>
+        </div>
+        
+        <div class="row g-4">
+            {% for post in latest_blog_posts %}
+            <div class="col-md-4 reveal{% if loop.index > 1 %} reveal-delay-{{ loop.index }}{% endif %}">
+                <article class="blog-card h-100">
+                    <div class="blog-card-image" style="height: 180px; position: relative; overflow: hidden;">
+                        {% if post.og_image %}
+                        <img src="{{ post.og_image }}" alt="{{ post.title }}" 
+                             style="width: 100%; height: 100%; object-fit: cover;"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="d-none align-items-center justify-content-center h-100 w-100" style="background: linear-gradient(135deg, #1a9c5e 0%, #147a4a 100%); position: absolute; top: 0; left: 0;">
+                            <i class="bi bi-journal-text" style="font-size: 2.5rem; opacity: 0.8; color: white;"></i>
+                        </div>
+                        {% else %}
+                        <div class="d-flex align-items-center justify-content-center h-100 w-100" style="background: linear-gradient(135deg, #1a9c5e 0%, #147a4a 100%);">
+                            <i class="bi bi-journal-text" style="font-size: 2.5rem; opacity: 0.8; color: white;"></i>
+                        </div>
+                        {% endif %}
+                        {% if post.category %}
+                        <span class="blog-card-category" style="position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">{{ post.category }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="blog-card-content p-4">
+                        <h3 class="blog-card-title" style="font-size: 1.05rem; line-height: 1.4; margin-bottom: 0.75rem;">
+                            <a href="{{ url_for('blog.post', slug=post.slug) }}" style="color: var(--color-gray-900); text-decoration: none; font-weight: 600;">{{ post.title }}</a>
+                        </h3>
+                        <p class="blog-card-excerpt" style="font-size: 0.875rem; color: var(--color-gray-500); line-height: 1.5; margin-bottom: 1rem;">{{ post.get_excerpt(100) }}</p>
+                        <div class="blog-card-meta d-flex flex-wrap gap-3" style="font-size: 0.8rem; color: var(--color-gray-400);">
+                            <span>
+                                <i class="bi bi-person"></i>
+                                {{ post.author_name }}
+                            </span>
+                            <span>
+                                <i class="bi bi-calendar3"></i> {{ post.formatted_date }}
+                            </span>
+                        </div>
+                    </div>
+                </article>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div class="text-center mt-5 reveal">
+            <a href="{{ url_for('blog.index') }}" class="btn btn-primary btn-lg">
+                <i class="bi bi-journal-text"></i> View All Articles
+            </a>
+            {% if current_user.is_authenticated %}
+            <a href="{{ url_for('blog.new_post') }}" class="btn btn-outline-primary btn-lg ms-2">
+                <i class="bi bi-pencil-square"></i> Write a Post
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- CTA Section -->
+<section class="cta-section" id="join">
+    <div class="container">
+        <div class="cta-content reveal">
+            <h2 class="cta-title" data-i18n="cta.title">Ready to Start Your Journey?</h2>
+            <p class="cta-text" data-i18n="cta.subtitle">
+                Join the Prague Club of Investors and gain hands-on experience in investment management. 
+                Work with real capital, learn from industry professionals, and build your track record.
+            </p>
+            {% if not current_user.is_authenticated %}
+                <a href="https://www.klubinvestoru.com/clenstvi" target="_blank" class="btn-cta" data-i18n="btn.apply">
+                    <i class="bi bi-person-plus"></i>
+                    Apply to Join
+                </a>
+                <div class="czech-note mt-3" style="background: rgba(26, 156, 94, 0.15); border-color: rgba(26, 156, 94, 0.3); color: rgba(255,255,255,0.8);">
+                    <i class="bi bi-info-circle-fill"></i>
+                    <span>
+                        Currently accepting analysts working in <strong>Czech language</strong> only
+                    </span>
+                </div>
+            {% else %}
+                {% if current_user.is_admin %}
+                    <a href="{{ url_for('analyst.dashboard') }}" class="btn-cta" data-i18n="btn.dashboard">
+                        <i class="bi bi-speedometer2"></i>
+                        Go to Dashboard
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('analyst.dashboard') }}" class="btn-cta" data-i18n="btn.my_dashboard">
+                        <i class="bi bi-speedometer2"></i>
+                        View My Dashboard
+                    </a>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Scroll reveal animation
+function reveal() {
+    const reveals = document.querySelectorAll('.reveal');
+    
+    reveals.forEach(element => {
+        const windowHeight = window.innerHeight;
+        const elementTop = element.getBoundingClientRect().top;
+        const elementVisible = 100;
+        
+        if (elementTop < windowHeight - elementVisible) {
+            element.classList.add('active');
+        }
+    });
+}
+
+// Counter animation
+function animateCounter(element) {
+    const target = parseInt(element.getAttribute('data-count'));
+    const duration = 2000;
+    const step = target / (duration / 16);
+    let current = 0;
+    
+    const timer = setInterval(() => {
+        current += step;
+        if (current >= target) {
+            element.textContent = target + (target > 10 ? '+' : '');
+            clearInterval(timer);
+        } else {
+            element.textContent = Math.floor(current);
+        }
+    }, 16);
+}
+
+// Intersection Observer for counters
+const counterObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting && !entry.target.classList.contains('counted')) {
+            entry.target.classList.add('counted');
+            animateCounter(entry.target);
+        }
+    });
+}, { threshold: 0.5 });
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    reveal();
+    
+    // Observe counters
+    document.querySelectorAll('.stat-number').forEach(counter => {
+        counterObserver.observe(counter);
+    });
+    
+    // Smooth scroll for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function(e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) {
+                target.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }
+        });
+    });
+});
+
+window.addEventListener('scroll', reveal);
+
+// Navbar scroll effect
+window.addEventListener('scroll', () => {
+    const navbar = document.querySelector('.navbar');
+    if (window.scrollY > 50) {
+        navbar.classList.add('scrolled');
+    } else {
+        navbar.classList.remove('scrolled');
+    }
+});
+</script>
+
+{% if chart_data %}
+<!-- Chart.js for portfolio performance -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('ambitionPortfolioChart').getContext('2d');
+    
+    // Create gradient for portfolio line
+    const gradientPortfolio = ctx.createLinearGradient(0, 0, 0, 200);
+    gradientPortfolio.addColorStop(0, 'rgba(26, 156, 94, 0.2)');
+    gradientPortfolio.addColorStop(1, 'rgba(26, 156, 94, 0.02)');
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ chart_data.dates|tojson|safe }},
+            datasets: [
+                {
+                    label: 'Portfolio',
+                    data: {{ chart_data.portfolio_series|tojson|safe }},
+                    borderColor: '#1a9c5e',
+                    backgroundColor: gradientPortfolio,
+                    borderWidth: 2.5,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 5
+                },
+                {
+                    label: 'S&P 500',
+                    data: {{ chart_data.spy_series|tojson|safe }},
+                    borderColor: '#b8860b',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [6, 4],
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 4
+                },
+                {
+                    label: 'FTSE All-World',
+                    data: {{ chart_data.vt_series|tojson|safe }},
+                    borderColor: '#2b6cb0',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [3, 3],
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 4
+                },
+                {
+                    label: 'EEMS',
+                    data: {{ chart_data.eems_series|tojson|safe }},
+                    borderColor: '#6b7682',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [4, 4],
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 20, 25, 0.95)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    borderColor: 'rgba(26, 156, 94, 0.2)',
+                    borderWidth: 1,
+                    padding: 10,
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.raw.toFixed(1) + '%';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    display: false,
+                    grid: { display: false }
+                },
+                y: {
+                    display: true,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.03)',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: 'rgba(0, 0, 0, 0.4)',
+                        font: { size: 10 },
+                        padding: 5,
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endif %}
+
+{% if growth_data and growth_data.labels %}
+<!-- Growth Timeline Chart -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('growthChart');
+    if (!ctx) return;
+    
+    const growthCtx = ctx.getContext('2d');
+    
+    // Create gradients
+    const gradientTotal = growthCtx.createLinearGradient(0, 0, 0, 280);
+    gradientTotal.addColorStop(0, 'rgba(26, 156, 94, 0.15)');
+    gradientTotal.addColorStop(1, 'rgba(26, 156, 94, 0.0)');
+    
+    const gradientApproved = growthCtx.createLinearGradient(0, 0, 0, 280);
+    gradientApproved.addColorStop(0, 'rgba(20, 122, 74, 0.15)');
+    gradientApproved.addColorStop(1, 'rgba(20, 122, 74, 0.0)');
+    
+    new Chart(growthCtx, {
+        type: 'line',
+        data: {
+            labels: {{ growth_data.labels|tojson|safe }},
+            datasets: [
+                {
+                    label: 'Total Analyses',
+                    data: {{ growth_data.datasets[0].data|tojson|safe }},
+                    borderColor: '#1a9c5e',
+                    backgroundColor: gradientTotal,
+                    borderWidth: 2.5,
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 3,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#1a9c5e',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
+                },
+                {
+                    label: 'Approved',
+                    data: {{ growth_data.datasets[1].data|tojson|safe }},
+                    borderColor: '#147a4a',
+                    backgroundColor: gradientApproved,
+                    borderWidth: 2.5,
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 3,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#147a4a',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    align: 'end',
+                    labels: {
+                        usePointStyle: true,
+                        boxWidth: 8,
+                        padding: 15,
+                        font: { size: 11 },
+                        color: '#6b7682'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 20, 25, 0.95)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    borderColor: 'rgba(26, 156, 94, 0.2)',
+                    borderWidth: 1,
+                    padding: 10,
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.raw + ' analyses';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    display: true,
+                    grid: { display: false },
+                    ticks: {
+                        color: '#9aa5b1',
+                        font: { size: 10 },
+                        maxRotation: 45,
+                        minRotation: 45,
+                        maxTicksLimit: 8
+                    }
+                },
+                y: {
+                    display: true,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.03)',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#9aa5b1',
+                        font: { size: 10 },
+                        padding: 5
+                    },
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+});
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="KI Asset Management - Prague Club of Investors Analyst Performance Tracker. Real capital management experience for motivated students.">
+    <meta name="theme-color" content="#1a1a2e">
+    
+    <!-- Language detection and switching -->
+    <script>
+        // Language configuration
+        window.LANG = {
+            current: 'en',
+            texts: {
+                en: {
+                    'nav.home': 'Home',
+                    'nav.about': 'About',
+                    'nav.strategy': 'Strategy',
+                    'nav.team': 'Team',
+                    'nav.dashboard': 'Dashboard',
+                    'nav.performance': 'Performance',
+                    'nav.board': 'Board',
+                    'nav.login': 'Login',
+                    'nav.register': 'Register',
+                    'nav.logout': 'Logout',
+                    'hero.join': 'Join the Team',
+                    'hero.login': 'Analyst Login',
+                    'hero.czech_note': 'Currently accepting analysts working in',
+                    'hero.czech_lang': 'Czech language',
+                    'hero.only': 'only',
+                    'stats.meetings': 'Analytical Meetings',
+                    'stats.members': 'Team Members',
+                    'stats.reports': 'Research Reports',
+                    'stats.approved': 'Approved Analyses',
+                    'stats.stocks': 'Stocks in Portfolio',
+                    'footer.club': 'The Club',
+                    'footer.contact': 'Contact',
+                    'strategy.no_leverage': 'No Leverage',
+                    'strategy.no_shorts': 'No Shorts',
+                    'strategy.no_hedging': 'No Hedging',
+                    'strategy.unique': 'Unique Strategy',
+                    'btn.apply': 'Apply to Join',
+                    'btn.dashboard': 'Go to Dashboard',
+                    'btn.my_dashboard': 'My Dashboard',
+                    'hero.subtitle': 'Student-driven investment management delivering institutional-grade research and superior risk-adjusted returns through emerging market opportunities.',
+                    'section.mission': 'Our Mission',
+                    'mission.title': 'Institutional-Grade Research.<br>Student-Driven Excellence.',
+                    'mission.subtitle': 'Founded with a clear purpose: to bridge the gap between academic theory and real-world investment management. We operate on par with the finest Czech investment institutions.',
+                    'ambition.title': 'KI AM Ambition',
+                    'ambition.quote': '"Umožnit motivovaným studentům získat reálnou zkušenost se správou kapitálu & zhodnocovat prostředky spolku"',
+                    'ambition.translation': 'Enable motivated students to gain real capital management experience & grow the club\'s assets',
+                    'values.patience': 'Patience',
+                    'values.patience.desc': 'Long-term thinking over short-term speculation. We believe in the power of compound growth.',
+                    'values.foresight': 'Foresight',
+                    'values.foresight.desc': 'Anticipating market trends before they materialize through rigorous fundamental analysis.',
+                    'values.integrity': 'Integrity',
+                    'values.integrity.desc': 'Transparent analysis and honest reporting. We hold ourselves to the highest ethical standards.',
+                    'section.strategy': 'Investment Approach',
+                    'strategy.title': 'Our Strategy Pillars',
+                    'strategy.subtitle': 'A disciplined approach combining emerging markets exposure with small-mid cap opportunities and compelling equity stories.',
+                    'strategy.no_leverage.desc': 'We avoid leverage to prevent increased volatility and drawdowns. Asymmetric risk with unlimited loss potential has no place in our strategy.',
+                    'strategy.no_shorts.desc': 'Short selling introduces margin call risks and borrow costs. We prefer allocating time to finding winners rather than speculating on losers.',
+                    'strategy.no_hedging.desc': 'We don\'t hedge currencies as they provide natural diversification. FX risk is monitored during high volatility periods.',
+                    'strategy.unique.desc': 'Our portfolio cannot be replicated by standard ETFs. We actively select and manage 15-25 positions for true diversification, not "di-worse-ification".',
+                    'allocation.title': 'Target Allocation',
+                    'allocation.smid': 'SMID Caps',
+                    'allocation.smid.desc': 'Small-Mid Cap Opportunities',
+                    'allocation.em': 'EM',
+                    'allocation.em.desc': 'Emerging Markets Exposure',
+                    'allocation.stories': 'Equity Stories',
+                    'allocation.stories.desc': 'Special Situations & Themes',
+                    'allocation.note': 'Developed markets are at highs while retail investors fear EM. Our unique composition of three complementary pillars provides uncorrelated alpha opportunities.',
+                    'section.platform': 'For Our Analysts',
+                    'perks.title': 'Platform Perks',
+                    'perks.subtitle': 'Exclusive tools and features available to KI Asset Management analysts.',
+                    'perks.tracking.title': 'Real-Time Tracking',
+                    'perks.tracking.desc': 'Automatic price fetching from Yahoo Finance ensures our performance data is always current and accurate.',
+                    'perks.benchmark.title': 'Benchmark Comparison',
+                    'perks.benchmark.desc': 'Compare our portfolio against SPY, FTSE All-World, and EEMS with normalized starting points for fair comparison.',
+                    'perks.reports.title': 'Detailed Reports',
+                    'perks.reports.desc': 'Export comprehensive CSV reports with individual analyst performance, portfolio breakdown, and historical data.',
+                    'section.team': 'Leadership',
+                    'team.title': 'Meet the Team',
+                    'team.subtitle': 'Guided by experienced leaders and driven by passionate students, our team combines academic excellence with practical expertise.',
+                    'cta.title': 'Ready to Start Your Journey?',
+                    'cta.subtitle': 'Join the Prague Club of Investors and gain hands-on experience in investment management. Work with real capital, learn from industry professionals, and build your track record.',
+                    'scroll.discover': 'Discover More',
+                    'portfolio.positions': 'Active Positions',
+                    'portfolio.return': 'Board-Approved Portfolio Return',
+                    'portfolio.updated': 'Updated',
+                    'portfolio.vs_spy': 'vs S&P 500',
+                    'placeholder.performance': 'Investment Performance',
+                    'placeholder.track_record': 'Track Record',
+                    'placeholder.real_time': 'Real-time portfolio tracking vs major benchmarks'
+                },
+                cs: {
+                    'nav.home': 'Úvod',
+                    'nav.about': 'O nás',
+                    'nav.strategy': 'Strategie',
+                    'nav.team': 'Náš tým',
+                    'nav.dashboard': 'Přehled',
+                    'nav.performance': 'Výsledky',
+                    'nav.board': 'Výbor',
+                    'nav.login': 'Přihlásit se',
+                    'nav.register': 'Registrace',
+                    'nav.logout': 'Odhlásit se',
+                    'hero.join': 'Chci se přidat',
+                    'hero.login': 'Přihlášení pro analytiky',
+                    'hero.czech_note': 'Přijímáme nové členy, kteří pracují v',
+                    'hero.czech_lang': 'češtině',
+                    'hero.only': '',
+                    'hero.subtitle': 'Investiční skupina studentů, která provádí kvalitní analýzy a dosahuje nadstandardních výnosů na rozvíjejících se trzích.',
+                    'stats.meetings': 'Analytických setkání',
+                    'stats.members': 'Členů týmu',
+                    'stats.reports': 'Výzkumných zpráv',
+                    'stats.approved': 'Schválených analýz',
+                    'stats.stocks': 'Akcí v portfoliu',
+                    'footer.club': 'O klubu',
+                    'footer.contact': 'Kontakt',
+                    'strategy.no_leverage': 'Bez dluhového financování',
+                    'strategy.no_shorts': 'Bez spekulací na pokles',
+                    'strategy.no_hedging': 'Bez zajištění měn',
+                    'strategy.unique': 'Jedinečná strategie',
+                    'btn.apply': 'Podat přihlášku',
+                    'btn.dashboard': 'Otevřít přehled',
+                    'btn.my_dashboard': 'Můj přehled',
+                    'section.mission': 'Naše poslání',
+                    'section.strategy': 'Jak investujeme',
+                    'section.team': 'Kdo jsme',
+                    'section.platform': 'Pro naše analytiky',
+                    'mission.title': 'Kvalitní analýzy.<br>Studentský přístup.',
+                    'mission.subtitle': 'Vznikli jsme s jasným cílem: propojit akademickou teorii s reálným investováním. Naše práce je na úrovni předních českých investičních společností.',
+                    'ambition.title': 'Co nás žene',
+                    'ambition.quote': '"Dát šanci ambiciózním studentům zkusit si řídit reálné portfolio a přinášet zisk spolku"',
+                    'ambition.translation': 'Dát příležitost motivovaným studentům získat praktické zkušenosti s investováním a zhodnocovat majetek klubu',
+                    'values.patience': 'Trpělivost',
+                    'values.patience.desc': 'Díváme se dlouhodobě, nehledáme rychlé zisky. Věříme v sílu času a složeného úročení.',
+                    'values.foresight': 'Předvídavost',
+                    'values.foresight.desc': 'Snažíme se vidět budoucí vývoj trhů dříve než ostatní. Díky pečlivé analýze fundamentů hledáme příležitosti.',
+                    'values.integrity': 'Poctivost',
+                    'values.integrity.desc': 'Naše analýzy jsou transparentní a výsledky prezentujeme pravdivě. Držíme se vysokých morálních standardů.',
+                    'strategy.subtitle': 'Důsledný přístup, který kombinuje investice na rozvíjejících se trzích, středně velké společnosti a zajímavé příběhy jednotlivých akcií.',
+                    'strategy.no_leverage.desc': 'Nepoužíváme dluhové financování, abychom se vyhnuli zbytečnému riziku. Spekulace s neomezenou ztrátou u nás nemá místo.',
+                    'strategy.no_shorts.desc': 'Spekulace na pokles jsou riskantní a drahé. Raději hledáme firmy, které porostou, než ty, které budou padat.',
+                    'strategy.no_hedging.desc': 'Měny nezajišťujeme – přirozeně nám pomáhají rozložit riziko. Sledujeme je jen v období velkých výkyvů.',
+                    'strategy.unique.desc': 'Naše portfolio se nedá jednoduše napodobit pomocí fondů. Sami vybíráme a sledujeme 15–25 firem pro skutečné rozložení rizika.',
+                    'allocation.title': 'Rozložení investic',
+                    'allocation.smid': 'Střední firmy',
+                    'allocation.smid.desc': 'Menší a střední společnosti s potenciálem růstu',
+                    'allocation.em': 'Rozvíjející se trhy',
+                    'allocation.em.desc': 'Investice v Asii, Latinské Americe a jinde',
+                    'allocation.stories': 'Zajímavé příběhy',
+                    'allocation.stories.desc': 'Speciální situace a tématické investice',
+                    'allocation.note': 'Zatímco vyspělé trhy jsou na vrcholu, malí investoři se bojí rozvíjejících se trhů. My vidíme příležitost. Tři pilíře naší strategie nám dávají šanci na lepší výnosy.',
+                    'perks.title': 'Co nabízíme',
+                    'perks.subtitle': 'Nástroje a funkce, které mohou využívat členové našeho týmu.',
+                    'perks.tracking.title': 'Aktuální data',
+                    'perks.tracking.desc': 'Ceny stahujeme automaticky z Yahoo Finance, takže máme vždy aktuální informace o výkonnosti.',
+                    'perks.benchmark.title': 'Srovnání s trhem',
+                    'perks.benchmark.desc': 'Srovnáváme naše výsledky s indexy SPY, FTSE All-World a EEMS na stejné startovní čáře.',
+                    'perks.reports.title': 'Podrobné reporty',
+                    'perks.reports.desc': 'Stáhněte si detailní přehledy ve formátu CSV s výsledky jednotlivých analytiků a historií portfolia.',
+                    'cta.title': 'Chcete začít investovat?',
+                    'cta.subtitle': 'Přidejte se k nám a získejte praktické zkušenosti s řízením investičního portfolia. Pracujte s reálnými penězi, učte se od profesionálů a budujte svou pověst.',
+                    'scroll.discover': 'Zjistit více',
+                    'strategy.title': 'Tři pilíře naší strategie',
+                    'team.title': 'Náš tým',
+                    'team.subtitle': 'Vedeni zkušenými lidmi z oboru, tvoření nadšenými studenty. Kombinujeme akademické znalosti s praxí.',
+                    'portfolio.positions': 'Aktivních pozic',
+                    'portfolio.return': 'Výnos portfolia (schválil výbor)',
+                    'portfolio.updated': 'Aktualizováno',
+                    'portfolio.vs_spy': 'proti S&P 500',
+                    'placeholder.performance': 'Výnosy našeho portfolia',
+                    'placeholder.track_record': 'Historie výkonnosti',
+                    'placeholder.real_time': 'Sledujeme vývoj portfolia v reálném čase v porovnání s hlavními indexy'
+                }
+            },
+            detect: function() {
+                var browserLang = navigator.language || navigator.userLanguage;
+                return browserLang && browserLang.toLowerCase().startsWith('cs') ? 'cs' : 'en';
+            },
+            set: function(lang) {
+                this.current = lang;
+                document.documentElement.setAttribute('data-lang', lang);
+                document.documentElement.setAttribute('lang', lang);
+                this.apply();
+                // Update language indicator
+                var indicator = document.getElementById('lang-indicator');
+                if (indicator) {
+                    indicator.textContent = lang.toUpperCase();
+                }
+            },
+            apply: function() {
+                var texts = this.texts[this.current];
+                document.querySelectorAll('[data-i18n]').forEach(function(el) {
+                    var key = el.getAttribute('data-i18n');
+                    if (texts[key]) {
+                        if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                            el.placeholder = texts[key];
+                        } else {
+                            el.textContent = texts[key];
+                        }
+                    }
+                });
+            },
+            init: function() {
+                var saved = localStorage.getItem('lang');
+                var detected = saved || this.detect();
+                this.set(detected);
+            },
+            toggle: function() {
+                this.set(this.current === 'en' ? 'cs' : 'en');
+                localStorage.setItem('lang', this.current);
+            }
+        };
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', function() {
+            window.LANG.init();
+        });
+    </script>
+    
+    <title>{% block title %}KI Asset Management{% endblock %}</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>">
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
+    
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    
+    <!-- Google Fonts - Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}{% if current_user.is_authenticated %} dashboard-page{% endif %}">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('main.index') }}">
+                <i class="bi bi-graph-up-arrow"></i>
+                <span>KI Asset Management</span>
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    {% if current_user.is_authenticated %}
+                        {# Check if admin is viewing as user #}
+                        {% set view_as_user = session.get('admin_view_as_user', false) %}
+                        {% if current_user.is_admin and not view_as_user %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('analyst.dashboard') }}">
+                                    <i class="bi bi-speedometer2"></i> Dashboard
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('analyst.overview') }}">
+                                    <i class="bi bi-grid-3x3-gap"></i> Overview
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('admin.users') }}">
+                                    <i class="bi bi-people"></i> Users
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('admin.unified_update') }}">
+                                    <i class="bi bi-arrow-repeat"></i> Update
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('admin.performance') }}">
+                                    <i class="bi bi-bar-chart"></i> Performance
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('admin.board') }}">
+                                    <i class="bi bi-clipboard-check"></i> Board
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('main.wall') }}">
+                                    <i class="bi bi-chat-square-text"></i> Ideas Wall
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('blog.index') }}">
+                                    <i class="bi bi-journal-text"></i> Blog
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('analyst.dashboard') }}">
+                                    <i class="bi bi-speedometer2"></i> Dashboard
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('analyst.overview') }}">
+                                    <i class="bi bi-grid-3x3-gap"></i> Overview
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('admin.performance') }}">
+                                    <i class="bi bi-bar-chart"></i> Performance
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('main.wall') }}">
+                                    <i class="bi bi-chat-square-text"></i> Ideas Wall
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('blog.index') }}">
+                                    <i class="bi bi-journal-text"></i> Blog
+                                </a>
+                            </li>
+                        {% endif %}
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('main.index') }}#about" data-i18n="nav.about">About</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('main.index') }}#strategy" data-i18n="nav.strategy">Strategy</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('main.index') }}#team" data-i18n="nav.team">Team</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('blog.index') }}">
+                                <i class="bi bi-journal-text"></i> Blog
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="https://www.klubinvestoru.com/" target="_blank" data-i18n="footer.club">
+                                <i class="bi bi-building"></i> The Club
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+                
+                <ul class="navbar-nav align-items-center">
+                    <!-- Language Toggle -->
+                    <li class="nav-item me-2">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="window.LANG.toggle()" title="Switch language">
+                            <span id="lang-indicator">EN</span>
+                        </button>
+                    </li>
+                    {% if current_user.is_authenticated %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-person-circle"></i> {{ current_user.full_name or current_user.email.split('@')[0] }}
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li>
+                                    <span class="dropdown-item-text text-muted small">
+                                        {{ current_user.email }}
+                                    </span>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item" href="{{ url_for('blog.my_posts') }}">
+                                        <i class="bi bi-journal-text"></i> My Blog Posts
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{{ url_for('blog.new_post') }}">
+                                        <i class="bi bi-pencil-square"></i> Write a Post
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                {% if current_user.is_admin %}
+                                    <li>
+                                        <div class="dropdown-item">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="userViewToggle" 
+                                                       {% if session.get('admin_view_as_user') %}checked{% endif %}
+                                                       onchange="toggleUserView(this)">
+                                                <label class="form-check-label" for="userViewToggle">
+                                                    <i class="bi bi-eye-slash"></i> View as User
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ url_for('blog.admin_posts') }}">
+                                            <i class="bi bi-shield"></i> Manage Blog Posts
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ url_for('admin.analyst_mappings') }}">
+                                            <i class="bi bi-person-badge"></i> Analyst Mappings
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ url_for('admin.company_tickers') }}">
+                                            <i class="bi bi-building"></i> Ticker Mappings
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                {% endif %}
+                                <li>
+                                    <a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}">
+                                        <i class="bi bi-box-arrow-right"></i> <span data-i18n="nav.logout">Logout</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('auth.login') }}" data-i18n="nav.login">
+                                <i class="bi bi-box-arrow-in-right"></i> Login
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('auth.register') }}" data-i18n="nav.register">
+                                <i class="bi bi-person-plus"></i> Register
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container mt-5 pt-5">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                        <i class="bi bi-{{ 'check-circle' if category == 'success' else 'exclamation-triangle' if category == 'warning' else 'x-circle' if category == 'error' or category == 'danger' else 'info-circle' }}"></i>
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Main Content -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <i class="bi bi-graph-up-arrow"></i>
+                    KI Asset Management
+                </div>
+                <div class="footer-links">
+                    <a href="{{ url_for('main.about') }}" class="footer-link" data-i18n="nav.about">About</a>
+                    <a href="{{ url_for('blog.index') }}" class="footer-link">Blog</a>
+                    <a href="{{ url_for('main.methodology') }}" class="footer-link">
+                        <i class="bi bi-calculator"></i> Methodology
+                    </a>
+                    <a href="{{ url_for('main.privacy') }}" class="footer-link">Privacy</a>
+                    <a href="{{ url_for('main.terms') }}" class="footer-link">Terms</a>
+                    <a href="https://www.klubinvestoru.com/" target="_blank" class="footer-link" data-i18n="footer.club">
+                        <i class="bi bi-building"></i> The Club
+                    </a>
+                    <a href="https://www.klubinvestoru.com/kontakt" target="_blank" class="footer-link" data-i18n="footer.contact">
+                        <i class="bi bi-envelope"></i> Contact
+                    </a>
+                    <a href="https://github.com/havliksimon/ki-asset-management" target="_blank" class="footer-link">
+                        <i class="bi bi-github"></i> GitHub
+                    </a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p class="mb-0">
+                    &copy; {{ now.year }} Prague Club of Investors (Klub Investorů). All rights reserved.
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
+    
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    
+    {% if current_user.is_authenticated and current_user.is_admin %}
+    <script>
+    // Admin toggle to view as normal user
+    function toggleUserView(checkbox) {
+        const viewAsUser = checkbox.checked;
+        fetch('{{ url_for("auth.toggle_user_view") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ view_as_user: viewAsUser })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            }
+        })
+        .catch(err => console.error('Error toggling view:', err));
+    }
+    </script>
+    {% endif %}
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

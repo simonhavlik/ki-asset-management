@@ -1,0 +1,534 @@
+{% extends "base.html" %}
+
+{% block title %}{{ analyst.analyst_name }} – Performance Details | KI Asset Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1><i class="bi bi-person-badge"></i> {{ analyst.analyst_name }}</h1>
+        <p class="text-muted mb-0">Detailed Performance Analysis & Benchmark Comparison</p>
+    </div>
+    <a href="{{ url_for('admin.performance') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Leaderboard
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('admin.analyst_details', analyst_id=analyst.analyst_id) }}" class="row g-3 align-items-center">
+            <div class="col-md-4">
+                <label for="filter" class="form-label">Filter by decision:</label>
+                <select name="filter" id="filter" class="form-select">
+                    <option value="approved_only" {% if current_filter == 'approved_only' %}selected{% endif %}>Approved/On Watchlist only</option>
+                    <option value="neutral_approved" {% if current_filter == 'neutral_approved' %}selected{% endif %}>Neutral + Approved/On Watchlist</option>
+                    <option value="all_stock" {% if current_filter == 'all_stock' %}selected{% endif %}>All stock picks (any decision)</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <div class="form-check mt-4">
+                      {% if annualized %}
+                      <input class="form-check-input" type="checkbox" name="annualized" value="true" id="annualizedCheckbox" checked>
+                      {% else %}
+                      <input class="form-check-input" type="checkbox" name="annualized" value="true" id="annualizedCheckbox">
+                      {% endif %}
+                    <label class="form-check-label" for="annualizedCheckbox">
+                        Show annualized returns
+                    </label>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-outline-primary mt-4">
+                    <i class="bi bi-funnel"></i> Apply
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Performance Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-2 col-6">
+        <div class="card text-center h-100">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase small">Analyses</h6>
+                <div class="display-5 fw-bold">{{ analyst.num_analyses }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 col-6">
+        <div class="card text-center h-100">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase small">Avg Return</h6>
+                <div class="display-5 fw-bold {% if analyst.avg_return and analyst.avg_return >= 0 %}text-success{% elif analyst.avg_return and analyst.avg_return < 0 %}text-danger{% endif %}">
+                    {{ "%.1f"|format(analyst.avg_return) if analyst.avg_return else '--' }}%
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 col-6">
+        <div class="card text-center h-100">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase small">Median</h6>
+                <div class="display-5 fw-bold">
+                    {{ "%.1f"|format(analyst.median_return) if analyst.median_return else '--' }}%
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 col-6">
+        <div class="card text-center h-100">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase small">Win Rate</h6>
+                <div class="display-5 fw-bold {% if analyst.win_rate and analyst.win_rate >= 50 %}text-success{% elif analyst.win_rate and analyst.win_rate < 50 %}text-warning{% endif %}">
+                    {{ "%.0f"|format(analyst.win_rate) if analyst.win_rate else '--' }}%
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 col-6">
+        <div class="card text-center h-100">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase small">Best</h6>
+                <div class="display-5 fw-bold text-success">
+                    {{ "%.1f"|format(analyst.best_return) if analyst.best_return else '--' }}%
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 col-6">
+        <div class="card text-center h-100">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase small">Worst</h6>
+                <div class="display-5 fw-bold text-danger">
+                    {{ "%.1f"|format(analyst.worst_return) if analyst.worst_return else '--' }}%
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row mb-4">
+    <!-- Return per Analysis Bar Chart -->
+    <div class="col-lg-7 mb-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Return per Analysis</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="returnsChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Summary Card -->
+    <div class="col-lg-5 mb-4">
+        <div class="card h-100 shadow-sm border-success">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="bi bi-info-circle"></i> Performance Summary</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tr>
+                        <td>Analyst:</td>
+                        <td class="fw-bold">{{ analyst.analyst_name }}</td>
+                    </tr>
+                    <tr>
+                        <td>Total Analyses:</td>
+                        <td class="fw-bold">{{ analyst.num_analyses }}</td>
+                    </tr>
+                    <tr>
+                        <td>Average Return:</td>
+                        <td class="fw-bold {% if analyst.avg_return and analyst.avg_return >= 0 %}text-success{% elif analyst.avg_return and analyst.avg_return < 0 %}text-danger{% endif %}">
+                            {{ "%.2f"|format(analyst.avg_return) if analyst.avg_return else '--' }}%
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Median Return:</td>
+                        <td class="fw-bold">{{ "%.2f"|format(analyst.median_return) if analyst.median_return else '--' }}%</td>
+                    </tr>
+                    <tr>
+                        <td>Win Rate:</td>
+                        <td class="fw-bold">{{ "%.1f"|format(analyst.win_rate) if analyst.win_rate else '--' }}%</td>
+                    </tr>
+                    <tr>
+                        <td>Best Return:</td>
+                        <td class="fw-bold text-success">{{ "%.2f"|format(analyst.best_return) if analyst.best_return else '--' }}%</td>
+                    </tr>
+                    <tr>
+                        <td>Worst Return:</td>
+                        <td class="fw-bold text-danger">{{ "%.2f"|format(analyst.worst_return) if analyst.worst_return else '--' }}%</td>
+                    </tr>
+                </table>
+                
+                <div class="alert alert-info mb-0 mt-3">
+                    <small>
+                        <i class="bi bi-info-circle"></i>
+                        <strong>How to read:</strong> The cumulative chart below shows how $100 invested 
+                        equally across all positions would have performed vs benchmarks. 
+                        All series start at 0% for direct comparison.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Performance Charts Row -->
+<div class="row">
+    <!-- Since Inception Chart -->
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-graph-up"></i> Since Inception (Normalized to 0%)</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="inceptionChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Last 12 Months Chart -->
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-graph-up"></i> Last 12 Months (Normalized to 0%)</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="oneyearChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart Legend -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="d-flex justify-content-center gap-4 flex-wrap">
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="toggleAnalystAll" checked disabled>
+                <label class="form-check-label fw-bold" for="toggleAnalystAll" style="color: #0d6efd;">
+                    <i class="bi bi-circle-fill" style="font-size: 0.6em;"></i> {{ analyst.analyst_name }}
+                </label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="toggleSpy" checked>
+                <label class="form-check-label fw-bold" for="toggleSpy" style="color: #ffc107;">
+                    <i class="bi bi-circle-fill" style="font-size: 0.6em;"></i> S&P 500 (SPY)
+                </label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="toggleVt" checked>
+                <label class="form-check-label fw-bold" for="toggleVt" style="color: #0dcaf5;">
+                    <i class="bi bi-circle-fill" style="font-size: 0.6em;"></i> FTSE All-World (VT)
+                </label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="toggleEems">
+                <label class="form-check-label fw-bold" for="toggleEems" style="color: #6c757d;">
+                    <i class="bi bi-circle-fill" style="font-size: 0.6em;"></i> EEMS
+                </label>
+            </div>
+        </div>
+        <div class="text-center mt-2">
+            <small class="text-muted">
+                <i class="bi bi-info-circle"></i> 
+                All series are normalized to 0% at the start date for direct comparison.
+            </small>
+        </div>
+    </div>
+</div>
+
+<!-- Analyses List -->
+<div class="card shadow-sm">
+    <div class="card-header bg-white">
+        <h5 class="mb-0"><i class="bi bi-table"></i> Analyses List</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Company</th>
+                        <th>Ticker</th>
+                        <th>Analysis Date</th>
+                        <th>Status</th>
+                        <th class="text-end">Return %</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for analysis, perf, company in analyses %}
+                    <tr>
+                        <td><strong>{{ company.name }}</strong></td>
+                        <td><code>{{ company.ticker_symbol or '—' }}</code></td>
+                        <td>{{ analysis.analysis_date }}</td>
+                        <td><span class="badge bg-secondary">{{ analysis.status }}</span></td>
+                        <td class="text-end">
+                            {% if perf.return_pct is not none %}
+                                <span class="fw-bold {% if (annualized and perf.annualized_return is defined and perf.annualized_return >= 0) or (not annualized and perf.return_pct >= 0) %}text-success{% else %}text-danger{% endif %}">
+                                    {% if annualized and perf.annualized_return is defined %}
+                                        {{ "%.2f"|format(perf.annualized_return) }}%
+                                    {% else %}
+                                        {{ "%.2f"|format(perf.return_pct) }}%
+                                    {% endif %}
+                                </span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                            No analyses with performance data found.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Returns Bar Chart
+const analysesData = [
+    {% for analysis, perf, company in analyses %}
+    {
+        label: '{{ company.name }}',
+        return: {% if annualized and perf.annualized_return is defined %}{{ perf.annualized_return|round(2) }}{% else %}{{ perf.return_pct if perf.return_pct is not none else 0 }}{% endif %},
+        date: '{{ analysis.analysis_date }}'
+    },
+    {% endfor %}
+];
+
+const labels = analysesData.map(d => d.label);
+const returns = analysesData.map(d => d.return);
+
+const ctxReturns = document.getElementById('returnsChart').getContext('2d');
+const returnsChart = new Chart(ctxReturns, {
+    type: 'bar',
+    data: {
+        labels: labels,
+        datasets: [{
+            label: 'Return %',
+            data: returns,
+            backgroundColor: returns.map(r => r >= 0 ? 'rgba(25, 135, 84, 0.7)' : 'rgba(220, 53, 69, 0.7)'),
+            borderColor: returns.map(r => r >= 0 ? '#198754' : '#dc3545'),
+            borderWidth: 1,
+            borderRadius: 4
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        return `Return: ${context.raw}%`;
+                    }
+                }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                title: {
+                    display: true,
+                    text: 'Return %'
+                },
+                ticks: {
+                    callback: function(value) {
+                        return value + '%';
+                    }
+                },
+                grid: {
+                    color: 'rgba(0,0,0,0.05)'
+                }
+            },
+            x: {
+                ticks: {
+                    maxRotation: 45,
+                    minRotation: 45
+                },
+                grid: {
+                    display: false
+                }
+            }
+        }
+    }
+});
+
+// Chart Data
+const seriesAllData = {{ series_all|tojson|safe }};
+const series1yData = {{ series_1y|tojson|safe }};
+
+let inceptionChart = null;
+let oneYearChart = null;
+
+function createChartConfig(data, chartId) {
+    if (!data || !data.dates || data.dates.length === 0) {
+        return null;
+    }
+    
+    const datasets = [];
+    
+    // Analyst series
+    if (data.analyst_series && data.analyst_series.length) {
+        datasets.push({
+            label: '{{ analyst.analyst_name }}',
+            data: data.analyst_series,
+            borderColor: '#0d6efd',
+            backgroundColor: 'rgba(13, 110, 253, 0.1)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.4,
+            pointRadius: 0,
+            pointHoverRadius: 6
+        });
+    }
+    
+    // S&P 500
+    if (data.spy_series && data.spy_series.length) {
+        datasets.push({
+            label: 'S&P 500 (SPY)',
+            data: data.spy_series,
+            borderColor: '#ffc107',
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            tension: 0.4,
+            pointRadius: 0,
+            pointHoverRadius: 6
+        });
+    }
+    
+    // FTSE All-World
+    if (data.vt_series && data.vt_series.length) {
+        datasets.push({
+            label: 'FTSE All-World (VT)',
+            data: data.vt_series,
+            borderColor: '#0dcaf5',
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [2, 2],
+            tension: 0.4,
+            pointRadius: 0,
+            pointHoverRadius: 6
+        });
+    }
+    
+    // EEMS
+    if (data.eems_series && data.eems_series.length) {
+        datasets.push({
+            label: 'EEMS',
+            data: data.eems_series,
+            borderColor: '#6c757d',
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [3, 3],
+            tension: 0.4,
+            hidden: true,
+            pointRadius: 0,
+            pointHoverRadius: 6
+        });
+    }
+    
+    return {
+        type: 'line',
+        data: {
+            labels: data.dates,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.raw + '%';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { maxTicksLimit: 6, maxRotation: 0 }
+                },
+                y: {
+                    title: { display: true, text: 'Return %' },
+                    ticks: { callback: function(value) { return value + '%'; } }
+                }
+            }
+        }
+    };
+}
+
+// Initialize charts
+if (seriesAllData) {
+    const ctx1 = document.getElementById('inceptionChart').getContext('2d');
+    inceptionChart = new Chart(ctx1, createChartConfig(seriesAllData, 'inception'));
+}
+
+if (series1yData) {
+    const ctx2 = document.getElementById('oneyearChart').getContext('2d');
+    oneYearChart = new Chart(ctx2, createChartConfig(series1yData, 'oneyear'));
+}
+
+// Toggle events for shared legend
+document.getElementById('toggleSpy').addEventListener('change', function(e) {
+    [inceptionChart, oneYearChart].forEach(chart => {
+        if (!chart) return;
+        const dataset = chart.data.datasets.find(d => d.label === 'S&P 500 (SPY)');
+        if (dataset) {
+            const index = chart.data.datasets.indexOf(dataset);
+            chart.setDatasetVisibility(index, e.target.checked);
+            chart.update();
+        }
+    });
+});
+
+document.getElementById('toggleVt').addEventListener('change', function(e) {
+    [inceptionChart, oneYearChart].forEach(chart => {
+        if (!chart) return;
+        const dataset = chart.data.datasets.find(d => d.label === 'FTSE All-World (VT)');
+        if (dataset) {
+            const index = chart.data.datasets.indexOf(dataset);
+            chart.setDatasetVisibility(index, e.target.checked);
+            chart.update();
+        }
+    });
+});
+
+document.getElementById('toggleEems').addEventListener('change', function(e) {
+    [inceptionChart, oneYearChart].forEach(chart => {
+        if (!chart) return;
+        const dataset = chart.data.datasets.find(d => d.label === 'EEMS');
+        if (dataset) {
+            const index = chart.data.datasets.indexOf(dataset);
+            chart.setDatasetVisibility(index, e.target.checked);
+            chart.update();
+        }
+    });
+});
+</script>
+{% endblock %}

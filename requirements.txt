@@ -1,0 +1,61 @@
+# Prague Club of Investors - Analyst Performance Tracker
+# Python Dependencies
+
+# Web Framework
+Flask==2.3.3
+Flask-SQLAlchemy==3.0.5
+Flask-Login==0.6.3
+Flask-WTF==1.1.1
+Flask-Mail==0.9.1
+Flask-Caching==2.3.0  # For Neon.tech optimization (in-memory caching)
+Werkzeug==2.3.7
+
+# Database
+# SQLite is included with Python
+# psycopg2-binary is for PostgreSQL (production)
+# Using 2.9.10+ for Python 3.13 compatibility
+psycopg2-binary==2.9.10
+
+# Environment Configuration
+python-dotenv==1.0.0
+
+# Financial Data
+# yahooquery is more reliable than yfinance on cloud platforms (Render, etc.)
+# It uses Yahoo Finance API directly with better error handling
+yahooquery==2.4.1
+pandas==2.3.3
+numpy==2.0.0
+openpyxl==3.1.5  # For Excel export
+matplotlib==3.9.0  # For presentation charts
+
+# Security
+bcrypt==4.1.2
+email-validator==2.1.0
+itsdangerous==2.1.2
+
+# HTTP Requests (for API integrations)
+requests==2.31.0
+
+# Email API (SendGrid - works on Render free tier, 100 emails/day free)
+# Use this instead of SMTP which is blocked on Render
+sendgrid==6.11.0
+
+# Background Jobs (for scheduled updates)
+APScheduler==3.10.4
+
+# Blog - Markdown support (optional, falls back to HTML if not installed)
+Markdown==3.6
+
+# Document Parsing (for AI article generation from PDF/DOCX)
+PyPDF2==3.0.1          # PDF text extraction
+python-docx==1.1.0     # DOCX text extraction
+pdfplumber==0.10.0     # Alternative PDF parser (optional)
+
+# Production Server
+gunicorn==21.2.0
+
+# Development & Testing (optional but recommended)
+# pytest==7.4.0
+# pytest-cov==4.1.0
+# flake8==6.1.0
+# black==23.7.0
