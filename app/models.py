@@ -380,6 +380,9 @@ class BlogPost(db.Model):
     content = db.Column(db.Text, nullable=False)  # Main content (HTML/Markdown)
     content_type = db.Column(db.String(20), default='html')  # 'html' or 'markdown'
     pdf_path = db.Column(db.String(500), nullable=True)  # Path to PDF file for PDF blog posts
+    pdf_binary = db.Column(db.LargeBinary, nullable=True)  # PDF stored in DB for Render deployment
+    pdf_content_type = db.Column(db.String(100), nullable=True)  # MIME type of stored PDF
+    pdf_filename_db = db.Column(db.String(255), nullable=True)  # Original filename for download
     additional_pdfs = db.Column(db.JSON, nullable=True)  # List of additional PDFs [{name, path, type, desc}]
     
     # Author & Publishing
@@ -419,14 +422,28 @@ class BlogPost(db.Model):
     @property
     def is_pdf_post(self):
         """Check if this is a PDF-only blog post."""
-        return bool(self.pdf_path)
+        return bool(self.pdf_path) or bool(self.pdf_binary)
     
     @property
     def pdf_filename(self):
-        """Get the PDF filename from the path."""
+        """Get the PDF filename from the path or db storage."""
+        if self.pdf_filename_db:
+            return self.pdf_filename_db
         if not self.pdf_path:
             return None
         return self.pdf_path.split('/')[-1]
+    
+    @property
+    def pdf_url(self):
+        """Get the URL to serve the PDF (from filesystem or database)."""
+        if self.pdf_binary:
+            # Serve from database via special route
+            return f"/blog/pdf/{self.id}"
+        if self.pdf_path:
+            # Serve from filesystem (legacy)
+            from flask import url_for
+            return url_for('static', filename=self.pdf_path)
+        return None
     
     @property
     def additional_files_list(self):

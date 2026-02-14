@@ -16,6 +16,7 @@ from datetime import datetime
 from sqlalchemy import or_, desc
 import re
 import json
+import os
 
 from ..extensions import db, csrf
 from ..models import BlogPost, User, Analysis, Company
@@ -191,6 +192,43 @@ def post(slug):
                          seo_description=seo_description,
                          seo_keywords=seo_keywords,
                          og_image=og_image)
+
+
+@blog_bp.route('/pdf/<int:post_id>')
+def serve_pdf(post_id):
+    """
+    Serve PDF from database storage (optimized for Neon DB/Render deployment).
+    Returns the PDF binary with proper caching headers.
+    """
+    from flask import send_file
+    import io
+    
+    blog_post = BlogPost.query.get_or_404(post_id)
+    
+    # Check visibility - only serve published posts or if user has permission
+    if not blog_post.is_published:
+        if not current_user.is_authenticated:
+            abort(404)
+        if current_user.id != blog_post.author_id and not current_user.is_admin:
+            abort(404)
+    
+    # Check if PDF is stored in database
+    if blog_post.pdf_binary:
+        # Serve from database with caching
+        response = make_response(blog_post.pdf_binary)
+        response.headers['Content-Type'] = blog_post.pdf_content_type or 'application/pdf'
+        response.headers['Content-Disposition'] = f'inline; filename="{blog_post.pdf_filename or "document.pdf"}"'
+        # Cache for 24 hours (PDFs don't change often)
+        response.headers['Cache-Control'] = 'public, max-age=86400'
+        return response
+    
+    # Fallback to filesystem if not in database (legacy)
+    if blog_post.pdf_path:
+        full_path = os.path.join(current_app.root_path, 'static', blog_post.pdf_path)
+        if os.path.exists(full_path):
+            return send_file(full_path, mimetype='application/pdf')
+    
+    abort(404)
 
 
 @blog_bp.route('/author/<int:user_id>')
@@ -952,40 +990,18 @@ def upload_pdf_api():
     try:
         from werkzeug.utils import secure_filename
         import os
+        import io
         
-        # Create upload directory if it doesn't exist
-        upload_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'blog_pdfs')
-        os.makedirs(upload_dir, exist_ok=True)
-        
-        current_app.logger.info(f"PDF upload directory: {upload_dir}")
-        current_app.logger.info(f"Directory exists: {os.path.exists(upload_dir)}")
-        current_app.logger.info(f"Directory writable: {os.access(upload_dir, os.W_OK)}")
-        
-        # Generate secure filename with timestamp
-        timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
-        safe_filename = secure_filename(f"{timestamp}_{file.filename}")
-        
-        # Full path
-        file_path = os.path.join(upload_dir, safe_filename)
-        current_app.logger.info(f"Saving PDF to: {file_path}")
-        
-        file.save(file_path)
-        
-        # Verify file was saved
-        if os.path.exists(file_path):
-            current_app.logger.info(f"PDF saved successfully. Size: {os.path.getsize(file_path)} bytes")
-        else:
-            current_app.logger.error("PDF file was not saved!")
-        
-        # Return relative path for storage
-        relative_path = f"uploads/blog_pdfs/{safe_filename}"
+        # Read file content into memory for database storage
+        file_content = file.read()
         
         # Initialize return data
         suggested_title = None
         company_name = None
         ticker = None
+        relative_path = None
         
-        # Only parse PDFs for title extraction
+        # Only parse PDFs for title extraction and database storage
         if is_pdf:
             # Parse filename to extract company name and ticker
             # Expected format: "Company Name (TICKER) Stock Analysis - KI AM.pdf"
@@ -998,7 +1014,7 @@ def upload_pdf_api():
             if not suggested_title or suggested_title == "Stock Analysis - KI AM":
                 try:
                     from PyPDF2 import PdfReader
-                    reader = PdfReader(file_path)
+                    reader = PdfReader(io.BytesIO(file_content))
                     if reader.metadata and reader.metadata.title:
                         pdf_title = reader.metadata.title.strip()
                         # Try to parse the PDF title
@@ -1011,8 +1027,13 @@ def upload_pdf_api():
         if post_id and is_pdf:
             blog_post = BlogPost.query.get(post_id)
             if blog_post and (current_user.id == blog_post.author_id or current_user.is_admin):
-                blog_post.pdf_path = relative_path
+                # Store PDF in database (optimized for Neon DB)
+                blog_post.pdf_binary = file_content
+                blog_post.pdf_content_type = 'application/pdf'
+                blog_post.pdf_filename_db = secure_filename(file.filename)
+                # Keep pdf_path for backward compatibility (optional)
                 db.session.commit()
+                current_app.logger.info(f"PDF stored in database for post {post_id}. Size: {file_size} bytes")
         
         return jsonify({
             'success': True,

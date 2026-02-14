@@ -894,7 +894,7 @@
                         <!-- Preview Button for PDF Posts -->
                         {% if post.is_pdf_post %}
                         <button type="button" class="btn btn-sm btn-outline-primary w-100" 
-                                onclick="openPdfPreview('{{ url_for('static', filename=post.pdf_path) }}', '{{ post.title | escape }}')">
+                                onclick="openPdfPreview('{{ post.pdf_url }}', '{{ post.title | escape }}')">
                             <i class="bi bi-eye"></i> Preview Research
                         </button>
                         {% else %}

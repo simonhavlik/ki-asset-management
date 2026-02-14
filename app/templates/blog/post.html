@@ -200,9 +200,9 @@
             <!-- PDF Viewer for PDF Research Posts -->
             {% if post.is_pdf_post %}
             
-            {% set all_pdfs = [{'path': post.pdf_path, 'filename': post.pdf_filename, 'file_type': 'research', 'description': '', 'is_primary': true}] %}
+            {% set all_pdfs = [{'url': post.pdf_url, 'path': post.pdf_path, 'filename': post.pdf_filename, 'file_type': 'research', 'description': '', 'is_primary': true, 'is_db_stored': post.pdf_binary is not none}] %}
             {% for pdf in post.additional_files_list %}
-                {% set _ = all_pdfs.append({'path': pdf.path, 'filename': pdf.filename, 'file_type': pdf.file_type, 'description': pdf.description, 'is_primary': false}) %}
+                {% set _ = all_pdfs.append({'url': url_for('static', filename=pdf.path), 'path': pdf.path, 'filename': pdf.filename, 'file_type': pdf.file_type, 'description': pdf.description, 'is_primary': false, 'is_db_stored': false}) %}
             {% endfor %}
             
             <!-- Multiple PDFs Tabs -->
@@ -260,7 +260,7 @@
                             </h5>
                             <div class="btn-group btn-group-sm">
                                 {% if is_pdf_file %}
-                                    <a href="{{ url_for('static', filename=pdf.path) }}" target="_blank" class="btn btn-outline-primary">
+                                    <a href="{{ pdf.url }}" target="_blank" class="btn btn-outline-primary">
                                         <i class="bi bi-download"></i> Download PDF
                                     </a>
                                     {% if loop.first %}
@@ -269,7 +269,7 @@
                                     </button>
                                     {% endif %}
                                 {% else %}
-                                    <a href="{{ url_for('static', filename=pdf.path) }}" download class="btn btn-outline-success">
+                                    <a href="{{ pdf.url }}" download class="btn btn-outline-success">
                                         <i class="bi bi-download"></i> Download .{{ file_ext }}
                                     </a>
                                 {% endif %}
@@ -277,7 +277,7 @@
                         </div>
                         {% if is_pdf_file %}
                         <div class="pdf-wrapper border rounded-4 overflow-hidden" style="height: 700px;">
-                            <iframe src="{{ url_for('static', filename=pdf.path) }}#view=FitH" 
+                            <iframe src="{{ pdf.url }}#view=FitH" 
                                     width="100%" 
                                     height="100%" 
                                     style="border: none;"
@@ -290,7 +290,7 @@
                             <div>
                                 <strong>Download Required</strong><br>
                                 This file (.<span class="text-uppercase">{{ file_ext }}</span>) cannot be previewed in the browser. 
-                                <a href="{{ url_for('static', filename=pdf.path) }}" download class="alert-link">Click here to download</a>.
+                                <a href="{{ pdf.url }}" download class="alert-link">Click here to download</a>.
                             </div>
                         </div>
                         {% endif %}
@@ -307,7 +307,7 @@
                         <i class="bi bi-file-earmark-pdf text-danger"></i> Research Report
                     </h5>
                     <div class="btn-group btn-group-sm">
-                        <a href="{{ url_for('static', filename=post.pdf_path) }}" target="_blank" class="btn btn-outline-primary">
+                        <a href="{{ post.pdf_url }}" target="_blank" class="btn btn-outline-primary">
                             <i class="bi bi-download"></i> Download PDF
                         </a>
                         <button type="button" class="btn btn-outline-secondary" onclick="toggleFullscreen()">
@@ -316,7 +316,7 @@
                     </div>
                 </div>
                 <div class="pdf-wrapper border rounded-4 overflow-hidden" style="height: 700px;">
-                    <iframe src="{{ url_for('static', filename=post.pdf_path) }}#view=FitH" 
+                    <iframe src="{{ post.pdf_url }}#view=FitH" 
                             width="100%" 
                             height="100%" 
                             style="border: none;"
@@ -451,7 +451,7 @@ function toggleFullscreen() {
         } else {
             pdfWrapper.requestFullscreen().catch(err => {
                 console.log('Fullscreen not supported:', err);
-                window.open('{{ url_for("static", filename=post.pdf_path) }}', '_blank');
+                window.open('{{ post.pdf_url }}', '_blank');
             });
         }
     }
