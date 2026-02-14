@@ -421,8 +421,20 @@ class BlogPost(db.Model):
     
     @property
     def is_pdf_post(self):
-        """Check if this is a PDF-only blog post."""
-        return bool(self.pdf_path) or bool(self.pdf_binary)
+        """Check if this is a PDF-only blog post with accessible PDF."""
+        # Database PDF always works
+        if self.pdf_binary:
+            return True
+        # Filesystem PDF - check if file exists
+        if self.pdf_path:
+            import os
+            from flask import current_app
+            try:
+                full_path = os.path.join(current_app.root_path, 'static', self.pdf_path)
+                return os.path.exists(full_path)
+            except Exception:
+                return False
+        return False
     
     @property
     def pdf_filename(self):
@@ -435,14 +447,23 @@ class BlogPost(db.Model):
     
     @property
     def pdf_url(self):
-        """Get the URL to serve the PDF (from filesystem or database)."""
+        """Get the URL to serve the PDF (from database or filesystem)."""
+        # Priority 1: Database storage (preferred for Render/Neon)
         if self.pdf_binary:
-            # Serve from database via special route
             return f"/blog/pdf/{self.id}"
+        
+        # Priority 2: Filesystem (legacy) - only if file actually exists
         if self.pdf_path:
-            # Serve from filesystem (legacy)
-            from flask import url_for
-            return url_for('static', filename=self.pdf_path)
+            import os
+            from flask import current_app
+            try:
+                full_path = os.path.join(current_app.root_path, 'static', self.pdf_path)
+                if os.path.exists(full_path):
+                    from flask import url_for
+                    return url_for('static', filename=self.pdf_path)
+            except Exception:
+                pass
+        
         return None
     
     @property
