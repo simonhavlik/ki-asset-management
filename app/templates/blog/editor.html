@@ -1,13 +1,13 @@
 {% extends "blog/base_blog.html" %}
 
-{% block title %}{% if post %}Edit: {{ post.title }}{% else %}New Blog Post{% endif %} | KI Asset Management Blog{% endblock %}
+{% block title %}{% if post %}Edit: {{ post.title }}{% else %}New Research Article{% endif %} | KI Asset Management Research{% endblock %}
 
 {% block content %}
 <!-- Editor Header -->
 <section class="blog-hero">
     <div class="container">
-        <h1>{% if post %}Edit Post{% else %}New Blog Post{% endif %}</h1>
-        <p>Share your investment insights with the KI Asset Management community.</p>
+        <h1>{% if post %}Edit Research Article{% else %}New Research Article{% endif %}</h1>
+        <p>Share your investment research and analysis with the KI Asset Management community.</p>
     </div>
 </section>
 
@@ -62,77 +62,89 @@
 </section>
 {% endif %}
 
-<!-- PDF Blog Post Section -->
+<!-- PDF Research Files Section - Unified File Manager -->
 <section class="py-4 bg-light border-bottom">
     <div class="container">
         <div class="card border-success">
-            <div class="card-header bg-success text-white">
-                <h5 class="mb-0"><i class="bi bi-file-earmark-pdf"></i> PDF Research Report</h5>
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-file-earmark-pdf"></i> Research Files (PDFs)</h5>
+                <span class="badge bg-light text-success" id="pdfCountBadge">0 files</span>
             </div>
             <div class="card-body">
                 <p class="text-muted mb-3">
-                    Upload a PDF research report to display it directly on the blog page. 
-                    Perfect for presenting in-depth analysis, whitepapers, or investment theses.
+                    Upload and manage all PDF files for your research. Drag to reorder - the first file will be the primary PDF 
+                    shown to readers first. Perfect for research report + presentation combinations.
                 </p>
-                <div class="row g-3 align-items-end">
-                    <div class="col-md-6">
-                        <label class="form-label">PDF File</label>
-                        <input type="file" class="form-control" id="pdfUpload" accept=".pdf" onchange="handlePdfSelect(this)">
-                        <div class="form-text">Max 25MB. Research reports, whitepapers, etc.</div>
+                
+                <!-- Upload New File -->
+                <div class="mb-4 p-3 bg-light rounded border">
+                    <label class="form-label fw-bold"><i class="bi bi-cloud-upload"></i> Upload New File</label>
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-5">
+                            <input type="file" class="form-control" id="pdfUpload" 
+                                   accept=".pdf,.xlsx,.xls,.doc,.docx,.ppt,.pptx,.csv,.zip,.rar"
+                                   onchange="handlePdfSelect(this)">
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="pdfType">
+                                <option value="research">Research Report (PDF)</option>
+                                <option value="presentation">Presentation (PDF/PPT)</option>
+                                <option value="model">Financial Model (Excel)</option>
+                                <option value="supplemental">Supplemental (Any)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="button" class="btn btn-success w-100" id="uploadPdfBtn" onclick="uploadPdf()" disabled>
+                                <i class="bi bi-cloud-upload"></i> Upload File
+                            </button>
+                        </div>
                     </div>
-                    <div class="col-md-4">
-                        <button type="button" class="btn btn-success w-100" id="uploadPdfBtn" onclick="uploadPdf()" disabled>
-                            <i class="bi bi-cloud-upload"></i> Upload PDF
-                        </button>
-                    </div>
-                    <div class="col-md-2">
-                        <button type="button" class="btn btn-outline-secondary w-100" onclick="clearPdfUpload()">
-                            <i class="bi bi-x-lg"></i> Clear
-                        </button>
+                    <div class="form-text mt-2">
+                        <strong>PDFs:</strong> Research reports, presentations | 
+                        <strong>Excel:</strong> Financial models, data | 
+                        <strong>Other:</strong> Word, PowerPoint, ZIP, etc.
                     </div>
                 </div>
                 
                 <!-- Upload progress -->
-                <div id="pdfProgress" class="mt-3 d-none">
+                <div id="pdfProgress" class="mt-3" style="display: none;">
                     <div class="d-flex align-items-center">
                         <div class="spinner-border spinner-border-sm text-success me-2" role="status"></div>
-                        <span id="pdfProgressText">Uploading PDF...</span>
+                        <span id="pdfProgressText">Uploading...</span>
                     </div>
                 </div>
                 
-                <!-- Uploaded PDF info -->
-                <div id="pdfInfo" class="mt-3 d-none">
-                    <div class="alert alert-success d-flex align-items-center">
-                        <i class="bi bi-check-circle-fill me-2"></i>
-                        <div>
-                            <strong>PDF uploaded:</strong> <span id="pdfFilename"></span>
-                            <span class="text-muted ms-2" id="pdfFileSize"></span>
-                        </div>
-                        <button type="button" class="btn btn-sm btn-outline-danger ms-auto" onclick="deletePdf()">
-                            <i class="bi bi-trash"></i> Remove
-                        </button>
+                <!-- PDF Files List - Unified -->
+                <div id="allPdfsContainer" class="mt-3">
+                    <label class="form-label fw-bold"><i class="bi bi-list-ol"></i> PDF Files Order <small class="text-muted fw-normal">(Drag to reorder, first = primary)</small></label>
+                    <div id="pdfList" class="list-group">
+                        <!-- Files will be added here dynamically -->
                     </div>
-                    <input type="hidden" name="pdf_path" id="pdfPath" value="{{ post.pdf_path if post and post.pdf_path else '' }}">
+                    <div id="noPdfsMessage" class="text-center py-4 text-muted">
+                        <i class="bi bi-file-earmark-pdf display-4"></i>
+                        <p class="mt-2">No PDFs uploaded yet. Upload your first research file above.</p>
+                    </div>
                 </div>
                 
-                <!-- Show existing PDF for edit mode -->
-                {% if post and post.pdf_path %}
-                <div id="existingPdfInfo" class="mt-3">
-                    <div class="alert alert-info d-flex align-items-center">
-                        <i class="bi bi-file-earmark-pdf-fill me-2"></i>
+                <!-- AI Generate Title & SEO from PDFs Button -->
+                <div id="generateFromPdfsSection" class="mt-4 p-3 bg-light rounded border" style="display: none;">
+                    <div class="d-flex align-items-center justify-content-between">
                         <div>
-                            <strong>Current PDF:</strong> {{ post.pdf_filename }}
-                            <a href="{{ url_for('static', filename=post.pdf_path) }}" target="_blank" class="ms-2 btn btn-sm btn-outline-primary">
-                                <i class="bi bi-eye"></i> View
-                            </a>
+                            <h6 class="mb-1"><i class="bi bi-magic text-primary"></i> AI Title & SEO Generation</h6>
+                            <p class="mb-0 text-muted small">Extracts company name from PDFs and generates: Title ("Company (TICKER) Stock Analysis - KI AM"), Meta Description, Keywords. <strong>Content is NOT generated - write your own notes below.</strong></p>
                         </div>
-                        <button type="button" class="btn btn-sm btn-outline-danger ms-auto" onclick="deleteExistingPdf({{ post.id }})">
-                            <i class="bi bi-trash"></i> Remove
+                        <button type="button" class="btn btn-primary" id="generateFromPdfsBtn" onclick="generateContentFromPdfs()">
+                            <i class="bi bi-stars"></i> Generate Title & SEO
                         </button>
                     </div>
-                    <input type="hidden" name="pdf_path" id="pdfPath" value="{{ post.pdf_path }}">
+                    <div id="generateFromPdfsProgress" class="mt-3" style="display: none;">
+                        <div class="d-flex align-items-center">
+                            <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                            <span id="generateFromPdfsText">Analyzing PDFs and extracting company info...</span>
+                        </div>
+                    </div>
                 </div>
-                {% endif %}
+                
             </div>
         </div>
     </div>
@@ -141,10 +153,20 @@
 <div class="container mb-5">
     <form method="POST" action="{% if post %}{{ url_for('blog.edit_post', post_id=post.id) }}{% else %}{{ url_for('blog.new_post') }}{% endif %}" id="blogForm">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <!-- Hidden fields for PDFs - these are updated by JavaScript when PDFs are uploaded -->
+        <input type="hidden" name="pdf_path" id="pdfPath" value="{{ post.pdf_path if post and post.pdf_path else '' }}">
+        <input type="hidden" name="additional_pdfs" id="additionalPdfsInput" value="">
+        <script>
+        // CSRF token helper - gets token from meta tag or hidden input
+        function getCsrfToken() {
+            return document.querySelector('meta[name="csrf-token"]')?.content ||
+                   document.querySelector('input[name="csrf_token"]')?.value || '';
+        }
+        </script>
         
         <div class="row">
-            <!-- Main Editor -->
-            <div class="col-lg-8">
+            <!-- Main Editor - Wide Column -->
+            <div class="col-lg-9">
                 <div class="blog-editor">
                     <div class="blog-editor-header">
                         <h5 class="mb-0"><i class="bi bi-pencil-square"></i> Content</h5>
@@ -159,53 +181,128 @@
                             <div class="form-text">Make it catchy and descriptive. Max 255 characters.</div>
                         </div>
                         
-                        <!-- Content -->
+                        <!-- Content - Analyst Notes Only -->
                         <div class="mb-4">
-                            <label for="content" class="form-label fw-bold">Content *</label>
+                            <label for="content" class="form-label fw-bold">
+                                Analyst Notes <span class="text-muted fw-normal">(Optional)</span>
+                            </label>
+                            <div class="form-text mb-2">
+                                <i class="bi bi-info-circle"></i> Add any additional notes or commentary. The PDF research report is the main content. Leave empty if the PDF speaks for itself.
+                            </div>
                             
-                            <!-- Editor Toolbar -->
+                            <!-- Editor Toolbar - WordPress Style -->
                             <div class="editor-toolbar">
-                                <button type="button" onclick="insertTag('<h2>', '</h2>')" title="Heading">
-                                    <i class="bi bi-type-h1"></i>
-                                </button>
-                                <button type="button" onclick="insertTag('<p>', '</p>')" title="Paragraph">
-                                    <i class="bi bi-paragraph"></i>
-                                </button>
-                                <button type="button" onclick="insertTag('<strong>', '</strong>')" title="Bold">
-                                    <i class="bi bi-type-bold"></i>
-                                </button>
-                                <button type="button" onclick="insertTag('<em>', '</em>')" title="Italic">
-                                    <i class="bi bi-type-italic"></i>
-                                </button>
-                                <button type="button" onclick="insertTag('<blockquote>', '</blockquote>')" title="Quote">
-                                    <i class="bi bi-quote"></i>
-                                </button>
-                                <button type="button" onclick="insertTag('<ul>\\n  <li>', '</li>\\n</ul>')" title="List">
-                                    <i class="bi bi-list-ul"></i>
-                                </button>
-                                <button type="button" onclick="insertTag('<a href=\"\">', '</a>')" title="Link">
-                                    <i class="bi bi-link-45deg"></i>
-                                </button>
-                                <button type="button" onclick="insertTag('<img src=\"\" alt=\"\">', '')" title="Image">
-                                    <i class="bi bi-image"></i>
-                                </button>
-                                <button type="button" onclick="document.getElementById('imageUpload').click()" title="Upload Image">
-                                    <i class="bi bi-cloud-upload"></i>
-                                </button>
+                                <!-- Text Formatting -->
+                                <div class="editor-toolbar-group">
+                                    <select id="headingSelect" onchange="insertHeading(this.value); this.value='';">
+                                        <option value="">Paragraph</option>
+                                        <option value="h2">Heading 2</option>
+                                        <option value="h3">Heading 3</option>
+                                        <option value="h4">Heading 4</option>
+                                    </select>
+                                </div>
+                                
+                                <!-- Basic Formatting -->
+                                <div class="editor-toolbar-group">
+                                    <button type="button" onclick="formatText('bold')" title="Bold (Ctrl+B)">
+                                        <i class="bi bi-type-bold"></i>
+                                    </button>
+                                    <button type="button" onclick="formatText('italic')" title="Italic (Ctrl+I)">
+                                        <i class="bi bi-type-italic"></i>
+                                    </button>
+                                    <button type="button" onclick="formatText('underline')" title="Underline (Ctrl+U)">
+                                        <i class="bi bi-type-underline"></i>
+                                    </button>
+                                    <button type="button" onclick="formatText('strikeThrough')" title="Strikethrough">
+                                        <i class="bi bi-type-strikethrough"></i>
+                                    </button>
+                                </div>
+                                
+                                <!-- Alignment -->
+                                <div class="editor-toolbar-group">
+                                    <button type="button" onclick="formatText('justifyLeft')" title="Align Left">
+                                        <i class="bi bi-text-left"></i>
+                                    </button>
+                                    <button type="button" onclick="formatText('justifyCenter')" title="Align Center">
+                                        <i class="bi bi-text-center"></i>
+                                    </button>
+                                    <button type="button" onclick="formatText('justifyRight')" title="Align Right">
+                                        <i class="bi bi-text-right"></i>
+                                    </button>
+                                </div>
+                                
+                                <!-- Lists -->
+                                <div class="editor-toolbar-group">
+                                    <button type="button" onclick="formatText('insertUnorderedList')" title="Bullet List">
+                                        <i class="bi bi-list-ul"></i>
+                                    </button>
+                                    <button type="button" onclick="formatText('insertOrderedList')" title="Numbered List">
+                                        <i class="bi bi-list-ol"></i>
+                                    </button>
+                                </div>
+                                
+                                <!-- Insert -->
+                                <div class="editor-toolbar-group">
+                                    <button type="button" onclick="insertLink()" title="Insert Link">
+                                        <i class="bi bi-link-45deg"></i>
+                                    </button>
+                                    <button type="button" onclick="document.getElementById('imageUpload').click()" title="Insert Image">
+                                        <i class="bi bi-image"></i>
+                                    </button>
+                                    <button type="button" onclick="insertBlock('blockquote')" title="Quote">
+                                        <i class="bi bi-quote"></i>
+                                    </button>
+                                </div>
+                                
+                                <!-- Special Blocks -->
+                                <div class="editor-toolbar-group">
+                                    <button type="button" onclick="insertBlock('info')" title="Info Box">
+                                        <i class="bi bi-info-circle text-primary"></i>
+                                    </button>
+                                    <button type="button" onclick="insertBlock('warning')" title="Warning Box">
+                                        <i class="bi bi-exclamation-triangle text-warning"></i>
+                                    </button>
+                                    <button type="button" onclick="insertBlock('success')" title="Success Box">
+                                        <i class="bi bi-check-circle text-success"></i>
+                                    </button>
+                                    <button type="button" onclick="insertBlock('danger')" title="Alert Box">
+                                        <i class="bi bi-x-circle text-danger"></i>
+                                    </button>
+                                </div>
+                                
+                                <!-- Clear Formatting -->
+                                <div class="editor-toolbar-group">
+                                    <button type="button" onclick="formatText('removeFormat')" title="Clear Formatting">
+                                        <i class="bi bi-eraser"></i>
+                                    </button>
+                                </div>
+                                
                                 <input type="file" id="imageUpload" accept="image/*" style="display: none;" onchange="uploadImage(this)">
                             </div>
                             
-                            <!-- Content Textarea -->
-                            <textarea class="editor-content" id="content" name="content" required
-                                      placeholder="Write your article here... Use HTML formatting or Markdown.">{{ post.content if post else '' }}</textarea>
+                            <!-- Content Editor - Visual Mode (Default) -->
+                            <div id="contentEditor" class="editor-content" contenteditable="true"
+                                 oninput="updateTextareaFromDiv()"
+                                 onblur="updateTextareaFromDiv()"
+                                 style="display: block; min-height: 500px;">{{ post.content | safe if post else '' }}</div>
                             
-                            <div class="d-flex justify-content-between align-items-center mt-2">
+                            <!-- HTML Editor - Hidden by default -->
+                            <textarea id="content" name="content" class="form-control" 
+                                      style="display: none; min-height: 500px; font-family: monospace;"
+                                      rows="20">{{ post.content if post else '' }}</textarea>
+                            
+                            <div class="d-flex justify-content-between align-items-center mt-2 px-3">
                                 <div class="form-text">
-                                    Supports HTML formatting. Use the toolbar above or write HTML directly.
+                                    <i class="bi bi-info-circle"></i> Use toolbar for formatting. Supports rich text editing.
                                 </div>
-                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="showTranslateModal()">
-                                    <i class="bi bi-translate"></i> Translate to English
-                                </button>
+                                <div>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm me-2" onclick="toggleHtmlView()">
+                                        <i class="bi bi-code-slash"></i> HTML
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="showTranslateModal()">
+                                        <i class="bi bi-translate"></i> Translate
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         
@@ -222,7 +319,10 @@
                 <!-- SEO Settings -->
                 <div class="blog-editor mt-4">
                     <div class="blog-editor-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="bi bi-search"></i> SEO Settings</h5>
+                        <div>
+                            <h5 class="mb-0"><i class="bi bi-search"></i> SEO Settings</h5>
+                            <small class="text-muted"><i class="bi bi-stars text-warning"></i> AI can auto-generate these from your PDF</small>
+                        </div>
                         <button type="button" class="btn btn-sm btn-primary" onclick="autoGenerateSEO()">
                             <i class="bi bi-magic"></i> Auto-Generate with AI
                         </button>
@@ -300,7 +400,7 @@
             </div>
             
             <!-- Sidebar Settings -->
-            <div class="col-lg-4">
+            <div class="col-lg-3">
                 <!-- Publish Settings -->
                 <div class="blog-sidebar-card sticky-top" style="top: 100px;">
                     <h4><i class="bi bi-gear"></i> Post Settings</h4>
@@ -386,16 +486,22 @@
                         <div class="form-text">Comma-separated tags.</div>
                     </div>
                     
-                    <!-- Visibility -->
+                    <!-- Visibility / Publish Control -->
                     <div class="mb-3">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="is_public" name="is_public" 
-                                   {% if post %}{{ 'checked' if post.is_public else '' }}{% endif %}>
+                                   {% if post %}{{ 'checked' if post.is_public else '' }}{% else %}checked{% endif %}>
                             <label class="form-check-label fw-bold" for="is_public">
-                                <i class="bi bi-globe"></i> Public
+                                <i class="bi bi-globe"></i> Public / Published
                             </label>
                         </div>
-                        <div class="form-text">Make this post visible to everyone.</div>
+                        <div class="form-text">
+                            {% if post and post.status == 'published' %}
+                                This article is published and visible to everyone.
+                            {% else %}
+                                Check to publish and make visible to everyone. Uncheck to save as draft.
+                            {% endif %}
+                        </div>
                     </div>
                     
                     <!-- Featured (Admin only) -->
@@ -412,26 +518,23 @@
                     </div>
                     {% endif %}
                     
+                    <!-- PDF Save Indicator -->
+                    <div id="pdfSaveIndicator" class="alert alert-info mb-3" style="display: none;">
+                        <i class="bi bi-file-earmark-pdf me-2"></i>
+                        <strong>PDF ready to save!</strong> This PDF will be attached to your article.
+                    </div>
+                    
                     <!-- Action Buttons -->
                     <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary btn-lg">
-                            <i class="bi bi-save"></i> {% if post %}Save Changes{% else %}Save Draft{% endif %}
+                        <button type="submit" class="btn btn-success btn-lg" id="saveBtn">
+                            <i class="bi bi-save"></i> 
+                            <span id="saveBtnText">Save & Publish</span>
                         </button>
                         
                         {% if post %}
-                        <a href="{{ url_for('blog.preview_post', post_id=post.id) }}" target="_blank" class="btn btn-outline-info">
+                        <a href="{{ url_for('blog.preview_post', post_id=post.id) }}?_embed=body" target="_blank" class="btn btn-outline-info" id="previewBtn">
                             <i class="bi bi-eye"></i> Preview
                         </a>
-                        
-                        {% if post.status == 'draft' %}
-                        <button type="button" class="btn btn-success" onclick="document.getElementById('publishForm').submit()">
-                            <i class="bi bi-check-circle"></i> Publish Now
-                        </button>
-                        {% else %}
-                        <button type="button" class="btn btn-warning" onclick="document.getElementById('unpublishForm').submit()">
-                            <i class="bi bi-eye-slash"></i> Unpublish
-                        </button>
-                        {% endif %}
                         
                         <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
                             <i class="bi bi-trash"></i> Delete
@@ -451,10 +554,7 @@
     </form>
     
     {% if post %}
-    <!-- Hidden forms for actions -->
-    <form id="publishForm" action="{{ url_for('blog.publish_post', post_id=post.id) }}" method="POST" style="display: none;">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    </form>
+    <!-- Hidden form for unpublish action -->
     <form id="unpublishForm" action="{{ url_for('blog.unpublish_post', post_id=post.id) }}" method="POST" style="display: none;">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     </form>
@@ -595,11 +695,6 @@
 
 {% block extra_js %}
 <script>
-// CSRF token helper - gets token from meta tag or hidden input
-function getCsrfToken() {
-    return document.querySelector('meta[name="csrf-token"]')?.content ||
-           document.querySelector('input[name="csrf_token"]')?.value || '';
-}
 // Insert HTML tags around selection
 function insertTag(openTag, closeTag) {
     const textarea = document.getElementById('content');
@@ -675,10 +770,135 @@ window.addEventListener('beforeunload', function(e) {
 });
 {% endif %}
 
+// Handle Public toggle changing Save button text
+document.getElementById('is_public').addEventListener('change', function() {
+    updateSaveButtonState(this.checked);
+});
+
+function updateSaveButtonState(isPublic) {
+    const saveBtnText = document.getElementById('saveBtnText');
+    const saveBtn = document.getElementById('saveBtn');
+    
+    if (!saveBtnText || !saveBtn) return;
+    
+    if (isPublic) {
+        saveBtnText.textContent = 'Save & Publish';
+        saveBtn.classList.remove('btn-primary', 'btn-warning');
+        saveBtn.classList.add('btn-success');
+    } else {
+        saveBtnText.textContent = 'Save as Draft';
+        saveBtn.classList.remove('btn-success', 'btn-warning');
+        saveBtn.classList.add('btn-primary');
+    }
+}
+
+// Initialize button state based on checkbox on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const isPublicCheckbox = document.getElementById('is_public');
+    if (isPublicCheckbox) {
+        updateSaveButtonState(isPublicCheckbox.checked);
+    }
+    
+    // Initialize contenteditable from textarea
+    const contentEditor = document.getElementById('contentEditor');
+    const contentTextarea = document.getElementById('content');
+    if (contentEditor && contentTextarea && contentTextarea.value) {
+        contentEditor.innerHTML = contentTextarea.value;
+    }
+});
+
+// Content Editor Functions
+function updateTextareaFromDiv() {
+    const editor = document.getElementById('contentEditor');
+    const textarea = document.getElementById('content');
+    if (editor && textarea) {
+        textarea.value = editor.innerHTML;
+    }
+}
+
+function formatText(command, value = null) {
+    document.execCommand(command, false, value);
+    document.getElementById('contentEditor').focus();
+    updateTextareaFromDiv();
+}
+
+function insertHeading(tag) {
+    if (!tag) return;
+    formatText('formatBlock', tag);
+}
+
+function insertLink() {
+    const url = prompt('Enter URL:', 'https://');
+    if (url) {
+        formatText('createLink', url);
+    }
+}
+
+function insertBlock(type) {
+    const editor = document.getElementById('contentEditor');
+    let blockHtml = '';
+    
+    switch(type) {
+        case 'blockquote':
+            blockHtml = '<blockquote style="border-left: 4px solid #1a9c5e; padding-left: 1rem; margin: 1rem 0; font-style: italic; color: #4b5563;"><p>Enter your quote here...</p></blockquote>';
+            break;
+        case 'info':
+            blockHtml = '<div class="editor-block editor-block-info" style="border-left: 4px solid #3b82f6; background: #eff6ff; padding: 1rem; margin: 1rem 0; border-radius: 0.375rem;"><strong style="color: #1e40af;"><i class="bi bi-info-circle"></i> Info:</strong> <span>Your information here...</span></div>';
+            break;
+        case 'warning':
+            blockHtml = '<div class="editor-block editor-block-warning" style="border-left: 4px solid #f59e0b; background: #fffbeb; padding: 1rem; margin: 1rem 0; border-radius: 0.375rem;"><strong style="color: #92400e;"><i class="bi bi-exclamation-triangle"></i> Warning:</strong> <span>Your warning here...</span></div>';
+            break;
+        case 'success':
+            blockHtml = '<div class="editor-block editor-block-success" style="border-left: 4px solid #10b981; background: #ecfdf5; padding: 1rem; margin: 1rem 0; border-radius: 0.375rem;"><strong style="color: #065f46;"><i class="bi bi-check-circle"></i> Success:</strong> <span>Your success message here...</span></div>';
+            break;
+        case 'danger':
+            blockHtml = '<div class="editor-block editor-block-danger" style="border-left: 4px solid #ef4444; background: #fef2f2; padding: 1rem; margin: 1rem 0; border-radius: 0.375rem;"><strong style="color: #991b1b;"><i class="bi bi-x-circle"></i> Important:</strong> <span>Your alert here...</span></div>';
+            break;
+    }
+    
+    if (blockHtml) {
+        document.execCommand('insertHTML', false, blockHtml);
+        updateTextareaFromDiv();
+    }
+}
+
+let htmlViewMode = false;
+function toggleHtmlView() {
+    const editor = document.getElementById('contentEditor');
+    const textarea = document.getElementById('content');
+    const btn = event.target.closest('button');
+    
+    if (!htmlViewMode) {
+        // Switch to HTML view
+        textarea.value = editor.innerHTML; // Copy content from visual editor
+        textarea.style.display = 'block';
+        editor.style.display = 'none';
+        if (btn) {
+            btn.innerHTML = '<i class="bi bi-eye"></i> Visual';
+            btn.classList.add('active');
+        }
+        htmlViewMode = true;
+    } else {
+        // Switch to visual view
+        editor.innerHTML = textarea.value; // Copy content from HTML editor
+        textarea.style.display = 'none';
+        editor.style.display = 'block';
+        if (btn) {
+            btn.innerHTML = '<i class="bi bi-code-slash"></i> HTML';
+            btn.classList.remove('active');
+        }
+        htmlViewMode = false;
+    }
+}
+
 // Form validation
 document.getElementById('blogForm').addEventListener('submit', function(e) {
+    // Update textarea from contenteditable before validation
+    updateTextareaFromDiv();
+    
     const title = document.getElementById('title').value.trim();
     const content = document.getElementById('content').value.trim();
+    const pdfPath = document.getElementById('pdfPath').value.trim();
     
     if (!title) {
         e.preventDefault();
@@ -687,10 +907,11 @@ document.getElementById('blogForm').addEventListener('submit', function(e) {
         return false;
     }
     
-    if (!content) {
+    // Either content or PDF is required
+    if (!content && !pdfPath) {
         e.preventDefault();
-        alert('Please enter some content.');
-        document.getElementById('content').focus();
+        alert('Please enter some content or upload a PDF file.');
+        document.getElementById('contentEditor').focus();
         return false;
     }
     
@@ -1049,9 +1270,12 @@ function handlePdfSelect(input) {
     if (input.files && input.files[0]) {
         const file = input.files[0];
         
-        // Validate file type
-        if (!file.name.toLowerCase().endsWith('.pdf')) {
-            alert('Please select a PDF file.');
+        // Validate file type - allow PDFs and common document formats
+        const allowedExtensions = ['pdf', 'xlsx', 'xls', 'docx', 'doc', 'pptx', 'ppt', 'csv', 'zip', 'rar', 'txt', 'json', 'xml'];
+        const ext = file.name.split('.').pop().toLowerCase();
+        
+        if (!allowedExtensions.includes(ext)) {
+            alert('File type not allowed. Allowed: PDF, Excel, Word, PowerPoint, CSV, ZIP, TXT');
             input.value = '';
             return;
         }
@@ -1077,19 +1301,454 @@ function uploadPdf() {
     const formData = new FormData();
     formData.append('pdf', selectedPdf);
     
-    // Include post_id if editing existing post
+    // Check if AI SEO generation is enabled
+    const generateSeoCheckbox = document.getElementById('generateSeoFromPdf');
+    formData.append('generate_seo', generateSeoCheckbox && generateSeoCheckbox.checked ? 'true' : 'false');
+    
     {% if post %}
     formData.append('post_id', {{ post.id }});
     {% endif %}
     
-    // Show progress
     const progressDiv = document.getElementById('pdfProgress');
     const progressText = document.getElementById('pdfProgressText');
     const btn = document.getElementById('uploadPdfBtn');
     
-    progressDiv.classList.remove('d-none');
-    progressText.textContent = 'Uploading PDF...';
-    btn.disabled = true;
+    if (progressDiv) progressDiv.style.display = 'block';
+    if (progressText) progressText.textContent = generateSeoCheckbox && generateSeoCheckbox.checked ? 'Uploading PDF & generating AI SEO...' : 'Uploading PDF...';
+    if (btn) btn.disabled = true;
+    
+    fetch('{{ url_for('blog.upload_pdf_api') }}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': getCsrfToken()
+        }
+    })
+    .then(function(response) {
+        // Check for redirects (login required) or non-JSON responses
+        if (response.redirected || response.status === 401 || !response.headers.get('content-type')?.includes('application/json')) {
+            showNotification('Your session may have expired. Please log in again.', 'warning');
+            return { error: 'Session expired' };
+        }
+        return response.json();
+    })
+    .then(function(data) {
+        console.log('Upload response:', data);
+        if (data.success) {
+            console.log('Setting pdfPath to:', data.pdf_path);
+            const pdfPathEl = document.getElementById('pdfPath');
+            const pdfUploadEl = document.getElementById('pdfUpload');
+            const pdfFilenameEl = document.getElementById('pdfFilename');
+            const pdfFileSizeEl = document.getElementById('pdfFileSize');
+            const existingInfo = document.getElementById('existingPdfInfo');
+            const pdfInfoEl = document.getElementById('pdfInfo');
+            const uploadPdfBtnEl = document.getElementById('uploadPdfBtn');
+            
+            // Set the hidden pdf_path field
+            if (pdfPathEl) {
+                pdfPathEl.value = data.pdf_path || '';
+                console.log('pdfPath value after set:', pdfPathEl.value);
+            }
+            
+            // Clear the file input
+            if (pdfUploadEl) pdfUploadEl.value = '';
+            
+            // Display filename and size
+            if (pdfFilenameEl) pdfFilenameEl.textContent = data.filename || 'Unknown';
+            if (pdfFileSizeEl) pdfFileSizeEl.textContent = data.file_size ? formatFileSize(data.file_size) : '';
+            
+            // Hide existing PDF info if present
+            if (existingInfo) {
+                existingInfo.style.display = 'none';
+            }
+            
+            // Show the PDF info card
+            if (pdfInfoEl) {
+                pdfInfoEl.style.display = 'block';
+                // Scroll to the PDF info
+                pdfInfoEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            
+            // Show the PDF save indicator
+            const pdfSaveIndicator = document.getElementById('pdfSaveIndicator');
+            if (pdfSaveIndicator) {
+                pdfSaveIndicator.style.display = 'block';
+            }
+            
+            // Highlight the save button
+            const saveBtn = document.getElementById('saveBtn');
+            if (saveBtn) {
+                saveBtn.classList.add('btn-success');
+                saveBtn.classList.remove('btn-primary');
+                saveBtn.innerHTML = '<i class="bi bi-save"></i> Save Draft (with PDF)';
+            }
+            
+            // Auto-fill title if empty and we have a suggested title
+            const titleEl = document.getElementById('title');
+            if (titleEl && !titleEl.value.trim() && data.suggested_title) {
+                titleEl.value = data.suggested_title;
+                showNotification('Title auto-filled from PDF: ' + data.suggested_title, 'info');
+            }
+            
+            // Auto-fill category if ticker is detected from filename
+            if (data.ticker) {
+                const categoryEl = document.getElementById('category');
+                if (categoryEl && !categoryEl.value.trim()) {
+                    categoryEl.value = 'Stock Analysis';
+                }
+                // Add ticker to tags if not already present
+                const tagsEl = document.getElementById('tags');
+                if (tagsEl && !tagsEl.value.includes(data.ticker)) {
+                    if (tagsEl.value.trim()) {
+                        tagsEl.value = data.ticker + ', ' + tagsEl.value;
+                    } else {
+                        tagsEl.value = data.ticker;
+                    }
+                }
+                showNotification('Detected ticker: ' + data.ticker + '. Category set to "Stock Analysis".', 'info');
+            }
+            
+            // Auto-fill SEO fields if AI generated them
+            let seoFieldsFilled = false;
+            const filledFields = [];
+            
+            if (data.meta_description) {
+                const metaDescEl = document.getElementById('meta_description');
+                if (metaDescEl && !metaDescEl.value.trim()) {
+                    metaDescEl.value = data.meta_description;
+                    seoFieldsFilled = true;
+                    filledFields.push('Meta Description');
+                }
+            }
+            
+            if (data.meta_keywords) {
+                const metaKeywordsEl = document.getElementById('meta_keywords');
+                if (metaKeywordsEl && !metaKeywordsEl.value.trim()) {
+                    metaKeywordsEl.value = data.meta_keywords;
+                    seoFieldsFilled = true;
+                    filledFields.push('Keywords');
+                }
+            }
+            
+            if (data.excerpt) {
+                const excerptEl = document.getElementById('excerpt');
+                if (excerptEl && !excerptEl.value.trim()) {
+                    excerptEl.value = data.excerpt;
+                    seoFieldsFilled = true;
+                    filledFields.push('Excerpt');
+                }
+            }
+            
+            if (data.suggested_tags) {
+                const tagsEl = document.getElementById('tags');
+                if (tagsEl && !tagsEl.value.trim()) {
+                    tagsEl.value = data.suggested_tags;
+                    seoFieldsFilled = true;
+                    filledFields.push('Tags');
+                }
+            }
+            
+            // Scroll to SEO section if fields were filled
+            if (seoFieldsFilled) {
+                const seoSection = document.querySelector('.blog-editor:nth-of-type(2)');
+                if (seoSection) {
+                    seoSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }
+            
+            selectedPdf = null;
+            if (uploadPdfBtnEl) uploadPdfBtnEl.disabled = true;
+            
+            // Build notification message
+            let notificationMsg = 'PDF uploaded successfully!';
+            if (seoFieldsFilled) {
+                notificationMsg += ' AI generated: ' + filledFields.join(', ') + '.';
+            }
+            notificationMsg += ' Click "Save Draft (with PDF)" to save everything.';
+            
+            showNotification(notificationMsg, 'success');
+        } else {
+            showNotification(data.error || 'Failed to upload PDF', 'danger');
+        }
+    })
+    .catch(function(error) {
+        console.error('Error:', error);
+        showNotification('Error uploading PDF: ' + (error.message || 'Unknown error'), 'danger');
+    })
+    .finally(function() {
+        if (progressDiv) progressDiv.style.display = 'none';
+        if (btn) btn.disabled = false;
+    });
+}
+
+function clearPdfUpload() {
+    const pdfUpload = document.getElementById('pdfUpload');
+    const uploadBtn = document.getElementById('uploadPdfBtn');
+    const pdfProgress = document.getElementById('pdfProgress');
+    
+    if (pdfUpload) pdfUpload.value = '';
+    selectedPdf = null;
+    if (uploadBtn) uploadBtn.disabled = true;
+    if (pdfProgress) pdfProgress.style.display = 'none';
+}
+
+// ============================================================================
+// UNIFIED PDF MANAGER (All Files with Reordering)
+// ============================================================================
+
+let allPdfs = []; // Array of all PDFs, first one is primary
+let draggedItem = null;
+
+// File type configuration with icons for different file types
+const fileTypeConfig = {
+    'research': { label: 'Research', badge: 'bg-success', icon: 'bi-file-earmark-pdf' },
+    'presentation': { label: 'Presentation', badge: 'bg-primary', icon: 'bi-easel' },
+    'model': { label: 'Financial Model', badge: 'bg-info', icon: 'bi-calculator' },
+    'supplemental': { label: 'Supplemental', badge: 'bg-secondary', icon: 'bi-file-earmark' }
+};
+
+// Get file icon based on extension
+function getFileIcon(filename) {
+    const ext = filename.split('.').pop().toLowerCase();
+    const iconMap = {
+        'pdf': 'bi-file-earmark-pdf text-danger',
+        'xlsx': 'bi-file-earmark-excel text-success',
+        'xls': 'bi-file-earmark-excel text-success',
+        'csv': 'bi-file-earmark-spreadsheet text-success',
+        'docx': 'bi-file-earmark-word text-primary',
+        'doc': 'bi-file-earmark-word text-primary',
+        'pptx': 'bi-file-earmark-ppt text-warning',
+        'ppt': 'bi-file-earmark-ppt text-warning',
+        'zip': 'bi-file-earmark-zip text-secondary',
+        'rar': 'bi-file-earmark-zip text-secondary'
+    };
+    return iconMap[ext] || 'bi-file-earmark text-secondary';
+}
+
+// Check if file is viewable (PDF)
+function isViewableFile(filename) {
+    return filename.toLowerCase().endsWith('.pdf');
+}
+
+function addPdfToList(pdfData) {
+    allPdfs.push(pdfData);
+    renderPdfList();
+    updatePdfInputs();
+}
+
+function removePdf(index) {
+    allPdfs.splice(index, 1);
+    renderPdfList();
+    updatePdfInputs();
+}
+
+function movePdf(index, direction) {
+    if (direction === 'up' && index > 0) {
+        [allPdfs[index], allPdfs[index - 1]] = [allPdfs[index - 1], allPdfs[index]];
+    } else if (direction === 'down' && index < allPdfs.length - 1) {
+        [allPdfs[index], allPdfs[index + 1]] = [allPdfs[index + 1], allPdfs[index]];
+    }
+    renderPdfList();
+    updatePdfInputs();
+}
+
+function setPrimary(index) {
+    if (index > 0 && index < allPdfs.length) {
+        const pdf = allPdfs.splice(index, 1)[0];
+        allPdfs.unshift(pdf);
+        renderPdfList();
+        updatePdfInputs();
+        showNotification('Primary PDF updated', 'success');
+    }
+}
+
+function renderPdfList() {
+    const container = document.getElementById('pdfList');
+    const noMessage = document.getElementById('noPdfsMessage');
+    const badge = document.getElementById('pdfCountBadge');
+    const generateSection = document.getElementById('generateFromPdfsSection');
+    
+    if (!container) return;
+    
+    // Update badge
+    if (badge) {
+        badge.textContent = allPdfs.length + ' file' + (allPdfs.length !== 1 ? 's' : '');
+    }
+    
+    // Show/hide no message
+    if (noMessage) {
+        noMessage.style.display = allPdfs.length === 0 ? 'block' : 'none';
+    }
+    
+    // Show/hide generate from PDFs button
+    if (generateSection) {
+        generateSection.style.display = allPdfs.length > 0 ? 'block' : 'none';
+    }
+    
+    container.innerHTML = '';
+    
+    allPdfs.forEach((pdf, index) => {
+        const config = fileTypeConfig[pdf.file_type] || fileTypeConfig['supplemental'];
+        const isPrimary = index === 0;
+        const isPdf = isViewableFile(pdf.filename);
+        const fileIcon = getFileIcon(pdf.filename);
+        
+        const item = document.createElement('div');
+        item.className = 'list-group-item d-flex align-items-center gap-3 p-3';
+        item.draggable = true;
+        item.dataset.index = index;
+        
+        // Drag handle
+        const dragHandle = document.createElement('div');
+        dragHandle.className = 'cursor-move text-muted';
+        dragHandle.innerHTML = '<i class="bi bi-grip-vertical fs-5"></i>';
+        dragHandle.style.cursor = 'move';
+        
+        // File info
+        const fileInfo = document.createElement('div');
+        fileInfo.className = 'flex-grow-1';
+        fileInfo.innerHTML = `
+            <div class="d-flex align-items-center gap-2">
+                ${isPrimary ? '<span class="badge bg-warning text-dark"><i class="bi bi-star-fill"></i> PRIMARY</span>' : `<span class="badge ${config.badge}">${config.label}</span>`}
+                <i class="bi ${fileIcon}"></i>
+                <strong>${pdf.filename}</strong>
+                ${pdf.description ? `<small class="text-muted">- ${pdf.description}</small>` : ''}
+                <small class="text-muted">(${formatFileSize(pdf.file_size)})</small>
+            </div>
+            ${isPrimary ? `<div class="text-success small mt-1"><i class="bi bi-${isPdf ? 'eye' : 'download'}"></i> This ${isPdf ? 'PDF' : 'file'} will be shown first to readers</div>` : ''}
+        `;
+        
+        // Actions
+        const actions = document.createElement('div');
+        actions.className = 'btn-group btn-group-sm';
+        
+        if (!isPrimary) {
+            actions.innerHTML += `
+                <button type="button" class="btn btn-outline-warning" onclick="setPrimary(${index})" title="Set as Primary">
+                    <i class="bi bi-star"></i>
+                </button>
+            `;
+        }
+        
+        if (index > 0) {
+            actions.innerHTML += `
+                <button type="button" class="btn btn-outline-secondary" onclick="movePdf(${index}, 'up')" title="Move Up">
+                    <i class="bi bi-arrow-up"></i>
+                </button>
+            `;
+        }
+        
+        if (index < allPdfs.length - 1) {
+            actions.innerHTML += `
+                <button type="button" class="btn btn-outline-secondary" onclick="movePdf(${index}, 'down')" title="Move Down">
+                    <i class="bi bi-arrow-down"></i>
+                </button>
+            `;
+        }
+        
+        // View button for PDFs, Download button for other files
+        if (isPdf) {
+            actions.innerHTML += `
+                <a href="${pdf.path.startsWith('http') ? pdf.path : '/static/' + pdf.path}" target="_blank" class="btn btn-outline-primary" title="View PDF">
+                    <i class="bi bi-eye"></i>
+                </a>
+            `;
+        } else {
+            actions.innerHTML += `
+                <a href="${pdf.path.startsWith('http') ? pdf.path : '/static/' + pdf.path}" download class="btn btn-outline-success" title="Download File">
+                    <i class="bi bi-download"></i>
+                </a>
+            `;
+        }
+        
+        actions.innerHTML += `
+            <button type="button" class="btn btn-outline-danger" onclick="removePdf(${index})" title="Remove">
+                <i class="bi bi-trash"></i>
+            </button>
+        `;
+        
+        item.appendChild(dragHandle);
+        item.appendChild(fileInfo);
+        item.appendChild(actions);
+        
+        // Drag and drop events
+        item.addEventListener('dragstart', function(e) {
+            draggedItem = this;
+            this.style.opacity = '0.5';
+        });
+        
+        item.addEventListener('dragend', function(e) {
+            this.style.opacity = '1';
+            draggedItem = null;
+        });
+        
+        item.addEventListener('dragover', function(e) {
+            e.preventDefault();
+        });
+        
+        item.addEventListener('drop', function(e) {
+            e.preventDefault();
+            if (draggedItem !== this) {
+                const fromIndex = parseInt(draggedItem.dataset.index);
+                const toIndex = parseInt(this.dataset.index);
+                
+                // Swap items
+                const [moved] = allPdfs.splice(fromIndex, 1);
+                allPdfs.splice(toIndex, 0, moved);
+                
+                renderPdfList();
+                updatePdfInputs();
+            }
+        });
+        
+        container.appendChild(item);
+    });
+}
+
+function updatePdfInputs() {
+    const pdfPathInput = document.getElementById('pdfPath');
+    const additionalPdfsInput = document.getElementById('additionalPdfsInput');
+    
+    if (allPdfs.length > 0) {
+        // First PDF is the primary one
+        if (pdfPathInput) {
+            pdfPathInput.value = allPdfs[0].path;
+        }
+        // Rest are additional
+        if (additionalPdfsInput) {
+            additionalPdfsInput.value = JSON.stringify(allPdfs.slice(1));
+        }
+    } else {
+        if (pdfPathInput) pdfPathInput.value = '';
+        if (additionalPdfsInput) additionalPdfsInput.value = '';
+    }
+}
+
+// Upload PDF without AI generation (AI happens after all PDFs are uploaded)
+function uploadPdf() {
+    if (!selectedPdf) {
+        showNotification('Please select a PDF file first.', 'warning');
+        return;
+    }
+    
+    const fileType = document.getElementById('pdfType').value;
+    
+    const formData = new FormData();
+    formData.append('pdf', selectedPdf);
+    formData.append('file_type', fileType);
+    formData.append('generate_seo', 'false'); // No AI during upload
+    
+    {% if post %}
+    formData.append('post_id', {{ post.id }});
+    {% endif %}
+    
+    const progressDiv = document.getElementById('pdfProgress');
+    const progressText = document.getElementById('pdfProgressText');
+    const btn = document.getElementById('uploadPdfBtn');
+    
+    if (progressDiv) progressDiv.style.display = 'block';
+    if (progressText) progressText.textContent = 'Uploading PDF...';
+    if (btn) btn.disabled = true;
     
     fetch('{{ url_for('blog.upload_pdf_api') }}', {
         method: 'POST',
@@ -1101,25 +1760,39 @@ function uploadPdf() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Update hidden field and show info
-            document.getElementById('pdfPath').value = data.pdf_path;
+            // Add to unified list
+            addPdfToList({
+                path: data.pdf_path,
+                filename: data.filename,
+                file_type: fileType,
+                description: '',
+                file_size: data.file_size
+            });
             
-            // Hide upload section, show info
+            // Clear inputs
             document.getElementById('pdfUpload').value = '';
-            document.getElementById('pdfFilename').textContent = data.filename;
-            document.getElementById('pdfFileSize').textContent = formatFileSize(data.file_size);
-            
-            // Hide existing PDF info if present
-            const existingInfo = document.getElementById('existingPdfInfo');
-            if (existingInfo) {
-                existingInfo.classList.add('d-none');
-            }
-            
-            document.getElementById('pdfInfo').classList.remove('d-none');
             selectedPdf = null;
             document.getElementById('uploadPdfBtn').disabled = true;
             
-            showNotification('PDF uploaded successfully!', 'success');
+            // Auto-fill title from filename if empty
+            const titleEl = document.getElementById('title');
+            if (titleEl && !titleEl.value.trim() && data.suggested_title) {
+                titleEl.value = data.suggested_title;
+            }
+            
+            // Auto-set category if ticker detected
+            if (data.ticker) {
+                const categoryEl = document.getElementById('category');
+                if (categoryEl && !categoryEl.value.trim()) {
+                    categoryEl.value = 'Stock Analysis';
+                }
+                const tagsEl = document.getElementById('tags');
+                if (tagsEl && !tagsEl.value.includes(data.ticker)) {
+                    tagsEl.value = data.ticker + (tagsEl.value ? ', ' + tagsEl.value : '');
+                }
+            }
+            
+            showNotification('PDF uploaded! Click "Generate from PDFs" to create content from all PDFs.', 'success');
         } else {
             showNotification(data.error || 'Failed to upload PDF', 'danger');
         }
@@ -1129,24 +1802,146 @@ function uploadPdf() {
         showNotification('Error uploading PDF', 'danger');
     })
     .finally(() => {
-        progressDiv.classList.add('d-none');
-        btn.disabled = false;
+        if (progressDiv) progressDiv.style.display = 'none';
+        if (btn) btn.disabled = false;
     });
 }
 
-function clearPdfUpload() {
-    document.getElementById('pdfUpload').value = '';
-    selectedPdf = null;
-    document.getElementById('uploadPdfBtn').disabled = true;
-    document.getElementById('pdfProgress').classList.add('d-none');
+// Generate title and SEO from all uploaded PDFs (NO content generation - analyst writes content manually)
+function generateContentFromPdfs() {
+    if (allPdfs.length === 0) {
+        showNotification('Please upload at least one PDF first.', 'warning');
+        return;
+    }
+    
+    const btn = document.getElementById('generateFromPdfsBtn');
+    const progressDiv = document.getElementById('generateFromPdfsProgress');
+    const progressText = document.getElementById('generateFromPdfsText');
+    
+    if (btn) btn.disabled = true;
+    if (progressDiv) progressDiv.style.display = 'block';
+    if (progressText) progressText.textContent = 'Analyzing PDFs and generating SEO data...';
+    
+    // Get all PDF paths
+    const pdfPaths = allPdfs.map(pdf => pdf.path);
+    
+    fetch('{{ url_for('blog.generate_from_pdfs_api') }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify({ pdf_paths: pdfPaths })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Fill in TITLE (always from PDF analysis, not filename)
+            if (data.title) {
+                document.getElementById('title').value = data.title;
+            }
+            
+            // Fill in SEO fields if not already set
+            if (data.meta_description && !document.getElementById('meta_description').value.trim()) {
+                document.getElementById('meta_description').value = data.meta_description;
+            }
+            if (data.meta_keywords && !document.getElementById('meta_keywords').value.trim()) {
+                document.getElementById('meta_keywords').value = data.meta_keywords;
+            }
+            if (data.suggested_tags && !document.getElementById('tags').value.trim()) {
+                document.getElementById('tags').value = data.suggested_tags;
+            }
+            
+            // DO NOT fill content - analyst writes manually
+            // DO NOT fill excerpt - leave empty or analyst writes
+            
+            showNotification('Title and SEO generated! Content field left empty for your manual notes.', 'success');
+        } else {
+            showNotification(data.error || 'Failed to generate SEO data', 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Error generating SEO from PDFs', 'danger');
+    })
+    .finally(() => {
+        if (btn) btn.disabled = false;
+        if (progressDiv) progressDiv.style.display = 'none';
+    });
 }
+
+// Load existing PDFs when editing
+{% if post %}
+document.addEventListener('DOMContentLoaded', function() {
+    // Load primary PDF
+    {% if post.pdf_path %}
+    allPdfs.push({
+        path: {{ post.pdf_path | tojson }},
+        filename: {{ post.pdf_filename | tojson }},
+        file_type: 'research',
+        description: '',
+        file_size: 0
+    });
+    {% endif %}
+    
+    // Load additional PDFs
+    {% if post.additional_pdfs %}
+    try {
+        const additional = {{ post.additional_pdfs | tojson | safe }};
+        if (Array.isArray(additional)) {
+            additional.forEach(pdf => {
+                allPdfs.push({
+                    path: pdf.path,
+                    filename: pdf.filename,
+                    file_type: pdf.file_type || 'supplemental',
+                    description: pdf.description || '',
+                    file_size: pdf.file_size || 0
+                });
+            });
+        }
+    } catch(e) {
+        console.error('Error loading additional PDFs:', e);
+    }
+    {% endif %}
+    
+    renderPdfList();
+    updatePdfInputs();
+});
+{% endif %}
 
 function deletePdf() {
     // Clear the hidden field and hide info
-    document.getElementById('pdfPath').value = '';
-    document.getElementById('pdfInfo').classList.add('d-none');
+    const pdfPathEl = document.getElementById('pdfPath');
+    const pdfInfoEl = document.getElementById('pdfInfo');
+    const pdfUploadEl = document.getElementById('pdfUpload');
+    const pdfSaveIndicator = document.getElementById('pdfSaveIndicator');
+    const saveBtn = document.getElementById('saveBtn');
+    
+    if (pdfPathEl) {
+        pdfPathEl.value = '';
+        console.log('pdfPath cleared');
+    }
+    if (pdfInfoEl) {
+        pdfInfoEl.style.display = 'none';
+    }
+    if (pdfUploadEl) {
+        pdfUploadEl.value = '';
+    }
+    
+    // Hide the PDF save indicator
+    if (pdfSaveIndicator) {
+        pdfSaveIndicator.style.display = 'none';
+    }
+    
+    // Reset the save button
+    if (saveBtn) {
+        saveBtn.classList.remove('btn-success');
+        saveBtn.classList.add('btn-primary');
+        saveBtn.innerHTML = '<i class="bi bi-save"></i> Save Draft';
+    }
+    
     selectedPdf = null;
-    showNotification('PDF cleared. Click Save to remove it from the post.', 'info');
+    showNotification('PDF removed. Click "Save Draft" to save changes.', 'info');
 }
 
 function deleteExistingPdf(postId) {
@@ -1165,10 +1960,14 @@ function deleteExistingPdf(postId) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Hide existing info and show upload section
-            document.getElementById('existingPdfInfo').classList.add('d-none');
-            document.getElementById('pdfPath').value = '';
-            showNotification('PDF deleted successfully.', 'success');
+            const existingPdfInfo = document.getElementById('existingPdfInfo');
+            const pdfPathEl = document.getElementById('pdfPath');
+            const pdfSaveIndicator = document.getElementById('pdfSaveIndicator');
+            
+            if (existingPdfInfo) existingPdfInfo.style.display = 'none';
+            if (pdfPathEl) pdfPathEl.value = '';
+            if (pdfSaveIndicator) pdfSaveIndicator.style.display = 'none';
+            showNotification('PDF deleted. Click "Save Draft" to save changes.', 'success');
         } else {
             showNotification(data.error || 'Failed to delete PDF', 'danger');
         }
@@ -1177,6 +1976,11 @@ function deleteExistingPdf(postId) {
         console.error('Error:', error);
         showNotification('Error deleting PDF', 'danger');
     });
+}
+
+// Stub for deleting attachments (not implemented yet)
+function deleteAttachment(attachmentId) {
+    alert('Delete attachment not implemented yet. Please save the post without the attachment.');
 }
 
 function formatFileSize(bytes) {

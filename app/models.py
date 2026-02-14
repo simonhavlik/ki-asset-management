@@ -380,6 +380,7 @@ class BlogPost(db.Model):
     content = db.Column(db.Text, nullable=False)  # Main content (HTML/Markdown)
     content_type = db.Column(db.String(20), default='html')  # 'html' or 'markdown'
     pdf_path = db.Column(db.String(500), nullable=True)  # Path to PDF file for PDF blog posts
+    additional_pdfs = db.Column(db.JSON, nullable=True)  # List of additional PDFs [{name, path, type, desc}]
     
     # Author & Publishing
     author_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -401,6 +402,7 @@ class BlogPost(db.Model):
     
     # Relationships
     author = db.relationship('User', backref='blog_posts')
+    attachments = db.relationship('BlogPostAttachment', backref='post', lazy='dynamic', cascade='all, delete-orphan')
     
     @property
     def author_name(self):
@@ -425,6 +427,15 @@ class BlogPost(db.Model):
         if not self.pdf_path:
             return None
         return self.pdf_path.split('/')[-1]
+    
+    @property
+    def additional_files_list(self):
+        """Get additional PDFs as a list."""
+        if not self.additional_pdfs:
+            return []
+        if isinstance(self.additional_pdfs, list):
+            return self.additional_pdfs
+        return []
     
     @property
     def reading_time(self):
@@ -472,6 +483,29 @@ class BlogPost(db.Model):
     
     def __repr__(self):
         return f'<BlogPost {self.title}>'
+
+
+class BlogPostAttachment(db.Model):
+    """Additional files attached to blog posts (PDFs, models, etc.)."""
+    __tablename__ = 'blog_post_attachments'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    post_id = db.Column(db.Integer, db.ForeignKey('blog_posts.id'), nullable=False)
+    file_path = db.Column(db.String(500), nullable=False)
+    file_name = db.Column(db.String(255), nullable=False)
+    file_type = db.Column(db.String(50), nullable=False)  # 'research_pdf', 'presentation_pdf', 'model', 'supplemental'
+    file_size = db.Column(db.Integer, nullable=True)  # in bytes
+    description = db.Column(db.String(500), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    @property
+    def file_url(self):
+        """Get the URL for the file."""
+        from flask import url_for
+        return url_for('static', filename=self.file_path)
+    
+    def __repr__(self):
+        return f'<BlogPostAttachment {self.file_name} ({self.file_type})>'
 
 
 class SystemSettings(db.Model):

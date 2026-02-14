@@ -15,8 +15,9 @@ from flask_login import login_required, current_user
 from datetime import datetime
 from sqlalchemy import or_, desc
 import re
+import json
 
-from ..extensions import db
+from ..extensions import db, csrf
 from ..models import BlogPost, User, Analysis, Company
 from ..security import rate_limit, InputValidator, sanitize_input
 from . import blog_bp
@@ -28,6 +29,69 @@ from ..utils.blog_ai_utils import (
     generate_complete_article_from_file,
     enhance_existing_post
 )
+
+
+def parse_stock_analysis_filename(filename: str) -> tuple:
+    """
+    Parse a stock analysis filename to extract company name, ticker, and formatted title.
+    
+    Expected formats:
+    - "Google (GOOGL) Stock Analysis - KI AM.pdf"
+    - "BiliBili (BILI) Stock Analysis - KI AM.pdf"
+    - "Company Name (TICKER) Stock Analysis - KI AM.pdf"
+    
+    Args:
+        filename: The original filename
+        
+    Returns:
+        tuple: (suggested_title, company_name, ticker)
+    """
+    # Remove .pdf extension
+    name = re.sub(r'\.(pdf|PDF)$', '', filename, flags=re.IGNORECASE)
+    
+    # Try to match pattern: "Company Name (TICKER) Stock Analysis - KI AM"
+    pattern = r'^(.+?)\s*\(([A-Za-z]+)\)\s*Stock\s*Analysis\s*-\s*KI\s*AM$'
+    match = re.match(pattern, name, re.IGNORECASE)
+    
+    if match:
+        company_name = match.group(1).strip()
+        ticker = match.group(2).upper()
+        suggested_title = f"{company_name} ({ticker}) Stock Analysis - KI AM"
+        return suggested_title, company_name, ticker
+    
+    # Try alternative patterns
+    # Pattern: "Company TICKER Stock Analysis" or "Company (TICKER) Analysis"
+    alt_pattern = r'^(.+?)\s*\(?([A-Za-z]{2,5})\)?\s*(?:Stock\s*)?Analysis.*$'
+    alt_match = re.match(alt_pattern, name, re.IGNORECASE)
+    
+    if alt_match:
+        company_name = alt_match.group(1).strip()
+        ticker = alt_match.group(2).upper()
+        suggested_title = f"{company_name} ({ticker}) Stock Analysis - KI AM"
+        return suggested_title, company_name, ticker
+    
+    # If no pattern matches, try to extract any ticker-like code (2-5 uppercase letters in parentheses)
+    ticker_match = re.search(r'\(([A-Za-z]{2,5})\)', name)
+    if ticker_match:
+        ticker = ticker_match.group(1).upper()
+        # Get text before the ticker
+        company_part = name.split('(')[0].strip()
+        if company_part:
+            suggested_title = f"{company_part} ({ticker}) Stock Analysis - KI AM"
+            return suggested_title, company_part, ticker
+    
+    # Fallback: clean up the filename and use as-is
+    clean_name = name.replace('_', ' ').replace('-', ' ')
+    clean_name = re.sub(r'\s+', ' ', clean_name).strip()
+    clean_name = ' '.join(word.capitalize() for word in clean_name.split())
+    
+    # If it doesn't end with KI AM branding, add it
+    if 'KI AM' not in clean_name and 'KI Asset' not in clean_name:
+        suggested_title = f"{clean_name} - KI AM"
+    else:
+        suggested_title = clean_name
+        
+    return suggested_title, clean_name, None
 
 
 # ============================================================================
@@ -58,8 +122,8 @@ def index():
                          featured_posts=cache_data['featured_posts'],
                          current_category=category,
                          current_tag=tag,
-                         seo_title='KI Asset Management Blog | Investment Insights & Analysis',
-                         seo_description='Expert investment analysis, market insights, and research from KI Asset Management. Student-driven financial research with institutional-grade quality.')
+                         seo_title='KI Asset Management Research | Investment Insights & Analysis',
+                         seo_description='Expert investment analysis, market insights, and equity research from KI Asset Management. Student-driven financial research with institutional-grade quality. Not financial advice.')
 
 
 @blog_bp.route('/<slug>')
@@ -67,11 +131,13 @@ def post(slug):
     """
     Individual blog post page - SEO optimized.
     Uses caching for published posts to minimize DB calls.
+    Supports WebFlow embed mode.
     
     Args:
         slug: URL-friendly unique identifier for the post
     """
     import os
+    from ..routes_webflow import webflow_aware_render
     
     # Find post by slug (always hit DB for permissions check)
     blog_post = BlogPost.query.filter_by(slug=slug).first_or_404()
@@ -115,10 +181,10 @@ def post(slug):
     # SEO meta values
     seo_title = blog_post.title
     seo_description = blog_post.meta_description or blog_post.get_excerpt(160)
-    seo_keywords = blog_post.meta_keywords or 'investment, analysis, KI Asset Management, finance'
+    seo_keywords = blog_post.meta_keywords or 'investment, analysis, KI Asset Management, finance, research'
     og_image = blog_post.og_image or url_for('static', filename='images/og-default.jpg', _external=True)
     
-    return render_template('blog/post.html',
+    return webflow_aware_render('blog/post.html',
                          post=blog_post,
                          related_posts=related_posts,
                          seo_title=seo_title,
@@ -152,8 +218,8 @@ def author_posts(user_id):
                          pagination=pagination,
                          author=author,
                          author_name=author_name,
-                         seo_title=f'Articles by {author_name} | KI Asset Management Blog',
-                         seo_description=f'Read investment articles and analysis by {author_name} from KI Asset Management.')
+                         seo_title=f'Articles by {author_name} | KI Asset Management Research',
+                         seo_description=f'Read investment research and analysis by {author_name} from KI Asset Management. Student research for educational purposes only.')
 
 
 @blog_bp.route('/feed.rss')
@@ -210,7 +276,7 @@ def my_posts():
 @login_required
 @rate_limit(limit=10, window=3600)  # 10 new posts per hour
 def new_post():
-    """Create a new blog post."""
+    """Create a new blog post. If is_public is checked, publish immediately."""
     if request.method == 'POST':
         title = request.form.get('title', '').strip()
         content = request.form.get('content', '').strip()
@@ -222,6 +288,18 @@ def new_post():
         content_type = request.form.get('content_type', 'html')
         is_public = request.form.get('is_public') == 'on'
         pdf_path = request.form.get('pdf_path', '').strip()
+        additional_pdfs_json = request.form.get('additional_pdfs', '').strip()
+        
+        # Parse additional PDFs
+        additional_pdfs = None
+        if additional_pdfs_json:
+            try:
+                additional_pdfs = json.loads(additional_pdfs_json)
+                if not isinstance(additional_pdfs, list):
+                    additional_pdfs = None
+            except json.JSONDecodeError:
+                current_app.logger.warning(f"Invalid additional_pdfs JSON: {additional_pdfs_json}")
+                additional_pdfs = None
         
         # Validation
         if not title:
@@ -239,6 +317,10 @@ def new_post():
             flash(error, 'danger')
             return redirect(url_for('blog.new_post'))
         
+        # Determine status based on is_public
+        status = 'published' if is_public else 'draft'
+        published_at = datetime.utcnow() if is_public else None
+        
         # Create post
         blog_post = BlogPost(
             title=sanitized_title,
@@ -250,9 +332,11 @@ def new_post():
             tags=tags if tags else None,
             content_type=content_type,
             pdf_path=pdf_path if pdf_path else None,
+            additional_pdfs=additional_pdfs,
             is_public=is_public,
             author_id=current_user.id,
-            status='draft'
+            status=status,
+            published_at=published_at
         )
         
         # Generate unique slug
@@ -261,7 +345,18 @@ def new_post():
         db.session.add(blog_post)
         db.session.commit()
         
-        flash('Blog post created successfully! You can publish it when ready.', 'success')
+        # Invalidate caches if published
+        if is_public:
+            from ..utils.neon_cache import invalidate_blog_cache, invalidate_main_cache
+            try:
+                invalidate_blog_cache()
+                invalidate_main_cache()
+            except Exception as e:
+                current_app.logger.warning(f"Failed to invalidate caches: {e}")
+            flash('Research article published successfully!', 'success')
+        else:
+            flash('Research article saved as draft. Check "Public" and save to publish.', 'success')
+        
         return redirect(url_for('blog.edit_post', post_id=blog_post.id))
     
     return render_template('blog/editor.html',
@@ -275,6 +370,7 @@ def edit_post(post_id):
     """
     Edit an existing blog post.
     Users can edit their own posts; admins can edit any post.
+    If is_public is checked, the post will be published.
     """
     blog_post = BlogPost.query.get_or_404(post_id)
     
@@ -296,6 +392,18 @@ def edit_post(post_id):
         is_public = request.form.get('is_public') == 'on'
         is_featured = request.form.get('is_featured') == 'on'
         pdf_path = request.form.get('pdf_path', '').strip()
+        additional_pdfs_json = request.form.get('additional_pdfs', '').strip()
+        
+        # Parse additional PDFs
+        additional_pdfs = None
+        if additional_pdfs_json:
+            try:
+                additional_pdfs = json.loads(additional_pdfs_json)
+                if not isinstance(additional_pdfs, list):
+                    additional_pdfs = None
+            except json.JSONDecodeError:
+                current_app.logger.warning(f"Invalid additional_pdfs JSON: {additional_pdfs_json}")
+                additional_pdfs = None
         
         # Validation
         if not title:
@@ -324,8 +432,19 @@ def edit_post(post_id):
         blog_post.content_type = content_type
         blog_post.og_image = og_image if og_image else None
         blog_post.pdf_path = pdf_path if pdf_path else None
+        blog_post.additional_pdfs = additional_pdfs
         blog_post.is_public = is_public
         blog_post.updated_at = datetime.utcnow()
+        
+        # Handle publishing: if is_public is checked and post is draft, publish it
+        was_published = False
+        if is_public and blog_post.status == 'draft':
+            blog_post.status = 'published'
+            blog_post.published_at = datetime.utcnow()
+            was_published = True
+        elif not is_public and blog_post.status == 'published':
+            # If unchecked, unpublish (make draft)
+            blog_post.status = 'draft'
         
         # Handle publish date (admin only or if post is already published)
         if current_user.is_admin or blog_post.status == 'published':
@@ -343,7 +462,18 @@ def edit_post(post_id):
         
         db.session.commit()
         
-        flash('Blog post updated successfully!', 'success')
+        # Invalidate caches if published
+        if was_published:
+            from ..utils.neon_cache import invalidate_blog_cache, invalidate_main_cache
+            try:
+                invalidate_blog_cache()
+                invalidate_main_cache()
+            except Exception as e:
+                current_app.logger.warning(f"Failed to invalidate caches: {e}")
+            flash('Research article published successfully!', 'success')
+        else:
+            flash('Research article updated successfully!', 'success')
+        
         return redirect(url_for('blog.edit_post', post_id=post_id))
     
     return render_template('blog/editor.html',
@@ -378,7 +508,7 @@ def delete_post(post_id):
     except Exception as e:
         current_app.logger.warning(f"Failed to invalidate caches: {e}")
     
-    flash('Blog post deleted successfully.', 'success')
+    flash('Research article deleted successfully.', 'success')
     
     # Redirect based on who deleted
     if current_user.is_admin and current_user.id != blog_post.author_id:
@@ -415,7 +545,7 @@ def publish_post(post_id):
     except Exception as e:
         current_app.logger.warning(f"Failed to invalidate caches: {e}")
     
-    flash('Blog post published successfully!', 'success')
+    flash('Research article published successfully!', 'success')
     return redirect(url_for('blog.post', slug=blog_post.slug))
 
 
@@ -443,21 +573,23 @@ def unpublish_post(post_id):
     except Exception as e:
         current_app.logger.warning(f"Failed to invalidate caches: {e}")
     
-    flash('Blog post unpublished and moved to drafts.', 'success')
+    flash('Research article unpublished and moved to drafts.', 'success')
     return redirect(url_for('blog.my_posts'))
 
 
 @blog_bp.route('/preview/<int:post_id>')
 @login_required
 def preview_post(post_id):
-    """Preview a post before publishing."""
+    """Preview a post before publishing. Supports WebFlow embed mode."""
+    from ..routes_webflow import webflow_aware_render
+    
     blog_post = BlogPost.query.get_or_404(post_id)
     
     # Check permissions
     if current_user.id != blog_post.author_id and not current_user.is_admin:
         abort(403)
     
-    return render_template('blog/post.html',
+    return webflow_aware_render('blog/post.html',
                          post=blog_post,
                          is_preview=True,
                          related_posts=[],
@@ -771,26 +903,39 @@ def upload_document():
 
 @blog_bp.route('/api/upload-pdf', methods=['POST'])
 @login_required
-@rate_limit(limit=30, window=3600)  # 30 PDF uploads per hour
+@rate_limit(limit=30, window=3600)
+@csrf.exempt
 def upload_pdf_api():
     """
-    API endpoint to upload a PDF file for a blog post.
-    Returns the path to the uploaded PDF for storage and suggested title.
+    API endpoint to upload a file for a blog post.
+    Accepts PDFs, Excel files, Word docs, PowerPoint, ZIP, etc.
+    Returns the path to the uploaded file for storage and suggested title.
     """
+    from ..utils.blog_ai_utils import parse_pdf
+    
     if 'pdf' not in request.files:
         return jsonify({'error': 'No file uploaded'}), 400
     
     file = request.files['pdf']
     post_id = request.form.get('post_id', type=int)
+    file_type = request.form.get('file_type', 'supplemental')
     
     if file.filename == '':
         return jsonify({'error': 'No file selected'}), 400
     
-    # Validate file type
-    if not file.filename.lower().endswith('.pdf'):
-        return jsonify({'error': 'Only PDF files are allowed'}), 400
+    # Validate file type - allow PDFs and common document formats
+    allowed_extensions = {
+        'pdf', 'xlsx', 'xls', 'docx', 'doc', 'pptx', 'ppt', 
+        'csv', 'zip', 'rar', 'txt', 'json', 'xml'
+    }
+    ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
     
-    # Validate file size (25MB max - larger for PDF research reports)
+    if ext not in allowed_extensions:
+        return jsonify({
+            'error': f'File type .{ext} not allowed. Allowed: PDF, Excel, Word, PowerPoint, CSV, ZIP, TXT'
+        }), 400
+    
+    # Validate file size (25MB max)
     max_file_size = 25 * 1024 * 1024  # 25MB
     file.seek(0, 2)
     file_size = file.tell()
@@ -802,6 +947,8 @@ def upload_pdf_api():
     if file_size == 0:
         return jsonify({'error': 'File is empty'}), 400
     
+    is_pdf = ext == 'pdf'
+    
     try:
         from werkzeug.utils import secure_filename
         import os
@@ -810,40 +957,58 @@ def upload_pdf_api():
         upload_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'blog_pdfs')
         os.makedirs(upload_dir, exist_ok=True)
         
+        current_app.logger.info(f"PDF upload directory: {upload_dir}")
+        current_app.logger.info(f"Directory exists: {os.path.exists(upload_dir)}")
+        current_app.logger.info(f"Directory writable: {os.access(upload_dir, os.W_OK)}")
+        
         # Generate secure filename with timestamp
         timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
         safe_filename = secure_filename(f"{timestamp}_{file.filename}")
         
         # Full path
         file_path = os.path.join(upload_dir, safe_filename)
+        current_app.logger.info(f"Saving PDF to: {file_path}")
+        
         file.save(file_path)
+        
+        # Verify file was saved
+        if os.path.exists(file_path):
+            current_app.logger.info(f"PDF saved successfully. Size: {os.path.getsize(file_path)} bytes")
+        else:
+            current_app.logger.error("PDF file was not saved!")
         
         # Return relative path for storage
         relative_path = f"uploads/blog_pdfs/{safe_filename}"
         
-        # Extract suggested title from filename
-        original_name = file.filename
-        suggested_title = secure_filename(original_name)
-        # Remove extension and clean up
-        suggested_title = re.sub(r'\.(pdf|PDF)$', '', suggested_title)
-        suggested_title = suggested_title.replace('_', ' ').replace('-', ' ')
-        suggested_title = ' '.join(word.capitalize() for word in suggested_title.split())
+        # Initialize return data
+        suggested_title = None
+        company_name = None
+        ticker = None
         
-        # Try to extract title from PDF metadata
-        pdf_title = None
-        try:
-            from PyPDF2 import PdfReader
-            reader = PdfReader(file_path)
-            if reader.metadata and reader.metadata.title:
-                pdf_title = reader.metadata.title.strip()
-        except Exception as e:
-            current_app.logger.warning(f"Could not extract PDF metadata: {e}")
+        # Only parse PDFs for title extraction
+        if is_pdf:
+            # Parse filename to extract company name and ticker
+            # Expected format: "Company Name (TICKER) Stock Analysis - KI AM.pdf"
+            original_name = file.filename
+            suggested_title, company_name, ticker = parse_stock_analysis_filename(original_name)
+            
+            current_app.logger.info(f"Parsed company: {company_name}, ticker: {ticker}, title: {suggested_title}")
+            
+            # Try to extract title from PDF metadata if parsing failed
+            if not suggested_title or suggested_title == "Stock Analysis - KI AM":
+                try:
+                    from PyPDF2 import PdfReader
+                    reader = PdfReader(file_path)
+                    if reader.metadata and reader.metadata.title:
+                        pdf_title = reader.metadata.title.strip()
+                        # Try to parse the PDF title
+                        suggested_title, company_name, ticker = parse_stock_analysis_filename(pdf_title + ".pdf")
+                        current_app.logger.info(f"Using PDF metadata title: {suggested_title}")
+                except Exception as e:
+                    current_app.logger.warning(f"Could not extract PDF metadata: {e}")
         
-        if pdf_title and len(pdf_title) > 5:
-            suggested_title = pdf_title
-        
-        # Update post if post_id provided
-        if post_id:
+        # Update post if post_id provided (only for PDFs - additional files handled separately)
+        if post_id and is_pdf:
             blog_post = BlogPost.query.get(post_id)
             if blog_post and (current_user.id == blog_post.author_id or current_user.is_admin):
                 blog_post.pdf_path = relative_path
@@ -854,7 +1019,11 @@ def upload_pdf_api():
             'pdf_path': relative_path,
             'filename': file.filename,
             'file_size': file_size,
-            'suggested_title': suggested_title
+            'file_type': file_type,
+            'is_pdf': is_pdf,
+            'suggested_title': suggested_title,
+            'company_name': company_name,
+            'ticker': ticker
         })
         
     except Exception as e:
@@ -904,6 +1073,247 @@ def delete_pdf_api():
     except Exception as e:
         current_app.logger.error(f"Error deleting PDF: {e}")
         return jsonify({'error': f'Failed to delete PDF: {str(e)}'}), 500
+
+
+@blog_bp.route('/api/generate-from-pdfs', methods=['POST'])
+@login_required
+@rate_limit(limit=10, window=3600)  # 10 generations per hour
+def generate_from_pdfs_api():
+    """
+    API endpoint to generate TITLE and SEO from multiple PDFs.
+    Does NOT generate content - analyst writes content manually.
+    Extracts text and uses AI to generate:
+    - Title in format: "Company (TICKER) Stock Analysis - KI AM"
+    - Meta description (proper SEO)
+    - Meta keywords (proper SEO)
+    - Suggested tags
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    pdf_paths = data.get('pdf_paths', [])
+    
+    if not pdf_paths or not isinstance(pdf_paths, list):
+        return jsonify({'error': 'PDF paths array required'}), 400
+    
+    if len(pdf_paths) > 10:
+        return jsonify({'error': 'Maximum 10 PDFs allowed'}), 400
+    
+    try:
+        from ..utils.blog_ai_utils import parse_pdf
+        import os
+        
+        # Extract text from all PDFs (prioritize first PDF for title extraction)
+        all_text_parts = []
+        pdf_info = []
+        
+        for path in pdf_paths:
+            if not path or not isinstance(path, str):
+                continue
+                
+            # Security: ensure path doesn't traverse outside uploads
+            if '..' in path or path.startswith('/'):
+                continue
+                
+            full_path = os.path.join(current_app.root_path, 'static', path)
+            
+            # Verify file exists and is within uploads directory
+            if not os.path.exists(full_path):
+                continue
+                
+            uploads_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'blog_pdfs')
+            if not full_path.startswith(uploads_dir):
+                continue
+            
+            try:
+                text = parse_pdf(full_path)
+                if text:
+                    filename = os.path.basename(path)
+                    all_text_parts.append(text)
+                    pdf_info.append({
+                        'filename': filename,
+                        'path': path,
+                        'text': text[:5000]  # Store first 5000 chars
+                    })
+            except Exception as e:
+                current_app.logger.warning(f"Could not parse PDF {path}: {e}")
+                continue
+        
+        if not pdf_info:
+            return jsonify({'error': 'Could not extract text from any PDF'}), 400
+        
+        # Use first PDF as primary for title extraction
+        primary_text = pdf_info[0]['text']
+        
+        # Use AI to extract company info and generate proper SEO
+        from ..utils.deepseek_client import call_deepseek
+        
+        def call_deepseek_chat(messages, max_tokens=500, temperature=0.5):
+            """Helper to call DeepSeek chat API."""
+            import os
+            import requests
+            
+            api_key = os.environ.get('DEEPSEEK_API_KEY')
+            if not api_key:
+                return None
+            
+            url = "https://api.deepseek.com/v1/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            }
+            data = {
+                "model": "deepseek-chat",
+                "messages": messages,
+                "max_tokens": max_tokens,
+                "temperature": temperature
+            }
+            
+            try:
+                response = requests.post(url, headers=headers, json=data, timeout=60)
+                response.raise_for_status()
+                return response.json()['choices'][0]['message']['content'].strip()
+            except Exception as e:
+                current_app.logger.error(f"DeepSeek API error: {e}")
+                return None
+        
+        import os
+        client_available = bool(os.environ.get('DEEPSEEK_API_KEY'))
+        
+        if not client_available:
+            return jsonify({'error': 'AI service not available - DEEPSEEK_API_KEY not set'}), 500
+        
+        # Extract company name and ticker from PDF content
+        extraction_messages = [
+            {"role": "system", "content": "You are a financial data extraction expert. Extract company name and ticker from research documents accurately."},
+            {"role": "user", "content": f"""Analyze this stock research document and extract:
+1. Company name (full official name)
+2. Stock ticker symbol (usually 3-5 uppercase letters in parentheses or after the company name)
+
+Document content (first 3000 characters):
+{primary_text[:3000]}
+
+Respond ONLY in this exact format:
+Company: [company name]
+Ticker: [TICKER]
+
+If you cannot determine the ticker, use your best guess based on the company name and common ticker patterns."""}
+        ]
+        
+        extraction_text = call_deepseek_chat(extraction_messages, max_tokens=200, temperature=0.3)
+        
+        if not extraction_text:
+            return jsonify({'error': 'Failed to extract company info from PDFs'}), 500
+        
+        # Parse extraction
+        company_name = None
+        ticker = None
+        
+        for line in extraction_text.split('\n'):
+            line = line.strip()
+            if line.lower().startswith('company:'):
+                company_name = line.split(':', 1)[1].strip()
+            elif line.lower().startswith('ticker:'):
+                ticker = line.split(':', 1)[1].strip().upper()
+        
+        # Clean up ticker (remove parentheses, spaces)
+        if ticker:
+            ticker = ticker.replace('(', '').replace(')', '').replace(' ', '').upper()
+        
+        # Generate title in the required format
+        if company_name and ticker:
+            title = f"{company_name} ({ticker}) Stock Analysis - KI AM"
+        elif company_name:
+            title = f"{company_name} Stock Analysis - KI AM"
+        else:
+            title = "Stock Analysis - KI AM"
+        
+        # Combine all text for SEO generation
+        combined_text = '\n\n'.join([p['text'][:2000] for p in pdf_info])
+        
+        # Generate PROPER SEO data using AI
+        seo_prompt = f"""Based on this stock research document, create SEO-optimized metadata.
+
+Document content:
+{combined_text[:4000]}
+
+Company: {company_name or 'Unknown'}
+Ticker: {ticker or 'Unknown'}
+
+Generate the following SEO elements:
+
+1. META DESCRIPTION (150-160 characters):
+Write a compelling meta description that would appear in Google search results. Include the company name, ticker, and key investment thesis. Make it enticing for investors to click.
+Example: "In-depth analysis of Apple (AAPL) stock covering valuation metrics, growth drivers, and investment risks. Buy, hold, or sell recommendation with price targets."
+
+2. META KEYWORDS (10-15 keywords, comma-separated):
+List relevant SEO keywords that investors would search for.
+Example: "Apple stock analysis, AAPL investment, tech stock valuation, FAANG stocks, buy recommendation"
+
+3. SUGGESTED TAGS (5-8 tags, comma-separated):
+Relevant tags for categorizing this research.
+Example: "Technology, Large Cap, Growth Stock, Buy Rating"
+
+Format your response exactly like this:
+META_DESCRIPTION: [your meta description]
+META_KEYWORDS: [your keywords]
+SUGGESTED_TAGS: [your tags]"""
+
+        seo_messages = [
+            {"role": "system", "content": "You are an SEO expert specializing in financial content. Create compelling, accurate SEO metadata for stock research reports."},
+            {"role": "user", "content": seo_prompt}
+        ]
+        
+        seo_text = call_deepseek_chat(seo_messages, max_tokens=500, temperature=0.5)
+        
+        if not seo_text:
+            # Fallback if AI fails
+            seo_text = f"""META_DESCRIPTION: Comprehensive stock analysis of {company_name or 'the company'} ({ticker or 'stock'}) including valuation, financial metrics, and investment recommendation.
+META_KEYWORDS: {company_name or 'stock'} analysis, {ticker or 'ticker'} investment, stock research, equity analysis
+SUGGESTED_TAGS: {ticker or 'Stock Analysis'}, Research"""
+        
+        # Parse SEO response
+        meta_description = ""
+        meta_keywords = ""
+        suggested_tags = ""
+        
+        for line in seo_text.split('\n'):
+            line = line.strip()
+            if line.upper().startswith('META_DESCRIPTION:'):
+                meta_description = line.split(':', 1)[1].strip()
+            elif line.upper().startswith('META_KEYWORDS:'):
+                meta_keywords = line.split(':', 1)[1].strip()
+            elif line.upper().startswith('SUGGESTED_TAGS:'):
+                suggested_tags = line.split(':', 1)[1].strip()
+        
+        # Fallbacks if AI failed
+        if not meta_description or len(meta_description) < 20:
+            meta_description = f"Comprehensive stock analysis of {company_name or 'the company'} ({ticker or 'stock'}) including valuation, financial metrics, and investment recommendation."
+        
+        if not meta_keywords:
+            meta_keywords = f"{company_name or 'stock'} analysis, {ticker or 'ticker'} investment, stock research, equity analysis"
+        
+        if not suggested_tags:
+            suggested_tags = f"{ticker or 'Stock Analysis'}, Research"
+        
+        return jsonify({
+            'success': True,
+            'title': title,
+            'company_name': company_name,
+            'ticker': ticker,
+            'meta_description': meta_description[:160],  # Ensure max length
+            'meta_keywords': meta_keywords[:255],
+            'suggested_tags': suggested_tags,
+            'pdfs_processed': len(pdf_info),
+            'note': 'Content not generated - add your notes manually in the content editor'
+        })
+            
+    except Exception as e:
+        current_app.logger.error(f"Error in generate_from_pdfs_api: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Failed to generate SEO data: {str(e)}'}), 500
 
 
 @blog_bp.route('/api/enhance-post', methods=['POST'])

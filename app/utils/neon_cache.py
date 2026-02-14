@@ -345,7 +345,7 @@ def _serialize_blog_post(post) -> dict:
 
 
 def get_cached_latest_blog_posts(limit: int = 3, force_refresh: bool = False) -> list:
-    """Get cached latest blog posts for main page. Returns list of SimpleBlogPost objects."""
+    """Get cached latest blog posts for main page. Prioritizes PDF stock research. Returns list of SimpleBlogPost objects."""
     cache = get_cache()
     cache_key = get_cache_key(KEY_PREFIX['main_blog_posts'], limit)
     
@@ -361,15 +361,20 @@ def get_cached_latest_blog_posts(limit: int = 3, force_refresh: bool = False) ->
     # Fetch from DB with eager loading of author to avoid detached instance issues
     try:
         from ..models import BlogPost
-        from sqlalchemy import desc
+        from sqlalchemy import desc, case
         from sqlalchemy.orm import joinedload
         
+        # Prioritize PDF posts (stock research) - they get higher weight
+        # Order by: is_pdf_post desc (true first), then published_at desc
         posts = BlogPost.query.options(
             joinedload(BlogPost.author)
         ).filter(
             BlogPost.status == 'published',
             BlogPost.is_public == True
-        ).order_by(desc(BlogPost.published_at)).limit(limit).all()
+        ).order_by(
+            case((BlogPost.pdf_path != None, 1), else_=0).desc(),  # PDF posts first
+            desc(BlogPost.published_at)  # Then by date
+        ).limit(limit).all()
         
         # Convert to dictionaries before caching
         posts_data = [_serialize_blog_post(post) for post in posts]

@@ -29,3 +29,8 @@ login_manager.login_message_category = 'info'
 def load_user(user_id):
     from .models import User
     return User.query.get(int(user_id))
+
+@login_manager.unauthorized_handler
+def unauthorized():
+    from flask import jsonify
+    return jsonify({'error': 'Please log in to access this feature'}), 401

@@ -62,7 +62,7 @@
 {% block content %}
 {% if is_preview %}
 <div class="preview-banner">
-    <i class="bi bi-eye"></i> Preview Mode - This post is not yet published
+    <i class="bi bi-eye"></i> Preview Mode - This article is not yet published
     {% if post.status == 'draft' %}
     <form action="{{ url_for('blog.publish_post', post_id=post.id) }}" method="POST" class="d-inline ms-3">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -84,7 +84,7 @@
                     <a href="{{ url_for('main.index') }}" class="text-light">Home</a>
                 </li>
                 <li class="breadcrumb-item">
-                    <a href="{{ url_for('blog.index') }}" class="text-light">Blog</a>
+                    <a href="{{ url_for('blog.index') }}" class="text-light">Research</a>
                 </li>
                 {% if post.category %}
                 <li class="breadcrumb-item">
@@ -110,10 +110,12 @@
                 <i class="bi bi-calendar3"></i>
                 {{ post.formatted_date }}
             </span>
+            {% if not post.is_pdf_post %}
             <span class="blog-post-meta-item">
                 <i class="bi bi-clock"></i>
                 {{ post.reading_time }} min read
             </span>
+            {% endif %}
             <span class="blog-post-meta-item">
                 <i class="bi bi-eye"></i>
                 {{ post.view_count }} views
@@ -144,7 +146,7 @@
             {% if current_user.id == post.author_id or current_user.is_admin %}
             <div class="mt-4">
                 <a href="{{ url_for('blog.edit_post', post_id=post.id) }}" class="btn btn-outline-light btn-sm">
-                    <i class="bi bi-pencil"></i> Edit Post
+                    <i class="bi bi-pencil"></i> Edit Article
                 </a>
                 {% if post.status == 'draft' %}
                 <form action="{{ url_for('blog.publish_post', post_id=post.id) }}" method="POST" class="d-inline">
@@ -167,6 +169,25 @@
     </div>
 </header>
 
+<!-- Student Research Disclaimer -->
+<div class="container mt-4">
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <div class="d-flex align-items-start">
+            <i class="bi bi-exclamation-triangle-fill me-3 fs-4"></i>
+            <div>
+                <h5 class="alert-heading mb-1">Student Research — Not Financial Advice</h5>
+                <p class="mb-0">
+                    We are students passionate about equity research. This content is published for educational 
+                    and informational purposes only. It does <strong>not constitute investment advice</strong>, 
+                    nor should it be used as the basis for any investment decision. Always conduct your own 
+                    research and consult with a qualified financial advisor before making investment decisions.
+                </p>
+            </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+</div>
+
 <!-- Post Content -->
 <article class="container mb-5">
     <div class="row justify-content-center">
@@ -176,8 +197,110 @@
             <img src="{{ post.og_image }}" alt="{{ post.title }}" class="img-fluid rounded-4 mb-4 w-100" style="max-height: 400px; object-fit: cover;">
             {% endif %}
             
-            <!-- PDF Viewer for PDF Blog Posts -->
+            <!-- PDF Viewer for PDF Research Posts -->
             {% if post.is_pdf_post %}
+            
+            {% set all_pdfs = [{'path': post.pdf_path, 'filename': post.pdf_filename, 'file_type': 'research', 'description': '', 'is_primary': true}] %}
+            {% for pdf in post.additional_files_list %}
+                {% set _ = all_pdfs.append({'path': pdf.path, 'filename': pdf.filename, 'file_type': pdf.file_type, 'description': pdf.description, 'is_primary': false}) %}
+            {% endfor %}
+            
+            <!-- Multiple PDFs Tabs -->
+            {% if all_pdfs|length > 1 %}
+            <div class="additional-pdfs-nav mb-3">
+                <ul class="nav nav-pills" id="pdfTabs" role="tablist">
+                    {% for pdf in all_pdfs %}
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link {% if loop.first %}active{% endif %}" id="pdf-tab-{{ loop.index }}" data-bs-toggle="pill" data-bs-target="#pdf-pane-{{ loop.index }}" type="button" role="tab">
+                            {% if pdf.file_type == 'research' or loop.first %}
+                                <i class="bi bi-file-earmark-pdf text-danger"></i> 
+                                {% if loop.first %}<strong>Research Report</strong>{% else %}Research{% endif %}
+                            {% elif pdf.file_type == 'presentation' %}
+                                <i class="bi bi-easel text-primary"></i> {{ pdf.description or 'Presentation' }}
+                            {% elif pdf.file_type == 'model' %}
+                                <i class="bi bi-calculator text-info"></i> {{ pdf.description or 'Financial Model' }}
+                            {% else %}
+                                <i class="bi bi-file-earmark-text text-secondary"></i> {{ pdf.description or 'Supplemental' }}
+                            {% endif %}
+                        </button>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            
+            <div class="tab-content" id="pdfTabContent">
+                {% for pdf in all_pdfs %}
+                {% set is_pdf_file = pdf.path.lower().endswith('.pdf') %}
+                {% set file_ext = pdf.path.split('.')[-1].lower() %}
+                <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="pdf-pane-{{ loop.index }}" role="tabpanel">
+                    <div class="pdf-viewer-container mb-4">
+                        <div class="pdf-header d-flex justify-content-between align-items-center mb-2">
+                            <h5 class="mb-0">
+                                {% if pdf.file_type == 'research' or loop.first %}
+                                    <i class="bi bi-file-earmark-pdf text-danger"></i> Research Report
+                                {% elif pdf.file_type == 'presentation' %}
+                                    <i class="bi bi-easel text-primary"></i> Presentation
+                                {% elif pdf.file_type == 'model' %}
+                                    <i class="bi bi-file-earmark-excel text-success"></i> Financial Model
+                                {% elif file_ext in ['xlsx', 'xls', 'csv'] %}
+                                    <i class="bi bi-file-earmark-excel text-success"></i> Spreadsheet
+                                {% elif file_ext in ['docx', 'doc'] %}
+                                    <i class="bi bi-file-earmark-word text-primary"></i> Document
+                                {% elif file_ext in ['pptx', 'ppt'] %}
+                                    <i class="bi bi-file-earmark-ppt text-warning"></i> Presentation
+                                {% elif file_ext in ['zip', 'rar'] %}
+                                    <i class="bi bi-file-earmark-zip text-secondary"></i> Archive
+                                {% else %}
+                                    <i class="bi bi-file-earmark-text text-secondary"></i> Supplemental Document
+                                {% endif %}
+                                {% if pdf.description %}
+                                    <small class="text-muted ms-2">— {{ pdf.description }}</small>
+                                {% endif %}
+                                <span class="badge bg-light text-dark ms-2">.{{ file_ext }}</span>
+                            </h5>
+                            <div class="btn-group btn-group-sm">
+                                {% if is_pdf_file %}
+                                    <a href="{{ url_for('static', filename=pdf.path) }}" target="_blank" class="btn btn-outline-primary">
+                                        <i class="bi bi-download"></i> Download PDF
+                                    </a>
+                                    {% if loop.first %}
+                                    <button type="button" class="btn btn-outline-secondary" onclick="toggleFullscreen()">
+                                        <i class="bi bi-fullscreen"></i> Fullscreen
+                                    </button>
+                                    {% endif %}
+                                {% else %}
+                                    <a href="{{ url_for('static', filename=pdf.path) }}" download class="btn btn-outline-success">
+                                        <i class="bi bi-download"></i> Download .{{ file_ext }}
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% if is_pdf_file %}
+                        <div class="pdf-wrapper border rounded-4 overflow-hidden" style="height: 700px;">
+                            <iframe src="{{ url_for('static', filename=pdf.path) }}#view=FitH" 
+                                    width="100%" 
+                                    height="100%" 
+                                    style="border: none;"
+                                    title="{{ pdf.description or 'PDF Document' }}">
+                            </iframe>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-info d-flex align-items-center">
+                            <i class="bi bi-info-circle-fill me-3 fs-4"></i>
+                            <div>
+                                <strong>Download Required</strong><br>
+                                This file (.<span class="text-uppercase">{{ file_ext }}</span>) cannot be previewed in the browser. 
+                                <a href="{{ url_for('static', filename=pdf.path) }}" download class="alert-link">Click here to download</a>.
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            {% else %}
+            <!-- Single PDF -->
             <div class="pdf-viewer-container mb-4">
                 <div class="pdf-header d-flex justify-content-between align-items-center mb-2">
                     <h5 class="mb-0">
@@ -206,6 +329,7 @@
                     </small>
                 </div>
             </div>
+            {% endif %}
             
             <!-- PDF-only post description -->
             {% if post.content %}
@@ -221,24 +345,37 @@
             </div>
             {% endif %}
             
+            <!-- Disclaimer Footer -->
+            <div class="alert alert-light border mt-5" style="background: #f8f9fa;">
+                <div class="d-flex align-items-start">
+                    <i class="bi bi-info-circle-fill me-2 text-muted"></i>
+                    <small class="text-muted">
+                        <strong>Disclaimer:</strong> This research is produced by students of KI Asset Management, 
+                        part of the Prague Club of Investors. We are passionate about equity research and learning. 
+                        This content is for educational purposes only and should not be construed as investment advice. 
+                        We are not licensed financial advisors. Past performance is not indicative of future results.
+                    </small>
+                </div>
+            </div>
+            
             <!-- Share buttons -->
-            <div class="mt-5 pt-4 border-top">
-                <h5 class="mb-3">Share this article</h5>
-                <div class="d-flex gap-2">
+            <div class="mt-4 pt-4 border-top">
+                <h5 class="mb-3">Share this research</h5>
+                <div class="d-flex gap-2 flex-wrap">
                     <a href="https://twitter.com/intent/tweet?url={{ request.url | urlencode }}&text={{ post.title | urlencode }}" 
-                       target="_blank" class="btn btn-outline-primary">
+                       target="_blank" class="btn btn-outline-primary btn-sm">
                         <i class="bi bi-twitter"></i> Twitter
                     </a>
                     <a href="https://www.linkedin.com/sharing/share-offsite/?url={{ request.url | urlencode }}" 
-                       target="_blank" class="btn btn-outline-primary">
+                       target="_blank" class="btn btn-outline-primary btn-sm">
                         <i class="bi bi-linkedin"></i> LinkedIn
                     </a>
                     <a href="https://www.facebook.com/sharer/sharer.php?u={{ request.url | urlencode }}" 
-                       target="_blank" class="btn btn-outline-primary">
+                       target="_blank" class="btn btn-outline-primary btn-sm">
                         <i class="bi bi-facebook"></i> Facebook
                     </a>
                     <button onclick="navigator.clipboard.writeText('{{ request.url }}'); alert('Link copied!')" 
-                            class="btn btn-outline-secondary">
+                            class="btn btn-outline-secondary btn-sm">
                         <i class="bi bi-link-45deg"></i> Copy Link
                     </button>
                 </div>
@@ -251,7 +388,7 @@
                 </div>
                 <div class="author-info">
                     <h4>{{ post.author_name }}</h4>
-                    <p class="text-muted mb-2">Analyst at KI Asset Management</p>
+                    <p class="text-muted mb-2">Student Analyst at KI Asset Management</p>
                     <a href="{{ url_for('blog.author_posts', user_id=post.author_id) }}" class="btn btn-sm btn-outline-primary">
                         View all articles
                     </a>
@@ -261,7 +398,7 @@
             <!-- Related Posts -->
             {% if related_posts %}
             <div class="related-posts">
-                <h3 class="mb-4">Related Articles</h3>
+                <h3 class="mb-4">Related Research</h3>
                 <div class="row g-4">
                     {% for related in related_posts %}
                     <div class="col-md-4">
@@ -290,10 +427,10 @@
 <!-- CTA Section -->
 <section class="bg-light py-5">
     <div class="container text-center">
-        <h3>Enjoyed this article?</h3>
-        <p class="text-muted">Explore more investment insights on our blog.</p>
+        <h3>Enjoyed this research?</h3>
+        <p class="text-muted">Explore more investment insights in our research section.</p>
         <a href="{{ url_for('blog.index') }}" class="btn btn-primary btn-lg">
-            <i class="bi bi-journal-text"></i> Browse All Articles
+            <i class="bi bi-journal-text"></i> Browse All Research
         </a>
         {% if not current_user.is_authenticated %}
         <a href="{{ url_for('auth.login') }}" class="btn btn-outline-primary btn-lg ms-2">

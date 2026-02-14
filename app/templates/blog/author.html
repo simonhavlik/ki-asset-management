@@ -42,7 +42,7 @@
             </div>
             <div class="col">
                 <h1>{{ author_name }}</h1>
-                <p class="mb-2">Analyst at KI Asset Management</p>
+                <p class="mb-2">Student Analyst at KI Asset Management</p>
                 <p class="opacity-75">
                     <i class="bi bi-journal-text"></i> {{ posts | length }} article{% if posts | length != 1 %}s{% endif %} published
                 </p>
@@ -52,6 +52,13 @@
 </section>
 
 <div class="container mb-5">
+    <!-- Student Research Disclaimer -->
+    <div class="alert alert-warning mb-4">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <strong>Student Research:</strong> We are students passionate about equity research. 
+        All content is for educational purposes only — <em>not financial advice</em>.
+    </div>
+    
     <!-- Posts Grid -->
     {% if posts %}
     <div class="row g-4">
@@ -69,6 +76,11 @@
                     {% if post.category %}
                     <span class="blog-card-category">{{ post.category }}</span>
                     {% endif %}
+                    {% if post.is_pdf_post %}
+                    <span class="position-absolute top-0 start-0 m-2 badge bg-danger">
+                        <i class="bi bi-file-earmark-pdf"></i> PDF
+                    </span>
+                    {% endif %}
                 </div>
                 <div class="blog-card-content">
                     <h3 class="blog-card-title">
@@ -79,9 +91,11 @@
                         <span>
                             <i class="bi bi-calendar3"></i> {{ post.formatted_date }}
                         </span>
+                        {% if not post.is_pdf_post %}
                         <span>
                             <i class="bi bi-clock"></i> {{ post.reading_time }} min read
                         </span>
+                        {% endif %}
                     </div>
                 </div>
             </article>
@@ -91,7 +105,7 @@
     
     <!-- Pagination -->
     {% if pagination.pages > 1 %}
-    <nav aria-label="Author posts pagination" class="blog-pagination">
+    <nav aria-label="Author articles pagination" class="blog-pagination">
         <ul class="pagination">
             {% if pagination.has_prev %}
             <li class="page-item">
@@ -137,7 +151,7 @@
         <h3>No published articles</h3>
         <p>{{ author_name }} hasn't published any articles yet.</p>
         <a href="{{ url_for('blog.index') }}" class="btn btn-primary">
-            <i class="bi bi-arrow-left"></i> Back to Blog
+            <i class="bi bi-arrow-left"></i> Back to Research
         </a>
     </div>
     {% endif %}

@@ -1,13 +1,13 @@
 {% extends "blog/base_blog.html" %}
 
-{% block title %}Blog Admin | KI Asset Management{% endblock %}
+{% block title %}Research Admin | KI Asset Management{% endblock %}
 
 {% block content %}
 <!-- Header -->
 <section class="blog-hero">
     <div class="container">
-        <h1><i class="bi bi-shield"></i> Blog Administration</h1>
-        <p>Manage all blog posts across the platform.</p>
+        <h1><i class="bi bi-shield"></i> Research Administration</h1>
+        <p>Manage all research articles across the platform.</p>
     </div>
 </section>
 
@@ -16,13 +16,13 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <a href="{{ url_for('blog.new_post') }}" class="btn btn-primary">
-                <i class="bi bi-plus-lg"></i> New Post
+                <i class="bi bi-plus-lg"></i> New Article
             </a>
             <a href="{{ url_for('blog.index') }}" class="btn btn-outline-secondary">
-                <i class="bi bi-journal-text"></i> View Blog
+                <i class="bi bi-journal-text"></i> View Research
             </a>
             <a href="{{ url_for('blog.my_posts') }}" class="btn btn-outline-secondary">
-                <i class="bi bi-person"></i> My Posts
+                <i class="bi bi-person"></i> My Articles
             </a>
         </div>
         <div>
@@ -43,7 +43,7 @@
             <table class="table table-hover mb-0">
                 <thead class="table-light">
                     <tr>
-                        <th>Post</th>
+                        <th>Article</th>
                         <th>Author</th>
                         <th>Status</th>
                         <th>Visibility</th>
@@ -71,6 +71,9 @@
                                     {% endif %}
                                     {% if post.is_featured %}
                                     <span class="badge bg-warning text-dark"><i class="bi bi-star-fill"></i> Featured</span>
+                                    {% endif %}
+                                    {% if post.is_pdf_post %}
+                                    <span class="badge bg-danger"><i class="bi bi-file-earmark-pdf"></i> PDF</span>
                                     {% endif %}
                                 </div>
                             </div>
@@ -138,7 +141,7 @@
     
     <!-- Pagination -->
     {% if pagination.pages > 1 %}
-    <nav aria-label="Admin posts pagination" class="blog-pagination">
+    <nav aria-label="Admin articles pagination" class="blog-pagination">
         <ul class="pagination">
             {% if pagination.has_prev %}
             <li class="page-item">
@@ -181,8 +184,8 @@
     <!-- Empty State -->
     <div class="blog-empty">
         <i class="bi bi-inbox"></i>
-        <h3>No posts found</h3>
-        <p>There are no posts{% if status_filter %} with this status{% endif %}.</p>
+        <h3>No articles found</h3>
+        <p>There are no articles{% if status_filter %} with this status{% endif %}.</p>
     </div>
     {% endif %}
 </div>
@@ -193,7 +196,7 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Delete Post</h5>
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Delete Article</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
