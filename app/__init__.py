@@ -159,6 +159,14 @@ def create_app(config_name=None):
     # Initialize security features
     init_security(app)
 
+    # Allow iframe embedding from personal website
+    @app.after_request
+    def allow_iframe(response):
+        response.headers['X-Frame-Options'] = 'ALLOWALL'
+        # Also set CSP frame-ancestors for modern browsers
+        response.headers['Content-Security-Policy'] = "frame-ancestors *;"
+        return response
+
     # Add CLI commands
     register_cli(app)
 
