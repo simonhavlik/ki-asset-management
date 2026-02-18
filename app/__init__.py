@@ -156,14 +156,11 @@ def create_app(config_name=None):
         from datetime import datetime
         return {'now': datetime.utcnow()}
 
-    # Initialize security features
-    init_security(app)
-
     # Allow iframe embedding from personal website
+    # IMPORTANT: Register BEFORE init_security so it runs AFTER (Flask runs after_request in reverse order)
     @app.after_request
     def allow_iframe(response):
         # Remove X-Frame-Options header to allow iframe embedding
-        # ALLOWALL is not a valid value - must remove header entirely
         response.headers.pop('X-Frame-Options', None)
         # Also set CSP frame-ancestors for modern browsers
         # Preserve existing CSP and only modify frame-ancestors
@@ -178,6 +175,9 @@ def create_app(config_name=None):
         else:
             response.headers['Content-Security-Policy'] = "frame-ancestors *;"
         return response
+
+    # Initialize security features
+    init_security(app)
 
     # Add CLI commands
     register_cli(app)
