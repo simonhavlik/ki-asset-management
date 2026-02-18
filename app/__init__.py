@@ -162,7 +162,9 @@ def create_app(config_name=None):
     # Allow iframe embedding from personal website
     @app.after_request
     def allow_iframe(response):
-        response.headers['X-Frame-Options'] = 'ALLOWALL'
+        # Remove X-Frame-Options header to allow iframe embedding
+        # ALLOWALL is not a valid value - must remove header entirely
+        response.headers.pop('X-Frame-Options', None)
         # Also set CSP frame-ancestors for modern browsers
         # Preserve existing CSP and only modify frame-ancestors
         csp = response.headers.get('Content-Security-Policy', '')
