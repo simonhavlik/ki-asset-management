@@ -30,8 +30,8 @@ ENV FLASK_APP=app
 ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
 
-# Expose port
-EXPOSE 5000
+# Expose port (Zeabur uses 8080)
+EXPOSE 8080
 
 # Run with render_start.py (handles DB init + gunicorn start)
 CMD ["python", "render_start.py"]
