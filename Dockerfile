@@ -33,5 +33,5 @@ ENV PYTHONUNBUFFERED=1
 # Expose port
 EXPOSE 5000
 
-# Run with gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:create_app"]
+# Run with render_start.py (handles DB init + gunicorn start)
+CMD ["python", "render_start.py"]
