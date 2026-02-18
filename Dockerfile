@@ -20,6 +20,7 @@ COPY .env.example .env.example
 COPY .gitignore .
 COPY README.md .
 COPY Procfile .
+COPY render_start.py .
 
 # Create instance directory for SQLite
 RUN mkdir -p instance
