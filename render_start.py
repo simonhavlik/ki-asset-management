@@ -144,17 +144,26 @@ def main():
     print("=" * 60 + "\n")
     
     # Start Gunicorn with the app
-    # Using app:create_app() as the WSGI entry point
+    # Optimized for Render Free Tier (512MB RAM):
+    # - 1 worker to stay within memory limits
+    # - gthread worker class for concurrency via threads
+    # - 4 threads per worker (good balance for I/O bound Flask app)
+    # - max-requests to prevent memory leaks
+    # - 30s timeout (Render's default, prevents hanging requests)
     cmd = [
         'gunicorn',
         '--bind', f'0.0.0.0:{port}',
-        '--workers', '2',  # 2 workers for free tier (adjust based on plan)
-        '--threads', '4',  # 4 threads per worker
-        '--timeout', '120',  # 2 minute timeout for long operations
+        '--worker-class', 'gthread',
+        '--workers', '1',  # 1 worker for free tier (512MB RAM limit)
+        '--threads', '4',  # 4 threads for concurrency
+        '--timeout', '30',  # 30s timeout (Render's default)
+        '--max-requests', '1000',  # Restart worker after 1000 requests (prevent memory leaks)
+        '--max-requests-jitter', '50',  # Add randomness to prevent all workers restarting at once
         '--access-logfile', '-',  # Log to stdout
         '--error-logfile', '-',   # Log errors to stdout
         '--capture-output',        # Capture print statements
         '--enable-stdio-inheritance',  # Allow stdout/stderr in logs
+        '--preload',  # Preload app code to save memory
         'app:create_app()'
     ]
     
