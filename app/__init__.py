@@ -164,7 +164,17 @@ def create_app(config_name=None):
     def allow_iframe(response):
         response.headers['X-Frame-Options'] = 'ALLOWALL'
         # Also set CSP frame-ancestors for modern browsers
-        response.headers['Content-Security-Policy'] = "frame-ancestors *;"
+        # Preserve existing CSP and only modify frame-ancestors
+        csp = response.headers.get('Content-Security-Policy', '')
+        if csp:
+            # Replace existing frame-ancestors directive or add it
+            import re
+            csp = re.sub(r"frame-ancestors[^;]*", "frame-ancestors *", csp)
+            if 'frame-ancestors' not in csp:
+                csp += " frame-ancestors *;"
+            response.headers['Content-Security-Policy'] = csp
+        else:
+            response.headers['Content-Security-Policy'] = "frame-ancestors *;"
         return response
 
     # Add CLI commands
