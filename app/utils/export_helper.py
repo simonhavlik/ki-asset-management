@@ -17,7 +17,7 @@ from ..models import (
     Analysis, PerformanceCalculation, Company, User, Vote, 
     PortfolioPurchase, BenchmarkPrice, analysis_analysts
 )
-from ..utils.performance import PerformanceCalculator
+from ..utils.performance import PerformanceCalculator, get_vote_counts_for_analyses
 
 logger = logging.getLogger(__name__)
 
@@ -313,6 +313,10 @@ def generate_analyses_sheet() -> List[Dict]:
     
     analyses = Analysis.query.all()
     
+    # Optimized: Fetch all vote counts in single query instead of N+1
+    analysis_ids = [a.id for a in analyses]
+    vote_counts = get_vote_counts_for_analyses(analysis_ids)
+    
     for analysis in analyses:
         company = Company.query.get(analysis.company_id)
         
@@ -320,9 +324,10 @@ def generate_analyses_sheet() -> List[Dict]:
         analysts = [u.full_name or u.email for u in analysis.analysts_list]
         opponents = [u.full_name or u.email for u in analysis.opponents_list]
         
-        # Get votes
-        votes_yes = Vote.query.filter_by(analysis_id=analysis.id, vote=True).count()
-        votes_no = Vote.query.filter_by(analysis_id=analysis.id, vote=False).count()
+        # Get votes from pre-fetched counts
+        vote_data = vote_counts.get(analysis.id, {'yes': 0, 'no': 0})
+        votes_yes = vote_data['yes']
+        votes_no = vote_data['no']
         
         # Get performance
         perf = PerformanceCalculation.query.filter_by(
@@ -361,10 +366,15 @@ def generate_board_sheet() -> List[Dict]:
     # Get all On Watchlist analyses
     analyses = Analysis.query.filter_by(status='On Watchlist').all()
     
+    # Optimized: Fetch all vote counts in single query instead of N+1
+    analysis_ids = [a.id for a in analyses]
+    vote_counts = get_vote_counts_for_analyses(analysis_ids)
+    
     for analysis in analyses:
         company = Company.query.get(analysis.company_id)
-        votes_yes = Vote.query.filter_by(analysis_id=analysis.id, vote=True).count()
-        votes_no = Vote.query.filter_by(analysis_id=analysis.id, vote=False).count()
+        vote_data = vote_counts.get(analysis.id, {'yes': 0, 'no': 0})
+        votes_yes = vote_data['yes']
+        votes_no = vote_data['no']
         purchase = PortfolioPurchase.query.filter_by(analysis_id=analysis.id).first()
         perf = PerformanceCalculation.query.filter_by(
             analysis_id=analysis.id

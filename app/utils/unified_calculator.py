@@ -228,8 +228,8 @@ class UnifiedDataCalculator:
                         self.progress.log(f"[{processed}/{total}] {company.name} ({company.ticker_symbol}): Empty data")
                         continue
                     
-                    # Check which dates are already stored
-                    existing_dates = {sp.date for sp in StockPrice.query.filter_by(company_id=company.id).all()}
+                    # Optimized: Only fetch date column to reduce memory and network usage
+                    existing_dates = {d[0] for d in db.session.query(StockPrice.date).filter_by(company_id=company.id).all()}
                     
                     # Insert new records
                     new_records = 0

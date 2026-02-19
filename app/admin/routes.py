@@ -13,7 +13,7 @@ from ..extensions import db
 from ..models import User, ActivityLog, CsvUpload, Analysis, Company, PerformanceCalculation, AnalystMapping, CompanyTickerMapping, Vote, PortfolioPurchase, Idea, IdeaComment, BenchmarkPrice, StockPrice, analysis_analysts, CompanySectorCache
 from .forms import UserEditForm, CreateUserForm, CsvUploadForm, AnalystMappingForm, CompanyTickerForm
 from ..utils.csv_import import CsvImporter
-from ..utils.performance import PerformanceCalculator
+from ..utils.performance import PerformanceCalculator, get_vote_counts_for_analyses
 from ..utils.email_normalization import normalize_email
 from ..email_service import send_password_setup_email
 from ..auth.utils import create_password_reset_token
@@ -51,12 +51,11 @@ def get_portfolio_performance(purchased_only=False):
         # Map analysis_id to purchase_date for correct earliest date calculation
         purchase_dates = {p.analysis_id: p.purchase_date for p in purchases}
     else:
-        analyses = []
-        for analysis in Analysis.query.filter_by(status='On Watchlist').all():
-            votes_yes = Vote.query.filter_by(analysis_id=analysis.id, vote=True).count()
-            votes_no = Vote.query.filter_by(analysis_id=analysis.id, vote=False).count()
-            if votes_yes > votes_no:
-                analyses.append(analysis)
+        # Optimized: Fetch vote counts in single query instead of N+1
+        all_watchlist = Analysis.query.filter_by(status='On Watchlist').all()
+        analysis_ids = [a.id for a in all_watchlist]
+        vote_counts = get_vote_counts_for_analyses(analysis_ids)
+        analyses = [a for a in all_watchlist if vote_counts.get(a.id, {'yes': 0, 'no': 0})['yes'] > vote_counts.get(a.id, {'yes': 0, 'no': 0})['no']]
         purchase_dates = {}
     
     if not analyses:
@@ -180,12 +179,11 @@ def get_portfolio_series(purchased_only=False, years=1):
         # Map analysis_id to purchase_date
         purchase_dates = {p.analysis_id: p.purchase_date for p in purchases}
     else:
-        analyses = []
-        for analysis in Analysis.query.filter_by(status='On Watchlist').all():
-            votes_yes = Vote.query.filter_by(analysis_id=analysis.id, vote=True).count()
-            votes_no = Vote.query.filter_by(analysis_id=analysis.id, vote=False).count()
-            if votes_yes > votes_no:
-                analyses.append(analysis)
+        # Optimized: Fetch vote counts in single query instead of N+1
+        all_watchlist = Analysis.query.filter_by(status='On Watchlist').all()
+        analysis_ids = [a.id for a in all_watchlist]
+        vote_counts = get_vote_counts_for_analyses(analysis_ids)
+        analyses = [a for a in all_watchlist if vote_counts.get(a.id, {'yes': 0, 'no': 0})['yes'] > vote_counts.get(a.id, {'yes': 0, 'no': 0})['no']]
         purchase_dates = {}
     
     if not analyses:
@@ -857,13 +855,18 @@ def export_board_csv():
     """Export board voting data as CSV."""
     analyses = Analysis.query.filter_by(status='On Watchlist').order_by(Analysis.analysis_date.desc()).all()
     
+    # Optimized: Fetch all vote counts in single query instead of N+1
+    analysis_ids = [a.id for a in analyses]
+    vote_counts = get_vote_counts_for_analyses(analysis_ids)
+    
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(['Company', 'Ticker', 'Analysis Date', 'Analysts', 'Votes Yes', 'Votes No', 'Status'])
     
     for analysis in analyses:
-        votes_yes = Vote.query.filter_by(analysis_id=analysis.id, vote=True).count()
-        votes_no = Vote.query.filter_by(analysis_id=analysis.id, vote=False).count()
+        vote_data = vote_counts.get(analysis.id, {'yes': 0, 'no': 0})
+        votes_yes = vote_data['yes']
+        votes_no = vote_data['no']
         status = 'Purchased' if votes_yes > votes_no else 'Rejected' if votes_no > votes_yes else 'Tie'
         
         writer.writerow([
@@ -1373,8 +1376,8 @@ def update_benchmarks():
                 errors.append(f"{ticker}: No data returned")
                 continue
             
-            # Get existing dates for this ticker
-            existing_dates = {bp.date for bp in BenchmarkPrice.query.filter_by(ticker=ticker).all()}
+            # Optimized: Only fetch date column to reduce memory and network usage
+            existing_dates = {d[0] for d in db.session.query(BenchmarkPrice.date).filter_by(ticker=ticker).all()}
             
             new_records = 0
             for _, row in df.iterrows():

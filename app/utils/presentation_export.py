@@ -28,6 +28,7 @@ import numpy as np
 
 from sqlalchemy import func, desc, distinct
 from ..extensions import db
+from ..utils.performance import get_vote_counts_for_analyses
 from ..models import (
     Analysis, User, Company, PerformanceCalculation, 
     AnalystMapping, PortfolioPurchase, CompanySectorCache, Vote,
@@ -959,13 +960,11 @@ def generate_all_presentation_exports(filter_type: str = 'board_approved', high_
         analysis_ids = [p.analysis_id for p in purchases]
     elif filter_type == 'board_approved':
         # Board approved = On Watchlist with more yes votes than no
-        analyses = []
-        for analysis in Analysis.query.filter_by(status='On Watchlist').all():
-            votes_yes = Vote.query.filter_by(analysis_id=analysis.id, vote=True).count()
-            votes_no = Vote.query.filter_by(analysis_id=analysis.id, vote=False).count()
-            if votes_yes > votes_no:
-                analyses.append(analysis.id)
-        analysis_ids = analyses
+        # Optimized: Fetch vote counts in single query instead of N+1
+        all_watchlist = Analysis.query.filter_by(status='On Watchlist').all()
+        analysis_ids_all = [a.id for a in all_watchlist]
+        vote_counts = get_vote_counts_for_analyses(analysis_ids_all)
+        analysis_ids = [a.id for a in all_watchlist if vote_counts.get(a.id, {'yes': 0, 'no': 0})['yes'] > vote_counts.get(a.id, {'yes': 0, 'no': 0})['no']]
     elif filter_type == 'all_approved':
         analyses = Analysis.query.filter_by(status='On Watchlist').all()
         analysis_ids = [a.id for a in analyses]

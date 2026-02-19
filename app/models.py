@@ -150,7 +150,7 @@ class ActivityLog(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     action = db.Column(db.String(255), nullable=False)
     details = db.Column(db.Text)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     ip_address = db.Column(db.String(45), nullable=True)
 
     user = db.relationship('User', backref='activity_logs')
@@ -205,7 +205,7 @@ class AnalystMapping(db.Model):
 class Vote(db.Model):
     __tablename__ = 'votes'
     id = db.Column(db.Integer, primary_key=True)
-    analysis_id = db.Column(db.Integer, db.ForeignKey('analyses.id'), nullable=False)
+    analysis_id = db.Column(db.Integer, db.ForeignKey('analyses.id'), nullable=False, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     vote = db.Column(db.Boolean, nullable=False)  # True = yes/add, False = no/remove
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -213,7 +213,10 @@ class Vote(db.Model):
     analysis = db.relationship('Analysis', backref='votes')
     user = db.relationship('User', backref='votes')
 
-    __table_args__ = (db.UniqueConstraint('analysis_id', 'user_id', name='unique_vote_per_analysis_user'),)
+    __table_args__ = (
+        db.UniqueConstraint('analysis_id', 'user_id', name='unique_vote_per_analysis_user'),
+        db.Index('idx_vote_analysis_vote', 'analysis_id', 'vote'),  # Optimized for vote counting queries
+    )
 
     def __repr__(self):
         return f'<Vote {self.analysis_id} {self.user_id} {self.vote}>'
@@ -240,7 +243,7 @@ class BenchmarkPrice(db.Model):
     """Cached benchmark/index prices (SPY, VT, EEMS, etc.) for performance comparison."""
     __tablename__ = 'benchmark_prices'
     id = db.Column(db.Integer, primary_key=True)
-    ticker = db.Column(db.String(20), nullable=False)  # 'SPY', 'VT', 'EEMS'
+    ticker = db.Column(db.String(20), nullable=False, index=True)  # 'SPY', 'VT', 'EEMS'
     date = db.Column(db.Date, nullable=False)
     close_price = db.Column(db.Numeric(10, 2), nullable=False)
     fetched_at = db.Column(db.DateTime, default=datetime.utcnow)

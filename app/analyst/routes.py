@@ -7,7 +7,7 @@ import logging
 
 from ..extensions import db
 from ..models import Analysis, PerformanceCalculation, Company, StockPrice, analysis_analysts, User, ActivityLog, CsvUpload, Vote, PortfolioPurchase, BenchmarkPrice
-from ..utils.performance import PerformanceCalculator
+from ..utils.performance import PerformanceCalculator, get_vote_counts_for_analyses
 from ..utils.sector_helper import get_company_sector, get_sector_distribution
 
 analyst_bp = Blueprint('analyst', __name__, template_folder='../templates/analyst')
@@ -157,13 +157,11 @@ def get_analysis_ids_for_filter(filter_type):
         return [p.analysis_id for p in purchases]
     
     elif filter_type == 'board_approved':
-        analyses = []
-        for analysis in Analysis.query.filter_by(status='On Watchlist').all():
-            votes_yes = Vote.query.filter_by(analysis_id=analysis.id, vote=True).count()
-            votes_no = Vote.query.filter_by(analysis_id=analysis.id, vote=False).count()
-            if votes_yes > votes_no:
-                analyses.append(analysis.id)
-        return analyses
+        # Optimized: Fetch vote counts in single query instead of N+1
+        all_watchlist = Analysis.query.filter_by(status='On Watchlist').all()
+        analysis_ids = [a.id for a in all_watchlist]
+        vote_counts = get_vote_counts_for_analyses(analysis_ids)
+        return [a.id for a in all_watchlist if vote_counts.get(a.id, {'yes': 0, 'no': 0})['yes'] > vote_counts.get(a.id, {'yes': 0, 'no': 0})['no']]
     
     elif filter_type == 'all_approved':
         return [a.id for a in Analysis.query.filter_by(status='On Watchlist').all()]
@@ -741,16 +739,15 @@ def overview():
     if calc_method not in ['incremental', 'equal']:
         calc_method = 'incremental'
     
-    # Check if we should auto-refresh (cache older than 7 days)
+    # Always use cache - only recalculate when explicitly requested
     cache_key = f"{current_filter}_{calc_method}"
     cache_age_days = get_cache_age_days(cache_key)
-    auto_refresh = cache_age_days is None or cache_age_days >= 7
     
     # Try to get cached data
     cache_data = None
     from_cache = False
     
-    if not force_refresh and not auto_refresh:
+    if not force_refresh:
         # Try the specific cache first
         cache_data = get_cached_overview_data(cache_key)
         
@@ -769,10 +766,8 @@ def overview():
         total_with_perf = cache_data.get('total_positions', 0)
         from_cache = True
     else:
-        # Need to calculate fresh data
-        # Use unified calculator for efficient recalculation
-        if auto_refresh and not force_refresh:
-            logger.info(f"Auto-refreshing overview data (cache is {cache_age_days} days old)")
+        # Need to calculate fresh data (only when explicitly requested)
+        logger.info("Recalculating overview data (explicit refresh requested)")
         
         # Use unified calculator
         calculator = UnifiedDataCalculator()
@@ -799,8 +794,8 @@ def overview():
     # Get cache status for admin
     cache_status = get_cache_status() if current_user.is_admin else None
     
-    # Check if we need to show auto-refresh notice
-    needs_refresh = cache_age_days is not None and cache_age_days >= 7
+    # Show cache age info (but never auto-refresh)
+    needs_refresh = cache_age_days is not None  # Just informational now
     
     return render_template('analyst/overview.html',
                            current_filter=current_filter,

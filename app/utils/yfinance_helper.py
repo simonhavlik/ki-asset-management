@@ -116,8 +116,8 @@ def update_prices_for_company(company: Company, force: bool = False) -> int:
         logger.warning(f"Start date {start_date} after end date {end_date} for company {company.name}, adjusting.")
         start_date = end_date - timedelta(days=7)
     
-    # Check which dates are already stored
-    existing_dates = {sp.date for sp in StockPrice.query.filter_by(company_id=company.id).all()}
+    # Optimized: Only fetch date column to reduce memory and network usage
+    existing_dates = {d[0] for d in db.session.query(StockPrice.date).filter_by(company_id=company.id).all()}
     
     # Fetch prices
     df = fetch_prices(company.ticker_symbol, start_date, end_date)

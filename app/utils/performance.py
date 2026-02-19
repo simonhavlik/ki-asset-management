@@ -748,3 +748,43 @@ class PerformanceCalculator:
             'ftse_series': ftse_series,
             'start_date': earliest_date.isoformat()
         }
+
+
+def get_vote_counts_for_analyses(analysis_ids):
+    """
+    Efficiently fetch vote counts for multiple analyses in a single query.
+    
+    This function eliminates N+1 query problems by using aggregation.
+    
+    Args:
+        analysis_ids: List of analysis IDs to get vote counts for
+        
+    Returns:
+        Dict mapping analysis_id -> {'yes': int, 'no': int}
+    """
+    if not analysis_ids:
+        return {}
+    
+    from ..models import Vote
+    from sqlalchemy import func, case
+    
+    # Single query with aggregation
+    vote_counts = db.session.query(
+        Vote.analysis_id,
+        func.sum(case((Vote.vote == True, 1), else_=0)).label('yes_count'),
+        func.sum(case((Vote.vote == False, 1), else_=0)).label('no_count')
+    ).filter(
+        Vote.analysis_id.in_(analysis_ids)
+    ).group_by(
+        Vote.analysis_id
+    ).all()
+    
+    # Build result dictionary
+    result = {aid: {'yes': 0, 'no': 0} for aid in analysis_ids}
+    for analysis_id, yes_count, no_count in vote_counts:
+        result[analysis_id] = {
+            'yes': yes_count or 0,
+            'no': no_count or 0
+        }
+    
+    return result

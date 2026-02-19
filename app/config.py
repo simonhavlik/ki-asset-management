@@ -65,10 +65,15 @@ class Config:
     # Database configuration
     SQLALCHEMY_DATABASE_URI = get_database_url()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    # Required for PostgreSQL on neon.tech (connection pooling)
+    # Optimized for PostgreSQL on neon.tech (reduces network transfer)
+    # pool_size: keep 5 connections ready, max_overflow: allow 10 extra under load
+    # pool_recycle: 1 hour (reduces connection churn)
     SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_recycle': 300,  # Recycle connections after 5 minutes
+        'pool_size': 5,
+        'max_overflow': 10,
+        'pool_recycle': 3600,  # Recycle connections after 1 hour (was 5 min)
         'pool_pre_ping': True,  # Verify connections before using
+        'pool_timeout': 30,  # Wait up to 30 seconds for connection
     }
     
     # Email configuration

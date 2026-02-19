@@ -19,6 +19,7 @@ from sqlalchemy import func
 
 from ..extensions import db
 from ..models import Analysis, Vote, PerformanceCalculation, User, CsvUpload, Idea, IdeaComment, BlogPost
+from ..utils.performance import get_vote_counts_for_analyses
 from ..security import rate_limit, InputValidator, sanitize_input
 
 # Create blueprint for main routes
@@ -76,13 +77,13 @@ def get_portfolio_1yr_return():
     from ..models import Vote
     
     try:
+        # Optimized: Fetch vote counts in single query instead of N+1
+        all_watchlist = Analysis.query.filter_by(status='On Watchlist').all()
+        analysis_ids = [a.id for a in all_watchlist]
+        vote_counts = get_vote_counts_for_analyses(analysis_ids)
+        
         # Get Board-approved positions (votes_yes > votes_no)
-        approved_analysis_ids = []
-        for analysis in Analysis.query.filter_by(status='On Watchlist').all():
-            votes_yes = Vote.query.filter_by(analysis_id=analysis.id, vote=True).count()
-            votes_no = Vote.query.filter_by(analysis_id=analysis.id, vote=False).count()
-            if votes_yes > votes_no:
-                approved_analysis_ids.append(analysis.id)
+        approved_analysis_ids = [a.id for a in all_watchlist if vote_counts.get(a.id, {'yes': 0, 'no': 0})['yes'] > vote_counts.get(a.id, {'yes': 0, 'no': 0})['no']]
         
         if not approved_analysis_ids:
             return None
@@ -139,13 +140,17 @@ def get_dashboard_stats():
         # Get total meetings - count unique analysis dates (each date = one meeting)
         total_meetings = db.session.query(func.count(func.distinct(Analysis.analysis_date))).scalar() or 0
         
+        # Optimized: Fetch vote counts in single query instead of N+1
+        all_watchlist = Analysis.query.filter_by(status='On Watchlist').all()
+        analysis_ids = [a.id for a in all_watchlist]
+        vote_counts = get_vote_counts_for_analyses(analysis_ids)
+        
         # Get Board-approved positions (votes_yes > votes_no)
         approved_analysis_ids = []
         earliest_date = None
-        for analysis in Analysis.query.filter_by(status='On Watchlist').all():
-            votes_yes = Vote.query.filter_by(analysis_id=analysis.id, vote=True).count()
-            votes_no = Vote.query.filter_by(analysis_id=analysis.id, vote=False).count()
-            if votes_yes > votes_no:
+        for analysis in all_watchlist:
+            vote_data = vote_counts.get(analysis.id, {'yes': 0, 'no': 0})
+            if vote_data['yes'] > vote_data['no']:
                 approved_analysis_ids.append(analysis.id)
                 if earliest_date is None or analysis.analysis_date < earliest_date:
                     earliest_date = analysis.analysis_date
@@ -380,13 +385,13 @@ def get_portfolio_chart_data(method='incremental'):
     from ..utils.presentation_export import generate_portfolio_chart_series
     
     try:
+        # Optimized: Fetch vote counts in single query instead of N+1
+        all_watchlist = Analysis.query.filter_by(status='On Watchlist').all()
+        analysis_ids_all = [a.id for a in all_watchlist]
+        vote_counts = get_vote_counts_for_analyses(analysis_ids_all)
+        
         # Get Board-approved analyses (votes_yes > votes_no)
-        analyses = []
-        for analysis in Analysis.query.filter_by(status='On Watchlist').all():
-            votes_yes = Vote.query.filter_by(analysis_id=analysis.id, vote=True).count()
-            votes_no = Vote.query.filter_by(analysis_id=analysis.id, vote=False).count()
-            if votes_yes > votes_no:
-                analyses.append(analysis)
+        analyses = [a for a in all_watchlist if vote_counts.get(a.id, {'yes': 0, 'no': 0})['yes'] > vote_counts.get(a.id, {'yes': 0, 'no': 0})['no']]
         
         if not analyses:
             return None
