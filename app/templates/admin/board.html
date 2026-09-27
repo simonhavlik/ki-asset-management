@@ -174,6 +174,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <br><i class="bi bi-clock-history"></i> Automatic recalculation runs weekly (Sundays at 3:00 AM UTC)</small>
     </div>
     <form action="{{ url_for('admin.calculate_portfolio_performance') }}" method="post" class="ms-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="btn btn-warning btn-sm" onclick="return confirm('This will recalculate all performance data and refresh all caches. Continue?')">
             <i class="bi bi-arrow-clockwise"></i> Recalculate Now
         </button>
@@ -207,7 +208,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div class="col-md-3">
                 <div class="portfolio-stat-card">
-                    <div class="portfolio-stat-value {% if portfolio_performance.total_return >= 0 %}positive{% else %}negative{% endif %}" id="statReturn">
+                    <div class="portfolio-stat-value {% if (portfolio_performance.total_return or 0) >= 0 %}positive{% else %}negative{% endif %}" id="statReturn">
                         {{ "%.2f"|format(portfolio_performance.total_return) }}%
                     </div>
                     <div class="portfolio-stat-label">Avg Return</div>
@@ -215,7 +216,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div class="col-md-3">
                 <div class="portfolio-stat-card">
-                    <div class="portfolio-stat-value {% if portfolio_performance.annualized_return >= 0 %}positive{% else %}negative{% endif %}" id="statAnnualized">
+                    <div class="portfolio-stat-value {% if (portfolio_performance.annualized_return or 0) >= 0 %}positive{% else %}negative{% endif %}" id="statAnnualized">
                         {{ "%.2f"|format(portfolio_performance.annualized_return) }}%
                     </div>
                     <div class="portfolio-stat-label">Annualized</div>

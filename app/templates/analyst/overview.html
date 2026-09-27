@@ -249,7 +249,7 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
     <div class="col-md-3">
         <div class="portfolio-stat-card">
-            <div class="portfolio-stat-value {% if portfolio_performance.total_return >= 0 %}positive{% else %}negative{% endif %}" id="statReturn">
+            <div class="portfolio-stat-value {% if (portfolio_performance.total_return or 0) >= 0 %}positive{% else %}negative{% endif %}" id="statReturn">
                 {{ "%.2f"|format(portfolio_performance.total_return) }}%
             </div>
             <div class="portfolio-stat-label">Avg Return</div>
@@ -257,7 +257,7 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
     <div class="col-md-3">
         <div class="portfolio-stat-card">
-            <div class="portfolio-stat-value {% if portfolio_performance.annualized_return >= 0 %}positive{% else %}negative{% endif %}" id="statAnnualized">
+            <div class="portfolio-stat-value {% if (portfolio_performance.annualized_return or 0) >= 0 %}positive{% else %}negative{% endif %}" id="statAnnualized">
                 {{ "%.2f"|format(portfolio_performance.annualized_return) }}%
             </div>
             <div class="portfolio-stat-label">Annualized</div>
@@ -459,7 +459,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <tr>
                                 <td><strong>{{ sector.sector }}</strong></td>
                                 <td><span class="badge bg-secondary">{{ sector.count }}</span></td>
-                                <td class="{% if sector.avg_return >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                <td class="{% if (sector.avg_return or 0) >= 0 %}text-success{% else %}text-danger{% endif %}">
                                     {{ "%.2f"|format(sector.avg_return) }}%
                                 </td>
                                 <td>{{ "%.1f"|format(sector.positive_ratio) }}%</td>
@@ -603,7 +603,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <span class="ranking-number">{{ loop.index }}.</span>
                                 <span>{{ analyst.analyst_name }}</span>
                             </div>
-                            <span class="badge {% if analyst.avg_return >= 0 %}bg-success{% else %}bg-danger{% endif %}">
+                            <span class="badge {% if (analyst.avg_return or 0) >= 0 %}bg-success{% else %}bg-danger{% endif %}">
                                 {{ "%.2f"|format(analyst.avg_return) }}%
                             </span>
                         </div>

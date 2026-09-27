@@ -32,6 +32,12 @@ class CsvImportProgress:
         self.created = 0
         self.updated = 0
         self.skipped = 0
+        # Breakdown of `skipped`, so callers can tell "nothing to import" apart
+        # from "everything was already imported":
+        #   blank     - row had no Company, so there was nothing to key on
+        #   unchanged - an analysis for this company/date already exists as-is
+        self.blank = 0
+        self.unchanged = 0
         self.errors = []
         self.current_company = None
         self.ticker_resolutions = {}  # Track ticker lookup results
@@ -44,6 +50,8 @@ class CsvImportProgress:
             'created': self.created,
             'updated': self.updated,
             'skipped': self.skipped,
+            'blank': self.blank,
+            'unchanged': self.unchanged,
             'errors': len(self.errors),
             'current_company': self.current_company,
             'ticker_resolutions': self.ticker_resolutions
@@ -206,6 +214,8 @@ class CsvImporter:
                 'created': self.progress.created,
                 'updated': self.progress.updated,
                 'skipped': self.progress.skipped,
+                'blank': self.progress.blank,
+                'unchanged': self.progress.unchanged,
                 'errors': self.progress.errors,
                 'ticker_resolutions': self.progress.ticker_resolutions
             }
@@ -227,6 +237,7 @@ class CsvImporter:
         company_name = row['Company'].strip()
         if not company_name:
             self.progress.skipped += 1
+            self.progress.blank += 1
             return True
         
         # Parse date
@@ -258,6 +269,7 @@ class CsvImporter:
                 logger.info(f"Updated analysis: {company_name} ({status})")
             else:
                 self.progress.skipped += 1
+                self.progress.unchanged += 1
             
             # Update analyst/opponent assignments even if status unchanged
             self._assign_analysts(existing, row.get('Analyst', ''), row.get('Opponent', ''))

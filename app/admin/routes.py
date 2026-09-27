@@ -676,8 +676,14 @@ def analyst_mappings():
     """Manage analyst name to user mappings."""
     form = AnalystMappingForm()
     
-    # Get all mappings with user info
-    mappings = db.session.query(AnalystMapping, User).join(User).order_by(AnalystMapping.analyst_name).all()
+    # Get all mappings with user info.
+    # NOTE: this used to be `db.session.query(AnalystMapping, User).join(User)`,
+    # which yields Row tuples. The template accesses mapping.user / mapping.id, so
+    # it raised "'sqlalchemy.engine.row.Row object' has no attribute 'user'" (500).
+    # Query the ORM entity instead - AnalystMapping.user is a relationship.
+    mappings = AnalystMapping.query.join(
+        User, AnalystMapping.user_id == User.id
+    ).order_by(AnalystMapping.analyst_name).all()
     
     # Get unmapped analyst names from analyses using safe ORM queries
     # instead of raw SQL to prevent SQL injection
@@ -1942,18 +1948,33 @@ def download_notion_csv():
         if not stats['success']:
             flash(f'Import failed: {stats.get("error", "Unknown error")}', 'danger')
         elif stats['created'] == 0 and stats['updated'] == 0:
-            # Never report success when nothing was written - reporting success
-            # here is exactly how the broken mapping went unnoticed.
-            current_app.logger.warning(
-                'Notion import wrote nothing: mapping=%s stats=%s',
-                result.get('column_mapping'), stats,
-            )
-            flash(
-                f'Notion import changed nothing: 0 created, 0 updated, '
-                f'{stats["skipped"]} of {stats["total"]} rows skipped. '
-                'Every skipped row is missing a Company or Date value.',
-                'warning'
-            )
+            blank = stats.get('blank', 0)
+            unchanged = stats.get('unchanged', 0)
+            invalid = len(stats.get('errors') or [])
+            total = stats.get('total', 0)
+
+            if blank and not unchanged:
+                # Every row was blank AND nothing was already imported, so the
+                # Notion properties cannot have been mapped to columns.
+                current_app.logger.error(
+                    'Notion import produced no usable rows: mapping=%s stats=%s',
+                    result.get('column_mapping'), stats,
+                )
+                flash(
+                    f'Notion import produced no usable rows: {blank} of {total} rows '
+                    'had an empty Company, so the Notion columns were not mapped. '
+                    'Check the logged column mapping.',
+                    'danger'
+                )
+            else:
+                # Re-running an import is idempotent: rows already present are
+                # left alone. This is informational, not a failure.
+                flash(
+                    f'Notion import changed nothing: {unchanged} rows already up to '
+                    f'date, {blank} blank, {invalid} skipped for an invalid/missing '
+                    'date. Nothing to do.',
+                    'info'
+                )
         else:
             flash(f'Notion import completed: {stats["created"]} created, {stats["updated"]} updated, {stats["skipped"]} skipped.', 'success')
 

@@ -58,7 +58,7 @@
         <div class="card text-center">
             <div class="card-body">
                 <h5 class="card-title">Avg Return</h5>
-                <p class="display-4 {% if performance.avg_return >= 0 %}text-success{% else %}text-danger{% endif %}">
+                <p class="display-4 {% if (performance.avg_return or 0) >= 0 %}text-success{% else %}text-danger{% endif %}">
                     {{ performance.avg_return }}%
                 </p>
             </div>
@@ -131,8 +131,8 @@
                         </td>
                         <td>
                             {% if item.performance %}
-                                <span class="fw-bold {% if annualized and item.annualized_return is defined %}{% if item.annualized_return >= 0 %}text-success{% else %}text-danger{% endif %}{% else %}{% if item.performance.return_pct >= 0 %}text-success{% else %}text-danger{% endif %}{% endif %}">
-                                    {% if annualized and item.annualized_return is defined %}
+                                <span class="fw-bold {% if annualized and item.annualized_return is not none %}{% if (item.annualized_return or 0) >= 0 %}text-success{% else %}text-danger{% endif %}{% else %}{% if (item.performance.return_pct or 0) >= 0 %}text-success{% else %}text-danger{% endif %}{% endif %}">
+                                    {% if annualized and item.annualized_return is not none %}
                                         {{ item.annualized_return|round(2) }}%
                                     {% else %}
                                         {{ item.performance.return_pct }}%

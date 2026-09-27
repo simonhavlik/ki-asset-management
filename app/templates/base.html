@@ -520,5 +520,43 @@
     {% endif %}
     
     {% block extra_js %}{% endblock %}
+
+    <script>
+    // Safety net: make sure every POST form carries a CSRF token.
+    //
+    // A single form missing <input name="csrf_token"> is otherwise only
+    // discovered when a user clicks the button and gets "Bad Request: The CSRF
+    // token is missing." (that happened on the Board page's "Recalculate Now").
+    // This injects the token into any POST form that lacks one, and also covers
+    // forms added later. Templates should still include the token explicitly so
+    // the page works without JavaScript.
+    (function () {
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        if (!meta) return;
+
+        function ensureToken(form) {
+            const method = (form.getAttribute('method') || 'get').toLowerCase();
+            if (method !== 'post') return;
+            if (form.querySelector('input[name="csrf_token"]')) return;
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'csrf_token';
+            input.value = meta.content;
+            form.appendChild(input);
+        }
+
+        document.addEventListener('submit', function (event) {
+            if (event.target && event.target.tagName === 'FORM') {
+                ensureToken(event.target);
+            }
+        }, true);
+
+        // Also patch forms present at load, so non-JS-triggered submits and
+        // form.submit() calls are covered too.
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('form').forEach(ensureToken);
+        });
+    })();
+    </script>
 </body>
 </html>

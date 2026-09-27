@@ -736,8 +736,8 @@
                                         <td class="text-truncate" style="max-width: 150px;" title="{{ row.sector }}">{{ row.sector }}</td>
                                         <td class="text-center">{{ row.count }}</td>
                                         <td class="text-end">
-                                            <span class="{% if row.avg_return > 0 %}text-success{% else %}text-danger{% endif %}">
-                                                {% if row.avg_return > 0 %}+{% endif %}{{ "%.1f"|format(row.avg_return) }}%
+                                            <span class="{% if (row.avg_return or 0) > 0 %}text-success{% else %}text-danger{% endif %}">
+                                                {% if (row.avg_return or 0) > 0 %}+{% endif %}{{ "%.1f"|format(row.avg_return) }}%
                                             </span>
                                         </td>
                                     </tr>

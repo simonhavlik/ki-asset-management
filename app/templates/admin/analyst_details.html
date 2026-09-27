@@ -270,8 +270,8 @@
                         <td><span class="badge bg-secondary">{{ analysis.status }}</span></td>
                         <td class="text-end">
                             {% if perf.return_pct is not none %}
-                                <span class="fw-bold {% if (annualized and perf.annualized_return is defined and perf.annualized_return >= 0) or (not annualized and perf.return_pct >= 0) %}text-success{% else %}text-danger{% endif %}">
-                                    {% if annualized and perf.annualized_return is defined %}
+                                <span class="fw-bold {% if (annualized and perf.annualized_return is not none and (perf.annualized_return or 0) >= 0) or (not annualized and (perf.return_pct or 0) >= 0) %}text-success{% else %}text-danger{% endif %}">
+                                    {% if annualized and perf.annualized_return is not none %}
                                         {{ "%.2f"|format(perf.annualized_return) }}%
                                     {% else %}
                                         {{ "%.2f"|format(perf.return_pct) }}%

@@ -15,6 +15,7 @@ import json
 import logging
 import os
 from datetime import datetime, timedelta, date
+from types import SimpleNamespace
 from typing import Dict, List, Any, Optional, Tuple
 from collections import defaultdict
 
@@ -597,12 +598,15 @@ def get_sector_analysis(use_cache: bool = True) -> Dict[str, Any]:
         except Exception as e:
             logger.warning(f"Error reading sector analysis cache: {e}")
     
-    # Calculate fresh data
-    sector_data = db.session.query(
+    # NOTE: this used to select func.stddev(...) in SQL. stddev() is a PostgreSQL
+    # aggregate that SQLite does not provide, so a local SQLite run raised
+    # "no such function: stddev" and the whole presentation export failed.
+    # Aggregate in Python instead (sample standard deviation, ddof=1, matching
+    # PostgreSQL's stddev semantics). Row counts here are in the hundreds.
+    raw_rows = db.session.query(
         CompanySectorCache.sector,
-        func.count(distinct(Analysis.id)).label('analysis_count'),
-        func.avg(PerformanceCalculation.return_pct).label('avg_return'),
-        func.stddev(PerformanceCalculation.return_pct).label('stddev_return')
+        PerformanceCalculation.return_pct,
+        Analysis.id
     ).join(
         Company, CompanySectorCache.company_id == Company.id
     ).join(
@@ -611,11 +615,29 @@ def get_sector_analysis(use_cache: bool = True) -> Dict[str, Any]:
         PerformanceCalculation, PerformanceCalculation.analysis_id == Analysis.id
     ).filter(
         Analysis.status == 'On Watchlist'
-    ).group_by(
-        CompanySectorCache.sector
-    ).having(
-        func.count(distinct(Analysis.id)) >= 2  # At least 2 analyses
     ).all()
+
+    grouped = {}
+    for sector, return_pct, analysis_id in raw_rows:
+        entry = grouped.setdefault(sector, {'ids': set(), 'returns': []})
+        entry['ids'].add(analysis_id)
+        if return_pct is not None:
+            entry['returns'].append(float(return_pct))
+
+    sector_data = []
+    for sector, entry in grouped.items():
+        # Same as the previous HAVING count(DISTINCT analyses) >= 2
+        if len(entry['ids']) < 2:
+            continue
+        returns = entry['returns']
+        avg_return = sum(returns) / len(returns) if returns else None
+        stddev_return = float(np.std(returns, ddof=1)) if len(returns) > 1 else 0.0
+        sector_data.append(SimpleNamespace(
+            sector=sector,
+            analysis_count=len(entry['ids']),
+            avg_return=avg_return,
+            stddev_return=stddev_return,
+        ))
     
     # Best sectors by return - only positive returns
     best_sectors = []

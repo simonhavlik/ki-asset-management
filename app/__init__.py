@@ -330,12 +330,20 @@ def register_cli(app):
             stats = importer.process()
             print(f"Created: {stats.get('created', 0)}")
             print(f"Updated: {stats.get('updated', 0)}")
-            print(f"Skipped: {stats.get('skipped', 0)}")
+            print(f"Skipped: {stats.get('skipped', 0)}"
+                  f" (blank rows: {stats.get('blank', 0)}, already up to date: {stats.get('unchanged', 0)})")
+            if stats.get('errors'):
+                print(f"Errors: {len(stats['errors'])}")
+                for err in stats['errors'][:5]:
+                    print(f"  - {err}")
             if stats.get('created', 0) == 0 and stats.get('updated', 0) == 0:
-                print(
-                    'WARNING: import changed nothing. Rows are skipped when Company '
-                    'or Date is empty - check the mapping printed above.'
-                )
+                if stats.get('blank'):
+                    print(
+                        'WARNING: every row was blank, so the Notion properties were not '
+                        'mapped to columns. Check the mapping printed above.'
+                    )
+                else:
+                    print('Nothing to do: every row is already up to date.')
             if stats.get('errors'):
                 print(f"Errors: {len(stats['errors'])}")
                 for err in stats['errors'][:5]:
