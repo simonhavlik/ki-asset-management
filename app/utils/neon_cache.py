@@ -64,6 +64,7 @@ KEY_PREFIX = {
     'main_growth': 'main:growth',
     'main_sectors': 'main:sectors',
     'main_blog_posts': 'main:blog_posts',
+    'main_featured_research': 'main:featured_research',
     'blog_index': 'blog:index',
     'blog_post': 'blog:post',
     'blog_categories': 'blog:categories',
@@ -344,6 +345,22 @@ def _serialize_blog_post(post) -> dict:
     }
 
 
+def _serialize_blog_post_with_pdf(post) -> dict:
+    """
+    Like _serialize_blog_post, but also exposes the PDF fields the main-page
+    featured-research viewer needs. SimpleBlogPost delegates to dict keys, so a
+    plain BlogPost property that is not serialized would be undefined in the
+    template once the value has passed through the cache.
+    """
+    data = _serialize_blog_post(post)
+    data.update({
+        'is_pdf_post': post.is_pdf_post,
+        'pdf_url': post.pdf_url,
+        'pdf_filename': post.pdf_filename,
+    })
+    return data
+
+
 def get_cached_latest_blog_posts(limit: int = 3, force_refresh: bool = False) -> list:
     """Get cached latest blog posts for main page. Prioritizes PDF stock research. Returns list of SimpleBlogPost objects."""
     cache = get_cache()
@@ -390,6 +407,59 @@ def get_cached_latest_blog_posts(limit: int = 3, force_refresh: bool = False) ->
     
     # Return SimpleBlogPost wrappers
     return [SimpleBlogPost(post) for post in posts_data]
+
+
+def get_cached_featured_research(limit: int = 6, force_refresh: bool = False) -> list:
+    """
+    Get featured research posts that ship an accessible PDF, for the inline
+    PDF viewer block on the main landing page.
+
+    A post qualifies when it is published, public, marked ``is_featured`` and
+    resolves to a PDF (stored in the DB or present on disk). Returns a list of
+    SimpleBlogPost objects, newest first.
+    """
+    cache = get_cache()
+    # Single key (no limit suffix) so a bare-prefix invalidation clears it.
+    cache_key = get_cache_key(KEY_PREFIX['main_featured_research'])
+
+    if not force_refresh and cache and NEON_OPTIMIZE:
+        try:
+            cached = cache.get(cache_key)
+            if cached is not None:
+                return [SimpleBlogPost(post) for post in cached][:limit]
+        except Exception:
+            pass
+
+    try:
+        from ..models import BlogPost
+        from sqlalchemy import desc
+        from sqlalchemy.orm import joinedload
+
+        posts = BlogPost.query.options(
+            joinedload(BlogPost.author)
+        ).filter(
+            BlogPost.status == 'published',
+            BlogPost.is_public == True,
+            BlogPost.is_featured == True,
+            BlogPost.published_at != None
+        ).order_by(desc(BlogPost.published_at)).all()
+
+        # Keep only posts with an accessible PDF, newest first.
+        posts_data = [
+            _serialize_blog_post_with_pdf(post)
+            for post in posts if post.is_pdf_post
+        ]
+    except Exception as e:
+        logger.warning(f"Error loading featured research: {e}")
+        posts_data = []
+
+    if cache and NEON_OPTIMIZE:
+        try:
+            cache.set(cache_key, posts_data, timeout=PUBLIC_DATA_TIMEOUT)
+        except Exception as e:
+            logger.warning(f"Failed to cache featured research: {e}")
+
+    return [SimpleBlogPost(post) for post in posts_data][:limit]
 
 
 def get_cached_blog_index(page: int = 1, category: str = '', tag: str = '', 
@@ -849,6 +919,7 @@ def invalidate_main_cache():
         KEY_PREFIX['main_growth'],
         KEY_PREFIX['main_sectors'],
         KEY_PREFIX['main_blog_posts'],
+        KEY_PREFIX['main_featured_research'],
     ]
     cache = get_cache()
     if cache:
@@ -864,6 +935,7 @@ def invalidate_blog_cache():
     """Invalidate all blog-related caches."""
     keys = [
         KEY_PREFIX['main_blog_posts'],
+        KEY_PREFIX['main_featured_research'],
         KEY_PREFIX['blog_categories'],
         KEY_PREFIX['blog_featured'],
         KEY_PREFIX['blog_rss'],
@@ -946,6 +1018,12 @@ def warm_public_caches():
         warmed.append('latest_blog_posts')
     except Exception as e:
         logger.warning(f"Failed to warm latest_blog_posts: {e}")
+
+    try:
+        get_cached_featured_research(limit=6, force_refresh=True)
+        warmed.append('featured_research')
+    except Exception as e:
+        logger.warning(f"Failed to warm featured_research: {e}")
     
     try:
         get_cached_rss_posts(force_refresh=True)

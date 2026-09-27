@@ -979,6 +979,87 @@ document.getElementById('pdfPreviewModal').addEventListener('hidden.bs.modal', f
 </script>
 {% endif %}
 
+{% if featured_research %}
+<!-- Featured Research - Inline PDF Viewer -->
+<section class="section" id="featured-research">
+    <div class="container">
+        <div class="section-header reveal">
+            <span class="section-label" data-i18n="home.featured">Featured</span>
+            <h2 class="section-title" data-i18n="home.featured_research">Featured Research</h2>
+            <p class="section-subtitle" data-i18n="home.featured_research_subtitle">
+                Full equity research from our analysts. Pick a report and read the complete PDF right here.
+            </p>
+        </div>
+
+        <div class="row g-4 align-items-stretch reveal">
+            <!-- Report picker -->
+            <div class="col-lg-4">
+                <div class="featured-research-list" role="tablist" aria-label="Featured research reports">
+                    {% for post in featured_research %}
+                    <button type="button"
+                            class="featured-research-item{% if loop.first %} active{% endif %}"
+                            role="tab"
+                            aria-selected="{{ 'true' if loop.first else 'false' }}"
+                            data-pdf-url="{{ post.pdf_url }}"
+                            data-article-url="{{ url_for('blog.post', slug=post.slug) }}"
+                            data-title="{{ post.title | e }}"
+                            onclick="selectFeaturedResearch(this)">
+                        <span class="featured-research-item-icon">
+                            <i class="bi bi-file-earmark-pdf-fill"></i>
+                        </span>
+                        <span class="featured-research-item-body">
+                            <span class="featured-research-item-title">{{ post.title }}</span>
+                            <span class="featured-research-item-meta">
+                                {% if post.category %}<span><i class="bi bi-tag"></i> {{ post.category }}</span>{% endif %}
+                                <span><i class="bi bi-calendar3"></i> {{ post.formatted_date }}</span>
+                            </span>
+                        </span>
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Inline viewer -->
+            <div class="col-lg-8">
+                <div class="featured-research-viewer">
+                    <div class="featured-research-viewer-bar">
+                        <span class="featured-research-viewer-title" id="featuredResearchTitle">{{ featured_research[0].title }}</span>
+                        <span class="featured-research-viewer-actions">
+                            <a id="featuredResearchArticle"
+                               href="{{ url_for('blog.post', slug=featured_research[0].slug) }}"
+                               class="btn btn-sm btn-outline-light"
+                               data-i18n-html="home.read_article">
+                                <i class="bi bi-journal-text"></i> Read Article
+                            </a>
+                            <a id="featuredResearchOpen"
+                               href="{{ featured_research[0].pdf_url }}"
+                               target="_blank" rel="noopener"
+                               class="btn btn-sm btn-light"
+                               title="Open PDF in new tab" aria-label="Open PDF in new tab">
+                                <i class="bi bi-box-arrow-up-right"></i>
+                            </a>
+                            <a id="featuredResearchDownload"
+                               href="{{ featured_research[0].pdf_url }}"
+                               download
+                               class="btn btn-sm btn-light"
+                               title="Download PDF" aria-label="Download PDF">
+                                <i class="bi bi-download"></i>
+                            </a>
+                        </span>
+                    </div>
+                    <div class="featured-research-frame">
+                        <iframe id="featuredResearchFrame"
+                                src="{{ featured_research[0].pdf_url }}"
+                                title="{{ featured_research[0].title }}"
+                                loading="lazy"></iframe>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endif %}
+
 <!-- CTA Section -->
 <section class="cta-section" id="join">
     <div class="container">
@@ -1097,6 +1178,34 @@ window.addEventListener('scroll', () => {
         navbar.classList.remove('scrolled');
     }
 });
+
+// Featured research - inline PDF viewer
+function selectFeaturedResearch(button) {
+    if (!button) return;
+
+    const pdfUrl = button.getAttribute('data-pdf-url');
+    const articleUrl = button.getAttribute('data-article-url');
+    const title = button.getAttribute('data-title') || '';
+
+    document.querySelectorAll('.featured-research-item').forEach((item) => {
+        item.classList.remove('active');
+        item.setAttribute('aria-selected', 'false');
+    });
+    button.classList.add('active');
+    button.setAttribute('aria-selected', 'true');
+
+    const frame = document.getElementById('featuredResearchFrame');
+    const titleEl = document.getElementById('featuredResearchTitle');
+    const articleLink = document.getElementById('featuredResearchArticle');
+    const openLink = document.getElementById('featuredResearchOpen');
+    const downloadLink = document.getElementById('featuredResearchDownload');
+
+    if (frame && pdfUrl) frame.src = pdfUrl;
+    if (titleEl) titleEl.textContent = title;
+    if (articleLink && articleUrl) articleLink.href = articleUrl;
+    if (openLink && pdfUrl) openLink.href = pdfUrl;
+    if (downloadLink && pdfUrl) downloadLink.href = pdfUrl;
+}
 </script>
 
 {% if chart_data %}
