@@ -675,164 +675,156 @@ const portfolioData = {
 let inceptionChart = null;
 let oneYearChart = null;
 
-function initCharts() {
-    if (!portfolioData.seriesAll || !portfolioData.series1y) return;
-    
-    // Inception Chart
-    const ctx1 = document.getElementById('inceptionChart').getContext('2d');
-    inceptionChart = new Chart(ctx1, {
-        type: 'line',
-        data: {
-            labels: portfolioData.seriesAll.dates,
-            datasets: [
-                {
-                    label: 'Portfolio',
-                    data: portfolioData.seriesAll.portfolio_series,
-                    borderColor: '#0d6efd',
-                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.4
-                },
-                {
-                    label: 'S&P 500',
-                    data: portfolioData.seriesAll.spy_series,
-                    borderColor: '#ffc107',
-                    backgroundColor: 'transparent',
-                    borderWidth: 2,
-                    borderDash: [5, 5],
-                    tension: 0.4
-                },
-                {
-                    label: 'FTSE All-World',
-                    data: portfolioData.seriesAll.vt_series,
-                    borderColor: '#0dcaf5',
-                    backgroundColor: 'transparent',
-                    borderWidth: 2,
-                    borderDash: [2, 2],
-                    tension: 0.4
-                },
-                {
-                    label: 'EEMS',
-                    data: portfolioData.seriesAll.eems_series,
-                    borderColor: '#6c757d',
-                    backgroundColor: 'transparent',
-                    borderWidth: 2,
-                    borderDash: [3, 3],
-                    tension: 0.4
-                }
-            ]
+// --- Overview portfolio charts ----------------------------------------------
+// The inception series and the 1-year series come from independent queries and
+// either may legitimately be null (for example, when every position entered the
+// portfolio more than 12 months ago there is no 1-year series).
+//
+// Each chart is therefore created and torn down independently. Regression note:
+// this used to `return` early when either series was missing, which blanked BOTH
+// charts on this page, while every other page - which guards each chart
+// separately - kept working.
+
+const CHART_EMPTY_MESSAGES = {
+    inceptionChart: 'No portfolio history to chart yet.',
+    oneyearChart: 'No positions were added in the last 12 months, so there is nothing to plot for this period.'
+};
+
+function chartDatasets(series) {
+    return [
+        {
+            label: 'Portfolio',
+            data: series.portfolio_series,
+            borderColor: '#0d6efd',
+            backgroundColor: 'rgba(13, 110, 253, 0.1)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.4
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                mode: 'index',
-                intersect: false
+        {
+            label: 'S&P 500',
+            data: series.spy_series,
+            borderColor: '#ffc107',
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            tension: 0.4
+        },
+        {
+            label: 'FTSE All-World',
+            data: series.vt_series,
+            borderColor: '#0dcaf5',
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [2, 2],
+            tension: 0.4
+        },
+        {
+            label: 'EEMS',
+            data: series.eems_series,
+            borderColor: '#6c757d',
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [3, 3],
+            tension: 0.4
+        }
+    ];
+}
+
+function chartOptions() {
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+            mode: 'index',
+            intersect: false
+        },
+        plugins: {
+            legend: {
+                position: 'top',
+                labels: { usePointStyle: true, padding: 15 }
             },
-            plugins: {
-                legend: {
-                    position: 'top',
-                    labels: { usePointStyle: true, padding: 15 }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return context.dataset.label + ': ' + context.raw + '%';
-                        }
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        return context.dataset.label + ': ' + context.raw + '%';
                     }
                 }
+            }
+        },
+        scales: {
+            x: {
+                grid: { display: false },
+                ticks: { maxTicksLimit: 6, maxRotation: 0 }
             },
-            scales: {
-                x: {
-                    grid: { display: false },
-                    ticks: { maxTicksLimit: 6, maxRotation: 0 }
-                },
-                y: {
-                    title: { display: true, text: 'Return %' },
-                    ticks: { callback: function(value) { return value + '%'; } }
-                }
+            y: {
+                title: { display: true, text: 'Return %' },
+                ticks: { callback: function(value) { return value + '%'; } }
             }
         }
-    });
-    
-    // 1-Year Chart
-    const ctx2 = document.getElementById('oneyearChart').getContext('2d');
-    oneYearChart = new Chart(ctx2, {
+    };
+}
+
+// Hide the canvas and show an explanation instead of an empty chart frame.
+function markChartEmpty(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    canvas.style.display = 'none';
+
+    let note = document.getElementById(canvasId + 'Empty');
+    if (!note) {
+        note = document.createElement('p');
+        note.id = canvasId + 'Empty';
+        note.className = 'text-muted text-center fst-italic py-5 mb-0';
+        canvas.parentNode.appendChild(note);
+    }
+    note.textContent = CHART_EMPTY_MESSAGES[canvasId] || 'No data to display.';
+    note.style.display = '';
+}
+
+function clearChartEmpty(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    if (canvas) canvas.style.display = '';
+
+    const note = document.getElementById(canvasId + 'Empty');
+    if (note) note.style.display = 'none';
+}
+
+// Build (or rebuild) a single chart. Returns the Chart instance, or null when
+// there is no series to draw.
+function renderPortfolioChart(canvasId, series, existingChart) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return null;
+
+    // Chart.js throws if a canvas is reused, so always destroy first.
+    if (existingChart) {
+        existingChart.destroy();
+    }
+
+    if (!series || !series.dates || !series.dates.length) {
+        markChartEmpty(canvasId);
+        return null;
+    }
+
+    clearChartEmpty(canvasId);
+    return new Chart(canvas.getContext('2d'), {
         type: 'line',
         data: {
-            labels: portfolioData.series1y.dates,
-            datasets: [
-                {
-                    label: 'Portfolio',
-                    data: portfolioData.series1y.portfolio_series,
-                    borderColor: '#0d6efd',
-                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.4
-                },
-                {
-                    label: 'S&P 500',
-                    data: portfolioData.series1y.spy_series,
-                    borderColor: '#ffc107',
-                    backgroundColor: 'transparent',
-                    borderWidth: 2,
-                    borderDash: [5, 5],
-                    tension: 0.4
-                },
-                {
-                    label: 'FTSE All-World',
-                    data: portfolioData.series1y.vt_series,
-                    borderColor: '#0dcaf5',
-                    backgroundColor: 'transparent',
-                    borderWidth: 2,
-                    borderDash: [2, 2],
-                    tension: 0.4
-                },
-                {
-                    label: 'EEMS',
-                    data: portfolioData.series1y.eems_series,
-                    borderColor: '#6c757d',
-                    backgroundColor: 'transparent',
-                    borderWidth: 2,
-                    borderDash: [3, 3],
-                    tension: 0.4
-                }
-            ]
+            labels: series.dates,
+            datasets: chartDatasets(series)
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                mode: 'index',
-                intersect: false
-            },
-            plugins: {
-                legend: {
-                    position: 'top',
-                    labels: { usePointStyle: true, padding: 15 }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return context.dataset.label + ': ' + context.raw + '%';
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    grid: { display: false },
-                    ticks: { maxTicksLimit: 6, maxRotation: 0 }
-                },
-                y: {
-                    title: { display: true, text: 'Return %' },
-                    ticks: { callback: function(value) { return value + '%'; } }
-                }
-            }
-        }
+        options: chartOptions()
     });
+}
+
+// Render whichever charts are not on screen yet. Pass force=true to rebuild both.
+function initCharts(force) {
+    if (force || !inceptionChart) {
+        inceptionChart = renderPortfolioChart('inceptionChart', portfolioData.seriesAll, inceptionChart);
+    }
+    if (force || !oneYearChart) {
+        oneYearChart = renderPortfolioChart('oneyearChart', portfolioData.series1y, oneYearChart);
+    }
 }
 
 // Initialize on load

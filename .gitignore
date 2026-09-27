@@ -176,3 +176,6 @@ debug_*.py
 
 # Private documents directory (contains sensitive files, API keys, etc.)
 private_docs/
+# Node (jsdom for tests/js)
+node_modules/
+package-lock.json
