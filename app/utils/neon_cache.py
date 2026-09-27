@@ -1015,16 +1015,29 @@ def get_cached_board_portfolio_performance(purchased_only: bool = False, force_r
             if cached is not None:
                 logger.debug(f"Cache HIT: {cache_key}")
                 return cached
-        except Exception:
-            pass
+            logger.debug(f"Cache MISS: {cache_key}")
+        except Exception as e:
+            # Previously swallowed entirely, which hid cache backend problems.
+            logger.warning(f"Cache read failed for {cache_key}: {e}", exc_info=True)
     
     # Calculate fresh data
     try:
         from ..admin.routes import get_portfolio_performance
         result = get_portfolio_performance(purchased_only=purchased_only)
     except Exception as e:
-        logger.error(f"Error calculating portfolio performance: {e}")
+        logger.exception(
+            "Error calculating portfolio performance (purchased_only=%s): %s",
+            purchased_only,
+            e,
+        )
         result = None
+    
+    if result is None:
+        logger.warning(
+            "board cache: portfolio performance is None for purchased_only=%s "
+            "- Board stat tiles and charts will render empty",
+            purchased_only,
+        )
     
     if cache and NEON_OPTIMIZE and result:
         try:
@@ -1060,16 +1073,31 @@ def get_cached_board_portfolio_series(purchased_only: bool = False, years: int =
             if cached is not None:
                 logger.debug(f"Cache HIT: {cache_key}")
                 return cached
-        except Exception:
-            pass
+            logger.debug(f"Cache MISS: {cache_key}")
+        except Exception as e:
+            # Previously swallowed entirely, which hid cache backend problems.
+            logger.warning(f"Cache read failed for {cache_key}: {e}", exc_info=True)
     
     # Calculate fresh data
     try:
         from ..admin.routes import get_portfolio_series
         result = get_portfolio_series(purchased_only=purchased_only, years=years)
     except Exception as e:
-        logger.error(f"Error calculating portfolio series: {e}")
+        logger.exception(
+            "Error calculating portfolio series (purchased_only=%s, years=%s): %s",
+            purchased_only,
+            years,
+            e,
+        )
         result = None
+    
+    if result is None:
+        logger.warning(
+            "board cache: portfolio SERIES is None for purchased_only=%s years=%s "
+            "- the Board chart for this view cannot be drawn",
+            purchased_only,
+            years,
+        )
     
     if cache and NEON_OPTIMIZE and result:
         try:

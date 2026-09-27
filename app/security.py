@@ -353,8 +353,18 @@ def configure_session_security(app):
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
     
-    # Secure flag only in production (requires HTTPS)
-    if not app.config.get('DEBUG', False):
+    # Secure flag: on by default in production (i.e. when DEBUG is False).
+    # This used to depend purely on DEBUG, which meant it was silently off in
+    # production while the app ran DevelopmentConfig. An explicit env override is
+    # honoured so a local copy of .env can mirror the deployment config while
+    # still being served over plain http://127.0.0.1.
+    import os as _os
+    _secure_override = _os.environ.get('SESSION_COOKIE_SECURE')
+    if _secure_override:
+        app.config['SESSION_COOKIE_SECURE'] = _secure_override.strip().lower() in (
+            '1', 'true', 'yes', 'on'
+        )
+    elif not app.config.get('DEBUG', False):
         app.config['SESSION_COOKIE_SECURE'] = True
     
     # CSRF cookie settings (if using Flask-WTF)

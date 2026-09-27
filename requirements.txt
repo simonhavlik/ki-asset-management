@@ -16,6 +16,13 @@ Werkzeug==2.3.7
 # Using 2.9.10+ for Python 3.13 compatibility
 psycopg2-binary==2.9.10
 
+# Pin SQLAlchemy below 2.1 ON PURPOSE.
+# SQLAlchemy 2.1 changed bare "postgresql://" URLs to default to psycopg3
+# ("psycopg"), but this project installs psycopg2-binary only. Without this pin a
+# fresh install (e.g. a Render rebuild) resolves SQLAlchemy 2.1.x and the app
+# fails to start with: ModuleNotFoundError: No module named 'psycopg'.
+SQLAlchemy>=2.0.16,<2.1
+
 # Environment Configuration
 python-dotenv==1.0.0
 

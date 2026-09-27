@@ -98,6 +98,10 @@ celerybeat.pid
 
 # Environments
 .env
+# Ignore every .env variant (.env.local, .env.production, .env.bak, ...)
+# because they contain real secrets. Only .env.example is safe to commit.
+.env.*
+!.env.example
 .venv
 env/
 venv/

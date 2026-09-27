@@ -220,6 +220,25 @@ class NotionClient:
         except requests.exceptions.RequestException as e:
             raise NotionAPIError(f"Failed to get database info: {str(e)}")
 
+    def get_database_properties(self, database_id: str) -> Dict[str, Any]:
+        """Return the raw property specs for a database, as {name: spec}.
+
+        auto_detect_column_mapping() needs the full spec (including each
+        property's type), which get_database_info() deliberately reduces away.
+        Read-only: a single GET, no writes.
+        """
+        url = f"{self.base_url}/databases/{database_id}"
+        response = requests.get(url, headers=self.headers, timeout=30)
+
+        if response.status_code == 401:
+            raise NotionAPIError("Invalid or expired Notion API key")
+        if response.status_code == 404:
+            raise NotionAPIError(f"Database {database_id} not found or access denied")
+        if response.status_code != 200:
+            raise NotionAPIError(f"Notion API error: {response.status_code}")
+
+        return response.json().get('properties', {})
+
     def export_database_as_csv(self, database_id: str, column_mapping: Dict[str, str]) -> str:
         """
         Export a Notion database as CSV content.
@@ -267,23 +286,29 @@ def download_notion_export(database_id: str, api_key: Optional[str] = None,
     if not api_key:
         raise NotionAPIError("Notion API key not configured. Set NOTION_API_KEY environment variable.")
 
-    if column_mapping is None:
-        column_mapping = {
-            'Company': 'Company',
-            'Date': 'Date',
-            'Sector': 'Sector',
-            'Analyst': 'Analyst',
-            'Opponent': 'Opponent',
-            'Comment': 'Comment',
-            'Status': 'Status',
-            'Files & media': 'Files & media'
-        }
-
+    # Note: a hardcoded default mapping used to live here. It broke against the
+    # real database, whose title column is 'Name' (not 'Company') and whose date
+    # column is 'Date ' with a trailing space. The result was a CSV of blanks that
+    # imported as 0 rows while still reporting success. When column_mapping is
+    # None we now auto-detect from the database's real property names instead.
     client = NotionClient(api_key)
 
     try:
         db_info = client.get_database_info(database_id)
         logger.info(f"Connected to Notion database: {db_info['title']}")
+
+        if column_mapping is None:
+            properties = client.get_database_properties(database_id)
+            column_mapping = build_notion_column_mapping(properties)
+            resolved = {prop.strip() or prop: col for prop, col in column_mapping.items()}
+            logger.info(f"Auto-detected Notion column mapping: {resolved}")
+            missing = [col for prop, col in column_mapping.items() if prop.startswith('__missing__')]
+            if missing:
+                logger.warning(
+                    "Notion database has no property for CSV column(s): %s - "
+                    "those columns will be empty",
+                    ', '.join(missing),
+                )
 
         csv_content = client.export_database_as_csv(database_id, column_mapping)
 
@@ -292,6 +317,7 @@ def download_notion_export(database_id: str, api_key: Optional[str] = None,
             'csv_content': csv_content,
             'database_id': database_id,
             'database_name': db_info['title'],
+            'column_mapping': column_mapping,
             'page_count': len(csv_content.split('\n')) - 1 if csv_content else 0
         }
 
@@ -319,7 +345,10 @@ def auto_detect_column_mapping(properties: Dict[str, Any]) -> Dict[str, str]:
         csv_col_lower = csv_col.lower()
 
         for notion_prop, prop_info in properties.items():
-            notion_lower = notion_prop.lower()
+            # Strip whitespace before comparing: real databases contain property
+            # names such as 'Date ' (trailing space), and an exact match on
+            # 'date' silently fails against them.
+            notion_lower = notion_prop.strip().lower()
 
             if csv_col_lower == 'company':
                 if notion_lower in ['company', 'ticker', 'name', 'title', 'security', 'asset']:
@@ -344,7 +373,7 @@ def auto_detect_column_mapping(properties: Dict[str, Any]) -> Dict[str, str]:
                     mapping[notion_prop] = csv_col
                     break
             elif csv_col_lower == 'comment':
-                if notion_lower in ['comment', 'comments', 'note', 'notes', 'description', 'poznámka']:
+                if notion_lower in ['comment', 'comments', 'note', 'notes', 'description', 'voting', 'poznámka']:
                     if prop_info.get('type') in ['rich_text', 'text']:
                         mapping[notion_prop] = csv_col
                         break
@@ -358,5 +387,43 @@ def auto_detect_column_mapping(properties: Dict[str, Any]) -> Dict[str, str]:
                     if prop_info.get('type') == 'files':
                         mapping[notion_prop] = csv_col
                         break
+
+    return mapping
+
+
+# The CSV columns CsvImporter requires. The importer raises if any are absent,
+# so the mapping always provides all of them.
+NOTION_CSV_COLUMNS = [
+    'Company', 'Date', 'Sector', 'Analyst', 'Opponent', 'Comment', 'Status', 'Files & media'
+]
+
+
+def build_notion_column_mapping(properties: Dict[str, Any]) -> Dict[str, str]:
+    """Build a complete Notion-property -> CSV-column mapping for a database.
+
+    This is the mapping the importer should use instead of a hardcoded one. It
+    auto-detects each column from the database's real property names (via
+    auto_detect_column_mapping, which ignores surrounding whitespace).
+
+    Any CSV column with no matching property is mapped from a placeholder key
+    that cannot exist in the database. That keeps the output CSV carrying every
+    header CsvImporter expects, with an empty value for the columns the database
+    genuinely does not have (e.g. 'Files & media').
+
+    Returns:
+        Dict mapping the Notion property name to the CSV column name.
+    """
+    by_csv = {csv_col: notion_prop for notion_prop, csv_col in auto_detect_column_mapping(properties).items()}
+
+    mapping: Dict[str, str] = {}
+    used: set = set()
+    for column in NOTION_CSV_COLUMNS:
+        notion_prop = by_csv.get(column)
+        if notion_prop is None or notion_prop in used:
+            notion_prop = f'__missing__{column}'
+            while notion_prop in properties or notion_prop in used:
+                notion_prop += '_'
+        used.add(notion_prop)
+        mapping[notion_prop] = column
 
     return mapping

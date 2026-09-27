@@ -5,6 +5,7 @@ from werkzeug.utils import secure_filename
 import os
 import io
 import csv
+import logging
 import secrets
 from datetime import datetime, date, timedelta
 from sqlalchemy import desc, func
@@ -17,6 +18,9 @@ from ..utils.performance import PerformanceCalculator, get_vote_counts_for_analy
 from ..utils.email_normalization import normalize_email
 from ..email_service import send_password_setup_email
 from ..auth.utils import create_password_reset_token
+from ..logging_config import describe_series, log_operation
+
+logger = logging.getLogger(__name__)
 
 admin_bp = Blueprint('admin', __name__, template_folder='../templates/admin')
 
@@ -59,6 +63,11 @@ def get_portfolio_performance(purchased_only=False):
         purchase_dates = {}
     
     if not analyses:
+        logger.warning(
+            "board.performance: no analyses to include (purchased_only=%s) - "
+            "expected Board-approved analyses (yes>no votes) or PortfolioPurchase rows",
+            purchased_only,
+        )
         return None
     
     # Calculate portfolio returns from cached PerformanceCalculation
@@ -77,6 +86,12 @@ def get_portfolio_performance(purchased_only=False):
                 earliest_date = entry_date
     
     if count == 0:
+        logger.warning(
+            "board.performance: %d analyses selected but NONE have a "
+            "PerformanceCalculation row -> stats will be blank (purchased_only=%s)",
+            len(analyses),
+            purchased_only,
+        )
         return None
     
     avg_return = total_return / count
@@ -91,6 +106,17 @@ def get_portfolio_performance(purchased_only=False):
     # Use fallback benchmark values (approximate historical returns)
     # In production, these should be updated by a background job
     benchmark_data = _get_cached_benchmark_returns(days)
+    
+    logger.info(
+        "board.performance: purchased_only=%s positions=%d avg_return=%.2f%% "
+        "annualized=%.2f%% start=%s days=%d",
+        purchased_only,
+        count,
+        avg_return,
+        annualized,
+        earliest_date,
+        days,
+    )
     
     return {
         'num_positions': count,
@@ -187,6 +213,12 @@ def get_portfolio_series(purchased_only=False, years=1):
         purchase_dates = {}
     
     if not analyses:
+        logger.warning(
+            "board.series: no analyses to chart (purchased_only=%s, years=%s) - "
+            "expected Board-approved analyses (yes>no votes) or PortfolioPurchase rows",
+            purchased_only,
+            years,
+        )
         return None
     
     # Get entry date for each analysis (purchase_date if available, else analysis_date)
@@ -201,6 +233,16 @@ def get_portfolio_series(purchased_only=False, years=1):
     # Sort by entry date
     analysis_entries.sort(key=lambda x: x['entry_date'])
     
+    logger.debug(
+        "board.series: purchased_only=%s years=%s candidates=%d "
+        "first_entry=%s last_entry=%s",
+        purchased_only,
+        years,
+        len(analysis_entries),
+        analysis_entries[0]['entry_date'],
+        analysis_entries[-1]['entry_date'],
+    )
+    
     # Determine date range
     # When years is specified, use fixed date range from today (not based on earliest entry)
     # This ensures benchmark comparisons are consistent across views
@@ -210,6 +252,16 @@ def get_portfolio_series(purchased_only=False, years=1):
         # Filter entries to only those within the date range
         analysis_entries = [e for e in analysis_entries if e['entry_date'] >= start_date]
         if not analysis_entries:
+            # This is the common cause of an empty Board "1 Year" chart: the
+            # portfolio holds positions, but none of them entered in the window.
+            logger.warning(
+                "board.series: no entries within the last %s year(s) "
+                "(window starts %s, purchased_only=%s) - returning None so the "
+                "frontend must render the remaining charts independently",
+                years,
+                start_date,
+                purchased_only,
+            )
             return None
     else:
         # Inception - from earliest entry
@@ -222,6 +274,7 @@ def get_portfolio_series(purchased_only=False, years=1):
     
     portfolio_series = []
     date_labels = []
+    points_without_data = 0
     
     for d in dates:
         date_str = d.strftime('%Y-%m-%d')
@@ -270,19 +323,48 @@ def get_portfolio_series(purchased_only=False, years=1):
             portfolio_series.append(round(avg_return, 2))
         else:
             portfolio_series.append(0)
+            points_without_data += 1
+    
+    if portfolio_series and points_without_data == len(portfolio_series):
+        # Series built, but every point is a placeholder zero. Almost always
+        # means StockPrice (or Company.ticker_symbol) is empty for the selected
+        # companies, so the chart renders as a flat line with no meaning.
+        logger.warning(
+            "board.series: all %d chart points lack price data "
+            "(purchased_only=%s, years=%s) - check StockPrice rows and "
+            "Company.ticker_symbol for the selected companies",
+            len(portfolio_series),
+            purchased_only,
+            years,
+        )
     
     # Generate benchmark series from cached data
     spy_series = _get_benchmark_series_from_cache(dates, 'SPY')
     vt_series = _get_benchmark_series_from_cache(dates, 'VT')
     eems_series = _get_benchmark_series_from_cache(dates, 'EEMS')
     
-    return {
+    result = {
         'dates': date_labels,
         'portfolio_series': portfolio_series,
         'spy_series': spy_series,
         'vt_series': vt_series,
         'eems_series': eems_series,
     }
+    
+    logger.info(
+        "board.series: purchased_only=%s years=%s built %s "
+        "(range %s..%s, active entries %d)",
+        purchased_only,
+        years,
+        describe_series(
+            result, ('dates', 'portfolio_series', 'spy_series', 'vt_series', 'eems_series')
+        ),
+        start_date,
+        end_date,
+        len(analysis_entries),
+    )
+    
+    return result
 
 
 def _get_benchmark_series_from_cache(dates, ticker):
@@ -325,6 +407,14 @@ def _get_benchmark_series_from_cache(dates, ticker):
     
     # If still no base price, use approximate synthetic data
     if base_price is None:
+        logger.warning(
+            "benchmark.series: no BenchmarkPrice rows for %s on/before %s - "
+            "falling back to SYNTHETIC data; the %s line on the chart is NOT real "
+            "market data (run /admin/update-benchmarks to populate)",
+            ticker,
+            first_date,
+            ticker,
+        )
         approx_prices = {'SPY': 400.0, 'VT': 100.0, 'EEMS': 50.0}
         base_price = approx_prices.get(ticker, 100.0)
         
@@ -346,6 +436,13 @@ def _get_benchmark_series_from_cache(dates, ticker):
     
     if not all_prices:
         # No prices at all - return flat line
+        logger.warning(
+            "benchmark.series: %s has prices before %s but none up to %s - "
+            "returning a flat zero line",
+            ticker,
+            first_date,
+            last_date,
+        )
         return [0.0] * len(normalized_dates)
     
     # Build series with proper lookup for missing dates
@@ -1012,6 +1109,41 @@ def board():
     # Get last recalculation time
     last_recalc = get_last_recalculation_time()
     
+    # Single line that answers "why is the Board chart empty?" - it records the
+    # shape of every payload handed to admin/board.html. The frontend requires
+    # BOTH seriesAll and series1y for a view to draw anything at all.
+    logger.info(
+        "board.page: analyses=%d purchases=%d | approved(perf=%s, all=%s, 1y=%s) "
+        "purchased(perf=%s, all=%s, 1y=%s)",
+        len(analyses),
+        len(purchases),
+        'set' if portfolio_performance else 'NONE',
+        describe_series(portfolio_series_all,
+                        ('dates', 'portfolio_series', 'spy_series', 'vt_series', 'eems_series')),
+        describe_series(portfolio_series_1y,
+                        ('dates', 'portfolio_series')),
+        'set' if purchased_performance else 'NONE',
+        describe_series(purchased_series_all, ('dates', 'portfolio_series')),
+        describe_series(purchased_series_1y, ('dates', 'portfolio_series')),
+    )
+    if portfolio_series_all is None or portfolio_series_1y is None:
+        # Each chart renders independently, so a missing series means that single
+        # chart shows a placeholder rather than the whole page going blank.
+        missing = [
+            name
+            for name, value in (
+                ("inception", portfolio_series_all),
+                ("1-year", portfolio_series_1y),
+            )
+            if value is None
+        ]
+        logger.warning(
+            "board.page: approved view is missing the %s series - those charts will "
+            "show a placeholder. The 1-year series only contains analyses whose entry "
+            "date falls inside the last 365 days.",
+            " and ".join(missing),
+        )
+    
     return render_template('admin/board.html',
                          analyses=analyses,
                          user_votes=user_votes,
@@ -1168,7 +1300,7 @@ def calculate_portfolio_performance():
     return redirect(url_for('admin.board'))
 
 
-@admin_bp.route('/admin/refresh-all-caches', methods=['POST'])
+@admin_bp.route('/refresh-all-caches', methods=['POST'])
 @admin_required
 def refresh_all_caches():
     """Refresh all caches without recalculating performance."""
@@ -1246,6 +1378,16 @@ def analyst_details(analyst_id):
     series_all = _build_analyst_series(analyses_with_perf, years=None)  # Inception
     series_1y = _build_analyst_series(analyses_with_perf, years=1)     # 1 year
     
+    logger.info(
+        "analyst.page: analyst_id=%s filter=%s analyses_with_perf=%d | "
+        "series_all=%s series_1y=%s",
+        analyst_id,
+        current_filter,
+        len(analyses_with_perf),
+        describe_series(series_all, ('dates', 'analyst_series')),
+        describe_series(series_1y, ('dates', 'analyst_series')),
+    )
+    
     return render_template('admin/analyst_details.html',
                          analyst=analyst_dict,
                          analyses=analyses_with_perf,
@@ -1271,10 +1413,21 @@ def _build_analyst_series(analyses_with_perf, years=None):
     from datetime import date, timedelta
     
     if not analyses_with_perf:
+        logger.warning(
+            "analyst.series: no analyses with performance data - chart cannot be drawn"
+        )
         return None
     
     # Sort by analysis date
     sorted_analyses = sorted(analyses_with_perf, key=lambda x: x[0].analysis_date)
+    
+    logger.debug(
+        "analyst.series: years=%s candidates=%d first=%s last=%s",
+        years,
+        len(sorted_analyses),
+        sorted_analyses[0][0].analysis_date,
+        sorted_analyses[-1][0].analysis_date,
+    )
     
     # Determine date range
     # When years is specified, use fixed date range from today (not based on earliest analysis)
@@ -1285,6 +1438,12 @@ def _build_analyst_series(analyses_with_perf, years=None):
         # Filter analyses to only those within the date range
         sorted_analyses = [(a, p, c) for a, p, c in sorted_analyses if a.analysis_date >= start_date]
         if not sorted_analyses:
+            logger.warning(
+                "analyst.series: no analyses within the last %s year(s) "
+                "(window starts %s) - returning None",
+                years,
+                start_date,
+            )
             return None
     else:
         # Inception - from earliest analysis
@@ -1345,13 +1504,25 @@ def _build_analyst_series(analyses_with_perf, years=None):
     vt_series = _get_benchmark_series_from_cache(dates, 'VT')
     eems_series = _get_benchmark_series_from_cache(dates, 'EEMS')
     
-    return {
+    result = {
         'dates': date_labels,
         'analyst_series': analyst_series,
         'spy_series': spy_series,
         'vt_series': vt_series,
         'eems_series': eems_series,
     }
+    
+    logger.info(
+        "analyst.series: years=%s built %s (range %s..%s)",
+        years,
+        describe_series(
+            result, ('dates', 'analyst_series', 'spy_series', 'vt_series', 'eems_series')
+        ),
+        start_date,
+        end_date,
+    )
+    
+    return result
 
 
 @admin_bp.route('/update-benchmarks', methods=['POST'])
@@ -1749,18 +1920,12 @@ def download_notion_csv():
         return redirect(url_for('admin.unified_update'))
 
     try:
-        column_mapping = {
-            'Company': 'Company',
-            'Date': 'Date',
-            'Sector': 'Sector',
-            'Analyst': 'Analyst',
-            'Opponent': 'Opponent',
-            'Comment': 'Comment',
-            'Status': 'Status',
-            'Files & media': 'Files & media'
-        }
-
-        result = download_notion_export(database_id, api_key, column_mapping)
+        # Auto-detect the mapping from the database's real property names.
+        # This used to be hardcoded here and matched NOTHING against the live
+        # database (its title column is 'Name', not 'Company'; its date column is
+        # 'Date ' with a trailing space), so the export was 135 blank rows that
+        # imported 0 records while still reporting success.
+        result = download_notion_export(database_id, api_key)
         csv_content = result['csv_content']
 
         if not csv_content:
@@ -1774,10 +1939,23 @@ def download_notion_csv():
         )
         stats = importer.process()
 
-        if stats['success']:
-            flash(f'Notion import completed: {stats["created"]} created, {stats["updated"]} updated, {stats["skipped"]} skipped.', 'success')
-        else:
+        if not stats['success']:
             flash(f'Import failed: {stats.get("error", "Unknown error")}', 'danger')
+        elif stats['created'] == 0 and stats['updated'] == 0:
+            # Never report success when nothing was written - reporting success
+            # here is exactly how the broken mapping went unnoticed.
+            current_app.logger.warning(
+                'Notion import wrote nothing: mapping=%s stats=%s',
+                result.get('column_mapping'), stats,
+            )
+            flash(
+                f'Notion import changed nothing: 0 created, 0 updated, '
+                f'{stats["skipped"]} of {stats["total"]} rows skipped. '
+                'Every skipped row is missing a Company or Date value.',
+                'warning'
+            )
+        else:
+            flash(f'Notion import completed: {stats["created"]} created, {stats["updated"]} updated, {stats["skipped"]} skipped.', 'success')
 
     except NotionAPIError as e:
         flash(f'Notion error: {str(e)}', 'danger')

@@ -81,10 +81,40 @@ def _create_seed_benchmark_data(app):
 def create_app(config_name=None):
     """Application factory."""
     if config_name is None:
-        config_name = os.environ.get('FLASK_CONFIG', 'default')
+        # FLASK_CONFIG wins, then FLASK_ENV, then the development default.
+        # Reading ONLY FLASK_CONFIG was a real bug: the deployment sets
+        # FLASK_ENV=production, so it silently ran DevelopmentConfig with
+        # DEBUG=True. That in turn skipped the production-only security settings
+        # in app/security.py (SESSION_COOKIE_SECURE and Strict-Transport-Security),
+        # because those are gated on `not DEBUG`.
+        config_name = (
+            os.environ.get('FLASK_CONFIG')
+            or os.environ.get('FLASK_ENV')
+            or 'default'
+        ).strip().lower()
+        if config_name not in config:
+            if config_name != 'default':
+                import logging as _logging
+                _logging.getLogger(__name__).warning(
+                    "unknown FLASK_CONFIG/FLASK_ENV value %r - falling back to 'default'",
+                    config_name,
+                )
+            config_name = 'default'
 
     app = Flask(__name__)
     app.config.from_object(config[config_name])
+
+    # Configure logging before anything else so that extension/app init and
+    # every module-level logger (app.utils.*, app.admin.*) is actually visible.
+    from .logging_config import configure_logging, get_logger
+    configure_logging(app)
+    startup_logger = get_logger('startup')
+    startup_logger.info(
+        'creating app: config=%s debug=%s db=%s',
+        config_name,
+        app.config.get('DEBUG'),
+        app.config.get('SQLALCHEMY_DATABASE_URI'),
+    )
 
     # Initialize extensions
     db.init_app(app)
@@ -272,17 +302,22 @@ def register_cli(app):
             print('Set NOTION_API_KEY and NOTION_DATABASE_ID in .env.')
             return
         client = NotionClient(api_key)
-        column_mapping = {
-            'Company': 'Company',
-            'Date': 'Date',
-            'Sector': 'Sector',
-            'Analyst': 'Analyst',
-            'Opponent': 'Opponent',
-            'Comment': 'Comment',
-            'Status': 'Status',
-            'Files & media': 'Files & media'
-        }
         try:
+            # Auto-detect the mapping from the database's real property names
+            # rather than assuming a fixed schema: the live database's title
+            # column is 'Name' (not 'Company') and its date column is 'Date '
+            # with a trailing space, so an exact-match mapping silently produced
+            # blank values that imported nothing.
+            from .utils.notion_helper import build_notion_column_mapping
+            properties = client.get_database_properties(database_id)
+            column_mapping = build_notion_column_mapping(properties)
+            resolved = {prop.strip() or prop: col for prop, col in column_mapping.items()}
+            print(f'Mapped Notion columns: {resolved}')
+            missing = [col for prop, col in column_mapping.items()
+                       if prop.startswith('__missing__')]
+            if missing:
+                print(f'NOTE: no Notion property for {missing} - those will be empty')
+
             csv_content = client.export_database_as_csv(database_id, column_mapping)
             if not csv_content:
                 print('No data found in Notion database.')
@@ -296,6 +331,11 @@ def register_cli(app):
             print(f"Created: {stats.get('created', 0)}")
             print(f"Updated: {stats.get('updated', 0)}")
             print(f"Skipped: {stats.get('skipped', 0)}")
+            if stats.get('created', 0) == 0 and stats.get('updated', 0) == 0:
+                print(
+                    'WARNING: import changed nothing. Rows are skipped when Company '
+                    'or Date is empty - check the mapping printed above.'
+                )
             if stats.get('errors'):
                 print(f"Errors: {len(stats['errors'])}")
                 for err in stats['errors'][:5]:

@@ -492,210 +492,211 @@ let currentView = 'approved';
 let inceptionChart = null;
 let oneYearChart = null;
 
-function initCharts() {
+// --- Board portfolio charts -------------------------------------------------
+// The inception series and the 1-year series come from independent queries and
+// either may legitimately be null (for example, when every position entered the
+// portfolio more than 12 months ago there is no 1-year series).
+//
+// Each chart is therefore created and torn down independently: a missing series
+// must never stop the other chart from drawing. Regression note: this function
+// used to return early when either series was null, so the Board page rendered
+// no charts at all, while /admin/analyst/<id> - which guards each chart
+// separately - kept working with identical data.
+
+const CHART_EMPTY_MESSAGES = {
+    inceptionChart: 'No portfolio history to chart yet.',
+    oneyearChart: 'No positions were added in the last 12 months, so there is nothing to plot for this period.'
+};
+
+function chartDatasets(series) {
+    return [
+        {
+            label: 'Portfolio',
+            data: series.portfolio_series,
+            borderColor: '#0d6efd',
+            backgroundColor: 'rgba(13, 110, 253, 0.1)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.4
+        },
+        {
+            label: 'S&P 500',
+            data: series.spy_series,
+            borderColor: '#ffc107',
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            tension: 0.4
+        },
+        {
+            label: 'FTSE All-World',
+            data: series.vt_series,
+            borderColor: '#0dcaf5',
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [2, 2],
+            tension: 0.4
+        },
+        {
+            label: 'EEMS',
+            data: series.eems_series,
+            borderColor: '#6c757d',
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [3, 3],
+            tension: 0.4
+        }
+    ];
+}
+
+function chartOptions() {
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+            mode: 'index',
+            intersect: false
+        },
+        plugins: {
+            legend: {
+                position: 'top',
+                labels: { usePointStyle: true, padding: 15 }
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        return context.dataset.label + ': ' + context.raw + '%';
+                    }
+                }
+            }
+        },
+        scales: {
+            x: {
+                grid: { display: false },
+                ticks: { maxTicksLimit: 6, maxRotation: 0 }
+            },
+            y: {
+                title: { display: true, text: 'Return %' },
+                ticks: { callback: function(value) { return value + '%'; } }
+            }
+        }
+    };
+}
+
+// Hide the canvas and show an explanation instead of an empty chart frame.
+function markChartEmpty(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    canvas.style.display = 'none';
+
+    let note = document.getElementById(canvasId + 'Empty');
+    if (!note) {
+        note = document.createElement('p');
+        note.id = canvasId + 'Empty';
+        note.className = 'text-muted text-center fst-italic py-5 mb-0';
+        canvas.parentNode.appendChild(note);
+    }
+    note.textContent = CHART_EMPTY_MESSAGES[canvasId] || 'No data to display.';
+    note.style.display = '';
+}
+
+function clearChartEmpty(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    if (canvas) canvas.style.display = '';
+
+    const note = document.getElementById(canvasId + 'Empty');
+    if (note) note.style.display = 'none';
+}
+
+// Build (or rebuild) a single chart. Returns the Chart instance, or null when
+// there is no series to draw.
+function renderPortfolioChart(canvasId, series, existingChart) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return null;
+
+    // Chart.js throws if a canvas is reused, so always destroy first.
+    if (existingChart) {
+        existingChart.destroy();
+    }
+
+    if (!series || !series.dates || !series.dates.length) {
+        markChartEmpty(canvasId);
+        return null;
+    }
+
+    clearChartEmpty(canvasId);
+    return new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: series.dates,
+            datasets: chartDatasets(series)
+        },
+        options: chartOptions()
+    });
+}
+
+// Render whichever charts are not on screen yet. Pass force=true to rebuild both
+// (used when switching between the Approved and Purchased views, where either
+// view may have no data at all).
+function initCharts(force) {
     const data = currentView === 'approved' ? approvedData : purchasedData;
-    
-    if (!data.seriesAll || !data.series1y) return;
-    
-    // Inception Chart
-    const ctx1 = document.getElementById('inceptionChart').getContext('2d');
-    inceptionChart = new Chart(ctx1, {
-        type: 'line',
-        data: {
-            labels: data.seriesAll.dates,
-            datasets: [
-                {
-                    label: 'Portfolio',
-                    data: data.seriesAll.portfolio_series,
-                    borderColor: '#0d6efd',
-                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.4
-                },
-                {
-                    label: 'S&P 500',
-                    data: data.seriesAll.spy_series,
-                    borderColor: '#ffc107',
-                    backgroundColor: 'transparent',
-                    borderWidth: 2,
-                    borderDash: [5, 5],
-                    tension: 0.4
-                },
-                {
-                    label: 'FTSE All-World',
-                    data: data.seriesAll.vt_series,
-                    borderColor: '#0dcaf5',
-                    backgroundColor: 'transparent',
-                    borderWidth: 2,
-                    borderDash: [2, 2],
-                    tension: 0.4
-                },
-                {
-                    label: 'EEMS',
-                    data: data.seriesAll.eems_series,
-                    borderColor: '#6c757d',
-                    backgroundColor: 'transparent',
-                    borderWidth: 2,
-                    borderDash: [3, 3],
-                    tension: 0.4
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                mode: 'index',
-                intersect: false
-            },
-            plugins: {
-                legend: {
-                    position: 'top',
-                    labels: { usePointStyle: true, padding: 15 }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return context.dataset.label + ': ' + context.raw + '%';
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    grid: { display: false },
-                    ticks: { maxTicksLimit: 6, maxRotation: 0 }
-                },
-                y: {
-                    title: { display: true, text: 'Return %' },
-                    ticks: { callback: function(value) { return value + '%'; } }
-                }
-            }
-        }
-    });
-    
-    // 1-Year Chart
-    const ctx2 = document.getElementById('oneyearChart').getContext('2d');
-    oneYearChart = new Chart(ctx2, {
-        type: 'line',
-        data: {
-            labels: data.series1y.dates,
-            datasets: [
-                {
-                    label: 'Portfolio',
-                    data: data.series1y.portfolio_series,
-                    borderColor: '#0d6efd',
-                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.4
-                },
-                {
-                    label: 'S&P 500',
-                    data: data.series1y.spy_series,
-                    borderColor: '#ffc107',
-                    backgroundColor: 'transparent',
-                    borderWidth: 2,
-                    borderDash: [5, 5],
-                    tension: 0.4
-                },
-                {
-                    label: 'FTSE All-World',
-                    data: data.series1y.vt_series,
-                    borderColor: '#0dcaf5',
-                    backgroundColor: 'transparent',
-                    borderWidth: 2,
-                    borderDash: [2, 2],
-                    tension: 0.4
-                },
-                {
-                    label: 'EEMS',
-                    data: data.series1y.eems_series,
-                    borderColor: '#6c757d',
-                    backgroundColor: 'transparent',
-                    borderWidth: 2,
-                    borderDash: [3, 3],
-                    tension: 0.4
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                mode: 'index',
-                intersect: false
-            },
-            plugins: {
-                legend: {
-                    position: 'top',
-                    labels: { usePointStyle: true, padding: 15 }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return context.dataset.label + ': ' + context.raw + '%';
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    grid: { display: false },
-                    ticks: { maxTicksLimit: 6, maxRotation: 0 }
-                },
-                y: {
-                    title: { display: true, text: 'Return %' },
-                    ticks: { callback: function(value) { return value + '%'; } }
-                }
-            }
-        }
-    });
+
+    if (force || !inceptionChart) {
+        inceptionChart = renderPortfolioChart('inceptionChart', data.seriesAll, inceptionChart);
+    }
+    if (force || !oneYearChart) {
+        oneYearChart = renderPortfolioChart('oneyearChart', data.series1y, oneYearChart);
+    }
+}
+
+function setStat(elementId, text, signed) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    el.textContent = text;
+    if (signed) {
+        el.className = 'portfolio-stat-value ' + (parseFloat(text) >= 0 ? 'positive' : 'negative');
+    }
+}
+
+function renderPortfolioStats(performance) {
+    if (!performance) {
+        // Show placeholders rather than leaving the previous view's numbers on
+        // screen, which made an empty view look like it had stale data.
+        setStat('statPositions', '--');
+        setStat('statReturn', '--');
+        setStat('statAnnualized', '--');
+        setStat('statInception', '--');
+        document.getElementById('benchPortfolio').textContent = 'Portfolio: --';
+        document.getElementById('benchSpy').textContent = 'S&P 500: --';
+        document.getElementById('benchFtse').textContent = 'FTSE All-World: --';
+        document.getElementById('benchEems').textContent = 'EEMS: --';
+        return;
+    }
+
+    setStat('statPositions', performance.num_positions);
+    setStat('statReturn', performance.total_return.toFixed(2) + '%', true);
+    setStat('statAnnualized', performance.annualized_return.toFixed(2) + '%', true);
+    setStat('statInception', performance.start_date ? performance.start_date.slice(0, 10) : '--');
+
+    document.getElementById('benchPortfolio').textContent = 'Portfolio: ' + performance.total_return.toFixed(2) + '%';
+    document.getElementById('benchSpy').textContent = 'S&P 500: ' + performance.benchmark_spy.toFixed(2) + '%';
+    document.getElementById('benchFtse').textContent = 'FTSE All-World: ' + performance.benchmark_ftse.toFixed(2) + '%';
+    document.getElementById('benchEems').textContent = 'EEMS: ' + performance.benchmark_eems.toFixed(2) + '%';
 }
 
 function togglePortfolio(view) {
     currentView = view;
-    const data = view === 'approved' ? approvedData : purchasedData;
-    
+
     // Update toggle buttons
     document.getElementById('btnApproved').classList.toggle('active', view === 'approved');
     document.getElementById('btnPurchased').classList.toggle('active', view === 'purchased');
-    
-    if (!data.performance) return;
-    
-    // Update stats
-    document.getElementById('statPositions').textContent = data.performance.num_positions;
-    document.getElementById('statReturn').textContent = data.performance.total_return.toFixed(2) + '%';
-    document.getElementById('statReturn').className = 'portfolio-stat-value ' + (data.performance.total_return >= 0 ? 'positive' : 'negative');
-    document.getElementById('statAnnualized').textContent = data.performance.annualized_return.toFixed(2) + '%';
-    document.getElementById('statAnnualized').className = 'portfolio-stat-value ' + (data.performance.annualized_return >= 0 ? 'positive' : 'negative');
-    document.getElementById('statInception').textContent = data.performance.start_date ? data.performance.start_date.slice(0, 10) : '--';
-    
-    // Update benchmarks
-    document.getElementById('benchPortfolio').textContent = 'Portfolio: ' + data.performance.total_return.toFixed(2) + '%';
-    document.getElementById('benchSpy').textContent = 'S&P 500: ' + data.performance.benchmark_spy.toFixed(2) + '%';
-    document.getElementById('benchFtse').textContent = 'FTSE All-World: ' + data.performance.benchmark_ftse.toFixed(2) + '%';
-    document.getElementById('benchEems').textContent = 'EEMS: ' + data.performance.benchmark_eems.toFixed(2) + '%';
-    
-    // Update charts
-    if (inceptionChart && data.seriesAll) {
-        inceptionChart.data.labels = data.seriesAll.dates;
-        inceptionChart.data.datasets[0].data = data.seriesAll.portfolio_series;
-        inceptionChart.data.datasets[1].data = data.seriesAll.spy_series;
-        inceptionChart.data.datasets[2].data = data.seriesAll.vt_series;
-        inceptionChart.data.datasets[3].data = data.seriesAll.eems_series;
-        inceptionChart.update();
-    }
-    
-    if (oneYearChart && data.series1y) {
-        oneYearChart.data.labels = data.series1y.dates;
-        oneYearChart.data.datasets[0].data = data.series1y.portfolio_series;
-        oneYearChart.data.datasets[1].data = data.series1y.spy_series;
-        oneYearChart.data.datasets[2].data = data.series1y.vt_series;
-        oneYearChart.data.datasets[3].data = data.series1y.eems_series;
-        oneYearChart.update();
-    }
+
+    const data = view === 'approved' ? approvedData : purchasedData;
+    renderPortfolioStats(data.performance);
+
+    // Rebuild unconditionally: if the previous view had no data the charts were
+    // left null and would otherwise never appear when switching back.
+    initCharts(true);
 }
 
 // Initialize on load
