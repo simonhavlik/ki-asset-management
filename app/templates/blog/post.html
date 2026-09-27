@@ -66,7 +66,7 @@
     {% if post.status == 'draft' %}
     <form action="{{ url_for('blog.publish_post', post_id=post.id) }}" method="POST" class="d-inline ms-3">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="btn btn-sm btn-success">
+        <button type="submit" class="btn btn-sm btn-success" data-i18n-html="blogpost.publish_now">
             <i class="bi bi-check-circle"></i> Publish Now
         </button>
     </form>
@@ -78,7 +78,7 @@
 <header class="blog-post-header">
     <div class="container">
         <!-- Breadcrumbs -->
-        <nav aria-label="breadcrumb" class="mb-3">
+        <nav data-i18n-aria-label="blogpost.ph_breadcrumb" aria-label="breadcrumb" class="mb-3">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item">
                     <a href="{{ url_for('main.index') }}" class="text-light">Home</a>
@@ -151,14 +151,14 @@
                 {% if post.status == 'draft' %}
                 <form action="{{ url_for('blog.publish_post', post_id=post.id) }}" method="POST" class="d-inline">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="btn btn-success btn-sm">
+                    <button type="submit" class="btn btn-success btn-sm" data-i18n-html="blogpost.publish">
                         <i class="bi bi-check-circle"></i> Publish
                     </button>
                 </form>
                 {% else %}
                 <form action="{{ url_for('blog.unpublish_post', post_id=post.id) }}" method="POST" class="d-inline">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="btn btn-warning btn-sm">
+                    <button type="submit" class="btn btn-warning btn-sm" data-i18n-html="blogpost.unpublish">
                         <i class="bi bi-eye-slash"></i> Unpublish
                     </button>
                 </form>
@@ -175,8 +175,8 @@
         <div class="d-flex align-items-start">
             <i class="bi bi-exclamation-triangle-fill me-3 fs-4"></i>
             <div>
-                <h5 class="alert-heading mb-1">Student Research — Not Financial Advice</h5>
-                <p class="mb-0">
+                <h5 class="alert-heading mb-1" data-i18n="blogpost.student_research_not_financial_advice">Student Research — Not Financial Advice</h5>
+                <p class="mb-0" data-i18n-html="blogpost.we_are_students_passionate_about_equity_research">
                     We are students passionate about equity research. This content is published for educational 
                     and informational purposes only. It does <strong>not constitute investment advice</strong>, 
                     nor should it be used as the basis for any investment decision. Always conduct your own 
@@ -184,7 +184,7 @@
                 </p>
             </div>
         </div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" data-i18n-aria-label="blogpost.ph_close" aria-label="Close"></button>
     </div>
 </div>
 
@@ -264,7 +264,7 @@
                                         <i class="bi bi-download"></i> Download PDF
                                     </a>
                                     {% if loop.first %}
-                                    <button type="button" class="btn btn-outline-secondary" onclick="toggleFullscreen()">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="toggleFullscreen()" data-i18n-html="blogpost.fullscreen">
                                         <i class="bi bi-fullscreen"></i> Fullscreen
                                     </button>
                                     {% endif %}
@@ -281,7 +281,7 @@
                                     width="100%" 
                                     height="100%" 
                                     style="border: none;"
-                                    title="{{ pdf.description or 'PDF Document' }}">
+                                    data-i18n-title="blogpost.ph_pdf_description_or_pdf_document" title="{{ pdf.description or 'PDF Document' }}">
                             </iframe>
                         </div>
                         {% else %}
@@ -303,14 +303,14 @@
             <!-- Single PDF -->
             <div class="pdf-viewer-container mb-4">
                 <div class="pdf-header d-flex justify-content-between align-items-center mb-2">
-                    <h5 class="mb-0">
+                    <h5 class="mb-0" data-i18n-html="blogpost.research_report">
                         <i class="bi bi-file-earmark-pdf text-danger"></i> Research Report
                     </h5>
                     <div class="btn-group btn-group-sm">
                         <a href="{{ post.pdf_url }}" target="_blank" class="btn btn-outline-primary">
                             <i class="bi bi-download"></i> Download PDF
                         </a>
-                        <button type="button" class="btn btn-outline-secondary" onclick="toggleFullscreen()">
+                        <button type="button" class="btn btn-outline-secondary" onclick="toggleFullscreen()" data-i18n-html="blogpost.fullscreen_2">
                             <i class="bi bi-fullscreen"></i> Fullscreen
                         </button>
                     </div>
@@ -320,10 +320,10 @@
                             width="100%" 
                             height="100%" 
                             style="border: none;"
-                            title="{{ post.title }} - PDF Research Report">
+                            data-i18n-title="blogpost.ph_post_title_pdf_research_report" title="{{ post.title }} - PDF Research Report">
                     </iframe>
                 </div>
-                <div class="mt-2 text-end">
+                <div class="mt-2 text-end" data-i18n-html="blogpost.use_browser_controls_to_navigate_the_pdf">
                     <small class="text-muted">
                         <i class="bi bi-info-circle"></i> Use browser controls to navigate the PDF
                     </small>
@@ -347,7 +347,7 @@
             
             <!-- Disclaimer Footer -->
             <div class="alert alert-light border mt-5" style="background: #f8f9fa;">
-                <div class="d-flex align-items-start">
+                <div class="d-flex align-items-start" data-i18n-html="blogpost.disclaimer_this_research_is_produced_by_students">
                     <i class="bi bi-info-circle-fill me-2 text-muted"></i>
                     <small class="text-muted">
                         <strong>Disclaimer:</strong> This research is produced by students of KI Asset Management, 
@@ -360,7 +360,7 @@
             
             <!-- Share buttons -->
             <div class="mt-4 pt-4 border-top">
-                <h5 class="mb-3">Share this research</h5>
+                <h5 class="mb-3" data-i18n="blogpost.share_this_research">Share this research</h5>
                 <div class="d-flex gap-2 flex-wrap">
                     <a href="https://twitter.com/intent/tweet?url={{ request.url | urlencode }}&text={{ post.title | urlencode }}" 
                        target="_blank" class="btn btn-outline-primary btn-sm">
@@ -375,7 +375,7 @@
                         <i class="bi bi-facebook"></i> Facebook
                     </a>
                     <button onclick="navigator.clipboard.writeText('{{ request.url }}'); alert('Link copied!')" 
-                            class="btn btn-outline-secondary btn-sm">
+                            class="btn btn-outline-secondary btn-sm" data-i18n-html="blogpost.copy_link">
                         <i class="bi bi-link-45deg"></i> Copy Link
                     </button>
                 </div>
@@ -388,7 +388,7 @@
                 </div>
                 <div class="author-info">
                     <h4>{{ post.author_name }}</h4>
-                    <p class="text-muted mb-2">Student Analyst at KI Asset Management</p>
+                    <p class="text-muted mb-2" data-i18n="blogpost.student_analyst_at_ki_asset_management">Student Analyst at KI Asset Management</p>
                     <a href="{{ url_for('blog.author_posts', user_id=post.author_id) }}" class="btn btn-sm btn-outline-primary">
                         View all articles
                     </a>
@@ -398,7 +398,7 @@
             <!-- Related Posts -->
             {% if related_posts %}
             <div class="related-posts">
-                <h3 class="mb-4">Related Research</h3>
+                <h3 class="mb-4" data-i18n="blogpost.related_research">Related Research</h3>
                 <div class="row g-4">
                     {% for related in related_posts %}
                     <div class="col-md-4">
@@ -427,8 +427,8 @@
 <!-- CTA Section -->
 <section class="bg-light py-5">
     <div class="container text-center">
-        <h3>Enjoyed this research?</h3>
-        <p class="text-muted">Explore more investment insights in our research section.</p>
+        <h3 data-i18n="blogpost.enjoyed_this_research">Enjoyed this research?</h3>
+        <p class="text-muted" data-i18n="blogpost.explore_more_investment_insights_in_our_research">Explore more investment insights in our research section.</p>
         <a href="{{ url_for('blog.index') }}" class="btn btn-primary btn-lg">
             <i class="bi bi-journal-text"></i> Browse All Research
         </a>

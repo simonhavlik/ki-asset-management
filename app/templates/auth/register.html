@@ -9,7 +9,7 @@
     <div class="col-md-8 col-lg-6 col-xl-5">
         <div class="card shadow">
             <div class="card-header bg-primary text-white">
-                <h4 class="mb-0"><i class="bi bi-person-plus"></i> Create Account</h4>
+                <h4 class="mb-0" data-i18n-html="authreg.create_account"><i class="bi bi-person-plus"></i> Create Account</h4>
             </div>
             <div class="card-body">
                 <form method="POST" action="{{ url_for('auth.register') }}">
@@ -54,7 +54,7 @@
                 <div class="text-center">
                     <a href="{{ url_for('auth.login') }}">Already have an account? Sign in</a>
                 </div>
-                <div class="alert alert-info mt-4">
+                <div class="alert alert-info mt-4" data-i18n-html="authreg.after_registration_you_will_receive_an_email_wit">
                     <i class="bi bi-info-circle"></i>
                     After registration, you will receive an email with an activation code. Enter that code on the activation page to complete your registration.
                 </div>

@@ -19,7 +19,7 @@
 <meta name="twitter:description" content="{{ seo_description }}">
 <meta name="twitter:image" content="{{ url_for('static', filename='images/og-default.jpg', _external=True) }}">
 
-<link rel="alternate" type="application/rss+xml" title="KI Asset Management Research RSS" href="{{ url_for('blog.rss_feed') }}">
+<link rel="alternate" type="application/rss+xml" data-i18n-title="blogindex.ph_ki_asset_management_research_rss" title="KI Asset Management Research RSS" href="{{ url_for('blog.rss_feed') }}">
 {% endblock %}
 
 {% block content %}
@@ -28,11 +28,11 @@
     <div class="container">
         <div class="row align-items-center">
             <div class="col-lg-8">
-                <h1>KI Asset Management Research</h1>
-                <p>Expert investment analysis, market insights, and research from our team of student analysts. Institutional-grade research with a fresh perspective.</p>
+                <h1 data-i18n="blogindex.ki_asset_management_research">KI Asset Management Research</h1>
+                <p data-i18n="blogindex.expert_investment_analysis_market_insights_and_r">Expert investment analysis, market insights, and research from our team of student analysts. Institutional-grade research with a fresh perspective.</p>
                 
                 <!-- Student Disclaimer -->
-                <div class="alert alert-info mt-3 mb-0" style="background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.3); color: white;">
+                <div class="alert alert-info mt-3 mb-0" style="background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.3); color: white;" data-i18n-html="blogindex.student_research_we_are_students_passionate_abou">
                     <i class="bi bi-info-circle-fill me-2"></i>
                     <strong>Student Research:</strong> We are students passionate about equity research. 
                     All content is for educational purposes only — <em>not financial advice</em>.
@@ -143,7 +143,7 @@
             
             <!-- Pagination -->
             {% if pagination.pages > 1 %}
-            <nav aria-label="Research pagination" class="blog-pagination">
+            <nav data-i18n-aria-label="blogindex.ph_research_pagination" aria-label="Research pagination" class="blog-pagination">
                 <ul class="pagination">
                     {% if pagination.has_prev %}
                     <li class="page-item">
@@ -186,8 +186,8 @@
             <!-- Empty State -->
             <div class="blog-empty">
                 <i class="bi bi-inbox"></i>
-                <h3>No articles yet</h3>
-                <p>Check back soon for new research!</p>
+                <h3 data-i18n="blogindex.no_articles_yet">No articles yet</h3>
+                <p data-i18n="blogindex.check_back_soon_for_new_research">Check back soon for new research!</p>
                 {% if current_user.is_authenticated %}
                 <a href="{{ url_for('blog.new_post') }}" class="btn btn-primary">
                     <i class="bi bi-pencil-square"></i> Write the first article
@@ -203,7 +203,7 @@
                 <!-- Categories -->
                 {% if categories %}
                 <div class="blog-sidebar-card">
-                    <h4><i class="bi bi-folder"></i> Categories</h4>
+                    <h4 data-i18n-html="blogindex.categories"><i class="bi bi-folder"></i> Categories</h4>
                     <ul class="category-list">
                         {% for category in categories %}
                         <li>
@@ -221,8 +221,8 @@
                 
                 <!-- Subscribe -->
                 <div class="blog-sidebar-card">
-                    <h4><i class="bi bi-rss"></i> Stay Updated</h4>
-                    <p class="text-muted small">Get the latest investment research delivered to your feed reader.</p>
+                    <h4 data-i18n-html="blogindex.stay_updated"><i class="bi bi-rss"></i> Stay Updated</h4>
+                    <p class="text-muted small" data-i18n="blogindex.get_the_latest_investment_research_delivered_to">Get the latest investment research delivered to your feed reader.</p>
                     <a href="{{ url_for('blog.rss_feed') }}" class="btn btn-outline-primary w-100">
                         <i class="bi bi-rss-fill"></i> Subscribe via RSS
                     </a>
@@ -230,12 +230,12 @@
                 
                 <!-- About Research -->
                 <div class="blog-sidebar-card">
-                    <h4><i class="bi bi-info-circle"></i> About Our Research</h4>
-                    <p class="text-muted small">
+                    <h4 data-i18n-html="blogindex.about_our_research"><i class="bi bi-info-circle"></i> About Our Research</h4>
+                    <p class="text-muted small" data-i18n="blogindex.written_by_ki_asset_management_analysts_our_rese">
                         Written by KI Asset Management analysts, our research features deep-dive investment analysis, 
                         market commentary, and educational content for investors of all levels.
                     </p>
-                    <div class="alert alert-warning small mb-0">
+                    <div class="alert alert-warning small mb-0" data-i18n-html="blogindex.not_financial_advice_we_are_students_passionate">
                         <i class="bi bi-exclamation-triangle-fill me-1"></i>
                         <strong>Not Financial Advice:</strong> We are students passionate about equity research. 
                         All content is for educational purposes only.
@@ -248,7 +248,7 @@
                 {% if current_user.is_authenticated %}
                 <!-- Quick Actions -->
                 <div class="blog-sidebar-card">
-                    <h4><i class="bi bi-lightning"></i> Quick Actions</h4>
+                    <h4 data-i18n-html="blogindex.quick_actions"><i class="bi bi-lightning"></i> Quick Actions</h4>
                     <div class="d-grid gap-2">
                         <a href="{{ url_for('blog.new_post') }}" class="btn btn-primary">
                             <i class="bi bi-plus-lg"></i> New Article

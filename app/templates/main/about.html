@@ -4,45 +4,45 @@
 
 {% block content %}
 <div class="container py-5">
-    <h1 class="display-4 fw-bold mb-4">About This Platform</h1>
+    <h1 class="display-4 fw-bold mb-4" data-i18n="about.about_this_platform">About This Platform</h1>
     
     <div class="row">
         <div class="col-lg-8">
-            <p class="lead">
+            <p class="lead" data-i18n-html="about.the_analyst_performance_tracker_is_a_custom_buil">
                 The <strong>Analyst Performance Tracker</strong> is a custom‑built web application for the
                 <strong>Prague Club of Investors</strong> to monitor and evaluate the performance of investment analyses
                 conducted by its members.
             </p>
             
             <h3 class="mt-5">Purpose</h3>
-            <p>
+            <p data-i18n="about.the_club_maintains_a_notion_table_of_who_analyze">
                 The club maintains a Notion table of who analyzed which stock and when. This platform automatically
                 enriches that data with stock‑price information from Yahoo Finance, calculates the return of each
                 approved analysis, and provides each analyst with a personal dashboard showing their performance metrics.
             </p>
             
-            <h3 class="mt-5">Key Features</h3>
+            <h3 class="mt-5" data-i18n="about.key_features">Key Features</h3>
             <ul>
-                <li><strong>Domain‑restricted authentication</strong> – only <code>@klubinvestoru.com</code> email addresses can register.</li>
-                <li><strong>Password‑less onboarding</strong> – new users receive a secure link to set their password.</li>
-                <li><strong>CSV upload</strong> – admins can upload the Notion‑exported schedule; the system parses and stores analyses.</li>
-                <li><strong>AI‑assisted ticker matching</strong> – optional DeepSeek API integration helps identify stock tickers.</li>
-                <li><strong>Automatic price fetching</strong> – daily stock prices are retrieved from Yahoo Finance.</li>
-                <li><strong>Performance calculation</strong> – returns are computed for each approved analysis (“On Watchlist”).</li>
-                <li><strong>Analyst dashboards</strong> – individual members see their own performance statistics.</li>
-                <li><strong>Admin panel</strong> – manage users, uploads, view aggregated performance, and export reports.</li>
+                <li data-i18n-html="about.domain_restricted_authentication_only_klubinvest"><strong>Domain‑restricted authentication</strong> – only <code>@klubinvestoru.com</code> email addresses can register.</li>
+                <li data-i18n-html="about.password_less_onboarding_new_users_receive_a_sec"><strong>Password‑less onboarding</strong> – new users receive a secure link to set their password.</li>
+                <li data-i18n-html="about.csv_upload_admins_can_upload_the_notion_exported"><strong>CSV upload</strong> – admins can upload the Notion‑exported schedule; the system parses and stores analyses.</li>
+                <li data-i18n-html="about.ai_assisted_ticker_matching_optional_deepseek_ap"><strong>AI‑assisted ticker matching</strong> – optional DeepSeek API integration helps identify stock tickers.</li>
+                <li data-i18n-html="about.automatic_price_fetching_daily_stock_prices_are"><strong>Automatic price fetching</strong> – daily stock prices are retrieved from Yahoo Finance.</li>
+                <li data-i18n-html="about.performance_calculation_returns_are_computed_for"><strong>Performance calculation</strong> – returns are computed for each approved analysis (“On Watchlist”).</li>
+                <li data-i18n-html="about.analyst_dashboards_individual_members_see_their"><strong>Analyst dashboards</strong> – individual members see their own performance statistics.</li>
+                <li data-i18n-html="about.admin_panel_manage_users_uploads_view_aggregated"><strong>Admin panel</strong> – manage users, uploads, view aggregated performance, and export reports.</li>
             </ul>
             
-            <h3 class="mt-5">Technology Stack</h3>
-            <p>
+            <h3 class="mt-5" data-i18n="about.technology_stack">Technology Stack</h3>
+            <p data-i18n-html="about.the_platform_is_built_with_python_flask_uses_sql">
                 The platform is built with <strong>Python Flask</strong>, uses <strong>SQLite</strong> for data storage,
                 and relies on <strong>Flask‑Login</strong> for authentication, <strong>Flask‑WTF</strong> for forms,
                 <strong>Flask‑Mail</strong> for email notifications, and <strong>Bootstrap 5</strong> for the frontend.
                 Stock data is sourced via the <strong>yahooquery</strong> library.
             </p>
             
-            <h3 class="mt-5">Privacy & Security</h3>
-            <p>
+            <h3 class="mt-5" data-i18n="about.privacy_security">Privacy & Security</h3>
+            <p data-i18n="about.all_user_data_is_stored_securely_within_the_appl">
                 All user data is stored securely within the application database. The platform is intended for internal
                 use by the Prague Club of Investors and is not publicly accessible. Email addresses are used solely for
                 authentication and notifications.
@@ -57,13 +57,13 @@
         <div class="col-lg-4">
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
-                    <h5 class="card-title"><i class="bi bi-info-circle"></i> Quick Facts</h5>
+                    <h5 class="card-title" data-i18n-html="about.quick_facts"><i class="bi bi-info-circle"></i> Quick Facts</h5>
                     <ul class="list-unstyled">
-                        <li class="mb-2"><strong>Built for:</strong> Prague Club of Investors</li>
-                        <li class="mb-2"><strong>Launch date:</strong> 2025</li>
-                        <li class="mb-2"><strong>Current version:</strong> 1.0</li>
-                        <li class="mb-2"><strong>Source code:</strong> Private repository</li>
-                        <li class="mb-2"><strong>Contact:</strong> Via club administrators</li>
+                        <li class="mb-2" data-i18n-html="about.built_for_prague_club_of_investors"><strong>Built for:</strong> Prague Club of Investors</li>
+                        <li class="mb-2" data-i18n-html="about.launch_date_2025"><strong>Launch date:</strong> 2025</li>
+                        <li class="mb-2" data-i18n-html="about.current_version_1_0"><strong>Current version:</strong> 1.0</li>
+                        <li class="mb-2" data-i18n-html="about.source_code_private_repository"><strong>Source code:</strong> Private repository</li>
+                        <li class="mb-2" data-i18n-html="about.contact_via_club_administrators"><strong>Contact:</strong> Via club administrators</li>
                     </ul>
                 </div>
             </div>

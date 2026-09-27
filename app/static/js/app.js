@@ -1,39 +1,10 @@
 // Custom JavaScript for KI Asset Management
-
-// Language configuration
-window.LANG = {
-    current: 'en',
-    set: function(lang) {
-        this.current = lang;
-        document.documentElement.setAttribute('data-lang', lang);
-        document.documentElement.setAttribute('lang', lang);
-        // Update language indicator if exists
-        var indicator = document.getElementById('lang-indicator');
-        if (indicator) {
-            indicator.textContent = lang.toUpperCase();
-        }
-    },
-    detect: function() {
-        var browserLang = navigator.language || navigator.userLanguage;
-        return browserLang && browserLang.toLowerCase().startsWith('cs') ? 'cs' : 'en';
-    },
-    init: function() {
-        var saved = localStorage.getItem('lang');
-        var detected = saved || this.detect();
-        this.set(detected);
-    },
-    toggle: function() {
-        this.set(this.current === 'en' ? 'cs' : 'en');
-        localStorage.setItem('lang', this.current);
-        // Reload to apply translations
-        window.location.reload();
-    }
-};
+//
+// NOTE: window.LANG is defined in static/js/i18n.js and MUST NOT be redefined
+// here. This file loads after it, and a second definition silently replaced the
+// object holding the translation strings, so the language toggle did nothing.
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize language
-    window.LANG.init();
-    
     // Enable Bootstrap tooltips
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {

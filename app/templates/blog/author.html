@@ -42,7 +42,7 @@
             </div>
             <div class="col">
                 <h1>{{ author_name }}</h1>
-                <p class="mb-2">Student Analyst at KI Asset Management</p>
+                <p class="mb-2" data-i18n="blogauthor.student_analyst_at_ki_asset_management">Student Analyst at KI Asset Management</p>
                 <p class="opacity-75">
                     <i class="bi bi-journal-text"></i> {{ posts | length }} article{% if posts | length != 1 %}s{% endif %} published
                 </p>
@@ -53,7 +53,7 @@
 
 <div class="container mb-5">
     <!-- Student Research Disclaimer -->
-    <div class="alert alert-warning mb-4">
+    <div class="alert alert-warning mb-4" data-i18n-html="blogauthor.student_research_we_are_students_passionate_abou">
         <i class="bi bi-exclamation-triangle-fill me-2"></i>
         <strong>Student Research:</strong> We are students passionate about equity research. 
         All content is for educational purposes only — <em>not financial advice</em>.
@@ -105,7 +105,7 @@
     
     <!-- Pagination -->
     {% if pagination.pages > 1 %}
-    <nav aria-label="Author articles pagination" class="blog-pagination">
+    <nav data-i18n-aria-label="blogauthor.ph_author_articles_pagination" aria-label="Author articles pagination" class="blog-pagination">
         <ul class="pagination">
             {% if pagination.has_prev %}
             <li class="page-item">
@@ -148,7 +148,7 @@
     <!-- Empty State -->
     <div class="blog-empty">
         <i class="bi bi-journal-x"></i>
-        <h3>No published articles</h3>
+        <h3 data-i18n="blogauthor.no_published_articles">No published articles</h3>
         <p>{{ author_name }} hasn't published any articles yet.</p>
         <a href="{{ url_for('blog.index') }}" class="btn btn-primary">
             <i class="bi bi-arrow-left"></i> Back to Research

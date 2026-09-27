@@ -7,11 +7,11 @@
     <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h1 class="mb-1"><i class="bi bi-chat-square-text"></i> Ideas Wall</h1>
-            <p class="text-muted mb-0">Share and discuss stock ideas with the team</p>
+            <h1 class="mb-1" data-i18n-html="wall.ideas_wall"><i class="bi bi-chat-square-text"></i> Ideas Wall</h1>
+            <p class="text-muted mb-0" data-i18n="wall.share_and_discuss_stock_ideas_with_the_team">Share and discuss stock ideas with the team</p>
         </div>
         {% if current_user.is_authenticated %}
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newIdeaModal">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newIdeaModal" data-i18n-html="wall.share_idea">
             <i class="bi bi-plus-lg"></i> Share Idea
         </button>
         {% endif %}
@@ -22,25 +22,25 @@
         <div class="card-body">
             <div class="row g-3 align-items-center">
                 <div class="col-md-3">
-                    <label class="form-label mb-1"><i class="bi bi-funnel"></i> Sentiment</label>
+                    <label class="form-label mb-1" data-i18n-html="wall.sentiment"><i class="bi bi-funnel"></i> Sentiment</label>
                     <select class="form-select" id="sentimentFilter">
-                        <option value="all">All Ideas</option>
-                        <option value="bullish">🐂 Bullish</option>
-                        <option value="bearish">🐻 Bearish</option>
-                        <option value="neutral">⚖️ Neutral</option>
+                        <option value="all" data-i18n="wall.all_ideas">All Ideas</option>
+                        <option value="bullish" data-i18n="wall.bullish">🐂 Bullish</option>
+                        <option value="bearish" data-i18n="wall.bearish">🐻 Bearish</option>
+                        <option value="neutral" data-i18n="wall.neutral">⚖️ Neutral</option>
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label mb-1"><i class="bi bi-sort-down"></i> Sort By</label>
+                    <label class="form-label mb-1" data-i18n-html="wall.sort_by"><i class="bi bi-sort-down"></i> Sort By</label>
                     <select class="form-select" id="sortFilter">
-                        <option value="newest">Newest First</option>
-                        <option value="popular">Most Popular</option>
+                        <option value="newest" data-i18n="wall.newest_first">Newest First</option>
+                        <option value="popular" data-i18n="wall.most_popular">Most Popular</option>
                         <option value="trending">Trending</option>
                     </select>
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label mb-1"><i class="bi bi-search"></i> Search</label>
-                    <input type="text" class="form-control" id="searchIdeas" placeholder="Search by ticker, company, or keyword...">
+                    <label class="form-label mb-1" data-i18n-html="wall.search"><i class="bi bi-search"></i> Search</label>
+                    <input type="text" class="form-control" id="searchIdeas" data-i18n-placeholder="wall.ph_search_by_ticker_company_or_keyword" placeholder="Search by ticker, company, or keyword...">
                 </div>
             </div>
         </div>
@@ -89,14 +89,14 @@
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li>
-                            <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#editIdeaModal{{ idea.id }}">
+                            <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#editIdeaModal{{ idea.id }}" data-i18n-html="wall.edit">
                                 <i class="bi bi-pencil"></i> Edit
                             </button>
                         </li>
                         <li>
                             <form method="POST" action="{{ url_for('main.delete_idea', idea_id=idea.id) }}" class="d-inline" onsubmit="return confirm('Delete this idea?')">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="dropdown-item text-danger">
+                                <button type="submit" class="dropdown-item text-danger" data-i18n-html="wall.delete">
                                     <i class="bi bi-trash"></i> Delete
                                 </button>
                             </form>
@@ -122,7 +122,7 @@
                 {% endfor %}
                 {% if current_user.is_authenticated %}
                 <div class="input-group input-group-sm mt-2">
-                    <input type="text" class="form-control" placeholder="Add a comment...">
+                    <input type="text" class="form-control" data-i18n-placeholder="wall.ph_add_a_comment" placeholder="Add a comment...">
                     <button class="btn btn-outline-primary" type="button">Post</button>
                 </div>
                 {% endif %}
@@ -131,8 +131,8 @@
         {% else %}
         <div class="text-center py-5">
             <i class="bi bi-chat-square-text display-1 text-muted"></i>
-            <h4 class="mt-3 text-muted">No ideas yet</h4>
-            <p class="text-muted">Be the first to share a stock idea!</p>
+            <h4 class="mt-3 text-muted" data-i18n="wall.no_ideas_yet">No ideas yet</h4>
+            <p class="text-muted" data-i18n="wall.be_the_first_to_share_a_stock_idea">Be the first to share a stock idea!</p>
         </div>
         {% endfor %}
     </div>
@@ -175,7 +175,7 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-lightbulb"></i> Share Stock Idea</h5>
+                <h5 class="modal-title" data-i18n-html="wall.share_stock_idea"><i class="bi bi-lightbulb"></i> Share Stock Idea</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form method="POST" action="{{ url_for('main.new_idea') }}">
@@ -183,33 +183,33 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Title</label>
-                        <input type="text" name="title" class="form-control" placeholder="e.g., Why I'm bullish on AAPL" required>
+                        <input type="text" name="title" class="form-control" data-i18n-placeholder="wall.ph_e_g_why_i_m_bullish_on_aapl" placeholder="e.g., Why I'm bullish on AAPL" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Sentiment</label>
                         <div class="btn-group w-100" role="group">
                             <input type="radio" class="btn-check" name="sentiment" id="sentimentBullish" value="bullish" checked>
-                            <label class="btn btn-outline-success" for="sentimentBullish">🐂 Bullish</label>
+                            <label class="btn btn-outline-success" for="sentimentBullish" data-i18n="wall.bullish">🐂 Bullish</label>
                             
                             <input type="radio" class="btn-check" name="sentiment" id="sentimentNeutral" value="neutral">
-                            <label class="btn btn-outline-secondary" for="sentimentNeutral">⚖️ Neutral</label>
+                            <label class="btn btn-outline-secondary" for="sentimentNeutral" data-i18n="wall.neutral">⚖️ Neutral</label>
                             
                             <input type="radio" class="btn-check" name="sentiment" id="sentimentBearish" value="bearish">
-                            <label class="btn btn-outline-danger" for="sentimentBearish">🐻 Bearish</label>
+                            <label class="btn btn-outline-danger" for="sentimentBearish" data-i18n="wall.bearish">🐻 Bearish</label>
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Stock Ticker (optional)</label>
-                        <input type="text" name="ticker" class="form-control" placeholder="e.g., AAPL">
+                        <label class="form-label" data-i18n="wall.stock_ticker_optional">Stock Ticker (optional)</label>
+                        <input type="text" name="ticker" class="form-control" data-i18n-placeholder="wall.ph_e_g_aapl" placeholder="e.g., AAPL">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Your Analysis</label>
-                        <textarea name="content" class="form-control" rows="5" placeholder="Share your investment thesis..." required></textarea>
+                        <label class="form-label" data-i18n="wall.your_analysis">Your Analysis</label>
+                        <textarea name="content" class="form-control" rows="5" data-i18n-placeholder="wall.ph_share_your_investment_thesis" placeholder="Share your investment thesis..." required></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Share Idea</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="wall.share_idea_2">Share Idea</button>
                 </div>
             </form>
         </div>
@@ -224,7 +224,7 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-pencil"></i> Edit Idea</h5>
+                <h5 class="modal-title" data-i18n-html="wall.edit_idea"><i class="bi bi-pencil"></i> Edit Idea</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form method="POST" action="{{ url_for('main.edit_idea', idea_id=idea.id) }}">
@@ -238,27 +238,27 @@
                         <label class="form-label">Sentiment</label>
                         <div class="btn-group w-100" role="group">
                             <input type="radio" class="btn-check" name="sentiment" id="sentimentBullish{{ idea.id }}" value="bullish" {% if idea.sentiment == 'bullish' %}checked{% endif %}>
-                            <label class="btn btn-outline-success" for="sentimentBullish{{ idea.id }}">🐂 Bullish</label>
+                            <label class="btn btn-outline-success" for="sentimentBullish{{ idea.id }}" data-i18n="wall.bullish">🐂 Bullish</label>
                             
                             <input type="radio" class="btn-check" name="sentiment" id="sentimentNeutral{{ idea.id }}" value="neutral" {% if idea.sentiment == 'neutral' %}checked{% endif %}>
-                            <label class="btn btn-outline-secondary" for="sentimentNeutral{{ idea.id }}">⚖️ Neutral</label>
+                            <label class="btn btn-outline-secondary" for="sentimentNeutral{{ idea.id }}" data-i18n="wall.neutral">⚖️ Neutral</label>
                             
                             <input type="radio" class="btn-check" name="sentiment" id="sentimentBearish{{ idea.id }}" value="bearish" {% if idea.sentiment == 'bearish' %}checked{% endif %}>
-                            <label class="btn btn-outline-danger" for="sentimentBearish{{ idea.id }}">🐻 Bearish</label>
+                            <label class="btn btn-outline-danger" for="sentimentBearish{{ idea.id }}" data-i18n="wall.bearish">🐻 Bearish</label>
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Stock Ticker (optional)</label>
+                        <label class="form-label" data-i18n="wall.stock_ticker_optional">Stock Ticker (optional)</label>
                         <input type="text" name="ticker" class="form-control" value="{{ idea.ticker or '' }}">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Your Analysis</label>
+                        <label class="form-label" data-i18n="wall.your_analysis">Your Analysis</label>
                         <textarea name="content" class="form-control" rows="5" required>{{ idea.content }}</textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="wall.save_changes">Save Changes</button>
                 </div>
             </form>
         </div>
