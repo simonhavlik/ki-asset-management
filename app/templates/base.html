@@ -51,68 +51,68 @@
                         {% set view_as_user = session.get('admin_view_as_user', false) %}
                         {% if current_user.is_admin and not view_as_user %}
                             <li class="nav-item">
-                                <<a class="nav-link" href="{{ url_for('analyst.dashboard') }}" data-i18n-html="nav.dashboard">
+                                <a class="nav-link" href="{{ url_for('analyst.dashboard') }}" data-i18n-html="nav.dashboard">
                                     <i class="bi bi-speedometer2"></i> Dashboard
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <<a class="nav-link" href="{{ url_for('analyst.overview') }}" data-i18n-html="nav.overview">
+                                <a class="nav-link" href="{{ url_for('analyst.overview') }}" data-i18n-html="nav.overview">
                                     <i class="bi bi-grid-3x3-gap"></i> Overview
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <<a class="nav-link" href="{{ url_for('admin.users') }}" data-i18n-html="nav.users">
+                                <a class="nav-link" href="{{ url_for('admin.users') }}" data-i18n-html="nav.users">
                                     <i class="bi bi-people"></i> Users
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <<a class="nav-link" href="{{ url_for('admin.unified_update') }}" data-i18n-html="nav.update">
+                                <a class="nav-link" href="{{ url_for('admin.unified_update') }}" data-i18n-html="nav.update">
                                     <i class="bi bi-arrow-repeat"></i> Update
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <<a class="nav-link" href="{{ url_for('admin.performance') }}" data-i18n-html="nav.performance">
+                                <a class="nav-link" href="{{ url_for('admin.performance') }}" data-i18n-html="nav.performance">
                                     <i class="bi bi-bar-chart"></i> Performance
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <<a class="nav-link" href="{{ url_for('admin.board') }}" data-i18n-html="nav.board">
+                                <a class="nav-link" href="{{ url_for('admin.board') }}" data-i18n-html="nav.board">
                                     <i class="bi bi-clipboard-check"></i> Board
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <<a class="nav-link" href="{{ url_for('main.wall') }}" data-i18n-html="nav.ideas_wall">
+                                <a class="nav-link" href="{{ url_for('main.wall') }}" data-i18n-html="nav.ideas_wall">
                                     <i class="bi bi-chat-square-text"></i> Ideas Wall
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <<a class="nav-link" href="{{ url_for('blog.index') }}" data-i18n-html="nav.research">
+                                <a class="nav-link" href="{{ url_for('blog.index') }}" data-i18n-html="nav.research">
                                     <i class="bi bi-journal-text"></i> Research
                                 </a>
                             </li>
                         {% else %}
                             <li class="nav-item">
-                                <<a class="nav-link" href="{{ url_for('analyst.dashboard') }}" data-i18n-html="nav.dashboard">
+                                <a class="nav-link" href="{{ url_for('analyst.dashboard') }}" data-i18n-html="nav.dashboard">
                                     <i class="bi bi-speedometer2"></i> Dashboard
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <<a class="nav-link" href="{{ url_for('analyst.overview') }}" data-i18n-html="nav.overview">
+                                <a class="nav-link" href="{{ url_for('analyst.overview') }}" data-i18n-html="nav.overview">
                                     <i class="bi bi-grid-3x3-gap"></i> Overview
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <<a class="nav-link" href="{{ url_for('admin.performance') }}" data-i18n-html="nav.performance">
+                                <a class="nav-link" href="{{ url_for('admin.performance') }}" data-i18n-html="nav.performance">
                                     <i class="bi bi-bar-chart"></i> Performance
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <<a class="nav-link" href="{{ url_for('main.wall') }}" data-i18n-html="nav.ideas_wall">
+                                <a class="nav-link" href="{{ url_for('main.wall') }}" data-i18n-html="nav.ideas_wall">
                                     <i class="bi bi-chat-square-text"></i> Ideas Wall
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <<a class="nav-link" href="{{ url_for('blog.index') }}" data-i18n-html="nav.blog">
+                                <a class="nav-link" href="{{ url_for('blog.index') }}" data-i18n-html="nav.blog">
                                     <i class="bi bi-journal-text"></i> Blog
                                 </a>
                             </li>
@@ -128,12 +128,12 @@
                             <a class="nav-link" href="{{ url_for('main.index') }}#team" data-i18n="nav.team">Team</a>
                         </li>
                         <li class="nav-item">
-                            <<a class="nav-link" href="{{ url_for('blog.index') }}" data-i18n-html="nav.research">
+                            <a class="nav-link" href="{{ url_for('blog.index') }}" data-i18n-html="nav.research">
                                 <i class="bi bi-journal-text"></i> Research
                             </a>
                         </li>
                         <li class="nav-item">
-                            << class="nav-link" href="https://www.klubinvestoru.com/" target="_blank" data-i18n-html="footer.club">">
+                            <a class="nav-link" href="https://www.klubinvestoru.com/" target="_blank" data-i18n-html="footer.club">
                                 <i class="bi bi-building"></i> The Club
                             </a>
                         </li>
@@ -160,12 +160,12 @@
                                 </li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li>
-                                    <<a class="dropdown-item" href="{{ url_for('blog.my_posts') }}" data-i18n-html="nav.my_research">
+                                    <a class="dropdown-item" href="{{ url_for('blog.my_posts') }}" data-i18n-html="nav.my_research">
                                         <i class="bi bi-journal-text"></i> My Research
                                     </a>
                                 </li>
                                 <li>
-                                    <<a class="dropdown-item" href="{{ url_for('blog.new_post') }}" data-i18n-html="nav.write_article">
+                                    <a class="dropdown-item" href="{{ url_for('blog.new_post') }}" data-i18n-html="nav.write_article">
                                         <i class="bi bi-pencil-square"></i> Write Article
                                     </a>
                                 </li>
@@ -184,17 +184,17 @@
                                         </div>
                                     </li>
                                     <li>
-                                        <<a class="dropdown-item" href="{{ url_for('blog.admin_posts') }}" data-i18n-html="nav.manage_research">
+                                        <a class="dropdown-item" href="{{ url_for('blog.admin_posts') }}" data-i18n-html="nav.manage_research">
                                             <i class="bi bi-shield"></i> Manage Research
                                         </a>
                                     </li>
                                     <li>
-                                        <<a class="dropdown-item" href="{{ url_for('admin.analyst_mappings') }}" data-i18n-html="nav.analyst_mappings">
+                                        <a class="dropdown-item" href="{{ url_for('admin.analyst_mappings') }}" data-i18n-html="nav.analyst_mappings">
                                             <i class="bi bi-person-badge"></i> Analyst Mappings
                                         </a>
                                     </li>
                                     <li>
-                                        <<a class="dropdown-item" href="{{ url_for('admin.company_tickers') }}" data-i18n-html="nav.ticker_mappings">
+                                        <a class="dropdown-item" href="{{ url_for('admin.company_tickers') }}" data-i18n-html="nav.ticker_mappings">
                                             <i class="bi bi-building"></i> Ticker Mappings
                                         </a>
                                     </li>
@@ -209,12 +209,12 @@
                         </li>
                     {% else %}
                         <li class="nav-item">
-                            << class="nav-link" href="{{ url_for('auth.login') }}" data-i18n-html="nav.login">">
+                            <a class="nav-link" href="{{ url_for('auth.login') }}" data-i18n-html="nav.login">
                                 <i class="bi bi-box-arrow-in-right"></i> Login
                             </a>
                         </li>
                         <li class="nav-item">
-                            << class="nav-link" href="{{ url_for('auth.register') }}" data-i18n-html="nav.register">">
+                            <a class="nav-link" href="{{ url_for('auth.register') }}" data-i18n-html="nav.register">
                                 <i class="bi bi-person-plus"></i> Register
                             </a>
                         </li>
@@ -254,16 +254,16 @@
                 </div>
                 <div class="footer-links">
                     <a href="{{ url_for('main.about') }}" class="footer-link" data-i18n="nav.about">About</a>
-                    <<a href="{{ url_for('blog.index') }}" class="footer-link" data-i18n="footer.research">Research</a>
-                    <<a href="{{ url_for('main.methodology') }}" class="footer-link" data-i18n-html="footer.methodology">
+                    <a href="{{ url_for('blog.index') }}" class="footer-link" data-i18n="nav.research">Research</a>
+                    <a href="{{ url_for('main.methodology') }}" class="footer-link" data-i18n-html="footer.methodology">
                         <i class="bi bi-calculator"></i> Methodology
                     </a>
-                    <<a href="{{ url_for('main.privacy') }}" class="footer-link" data-i18n="footer.privacy">Privacy</a>
-                    <<a href="{{ url_for('main.terms') }}" class="footer-link" data-i18n="footer.terms">Terms</a>
-                    << href="https://www.klubinvestoru.com/" target="_blank" class="footer-link" data-i18n-html="footer.club">">
+                    <a href="{{ url_for('main.privacy') }}" class="footer-link" data-i18n="footer.privacy">Privacy</a>
+                    <a href="{{ url_for('main.terms') }}" class="footer-link" data-i18n="footer.terms">Terms</a>
+                    <a href="https://www.klubinvestoru.com/" target="_blank" class="footer-link" data-i18n-html="footer.club">
                         <i class="bi bi-building"></i> The Club
                     </a>
-                    << href="https://www.klubinvestoru.com/kontakt" target="_blank" class="footer-link" data-i18n-html="footer.contact">">
+                    <a href="https://www.klubinvestoru.com/kontakt" target="_blank" class="footer-link" data-i18n-html="footer.contact">
                         <i class="bi bi-envelope"></i> Contact
                     </a>
                     <a href="https://github.com/havliksimon/ki-asset-management" target="_blank" class="footer-link">
