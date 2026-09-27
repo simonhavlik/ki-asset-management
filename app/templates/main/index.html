@@ -47,22 +47,22 @@
                 
                 <div class="hero-cta">
                     {% if not current_user.is_authenticated %}
-                        <a href="https://www.klubinvestoru.com/clenstvi" target="_blank" class="btn-hero-primary" data-i18n="hero.join">
+                        << href="https://www.klubinvestoru.com/clenstvi" target="_blank" class="btn-hero-primary" data-i18n-html="hero.join">">
                             <i class="bi bi-person-plus"></i>
                             Join the Team
                         </a>
-                        <a href="{{ url_for('auth.login') }}" class="btn-hero-secondary" data-i18n="hero.login">
+                        << href="{{ url_for('auth.login') }}" class="btn-hero-secondary" data-i18n-html="hero.login">">
                             <i class="bi bi-box-arrow-in-right"></i>
                             Analyst Login
                         </a>
                     {% else %}
                         {% if current_user.is_admin %}
-                            <a href="{{ url_for('analyst.dashboard') }}" class="btn-hero-primary" data-i18n="btn.dashboard">
+                            << href="{{ url_for('analyst.dashboard') }}" class="btn-hero-primary" data-i18n-html="btn.admin_dashboard">">
                                 <i class="bi bi-speedometer2"></i>
                                 Admin Dashboard
                             </a>
                         {% else %}
-                            <a href="{{ url_for('analyst.dashboard') }}" class="btn-hero-primary" data-i18n="btn.my_dashboard">
+                            << href="{{ url_for('analyst.dashboard') }}" class="btn-hero-primary" data-i18n-html="btn.my_dashboard">">
                                 <i class="bi bi-speedometer2"></i>
                                 My Dashboard
                             </a>
@@ -989,7 +989,7 @@ document.getElementById('pdfPreviewModal').addEventListener('hidden.bs.modal', f
                 Work with real capital, learn from industry professionals, and build your track record.
             </p>
             {% if not current_user.is_authenticated %}
-                <a href="https://www.klubinvestoru.com/clenstvi" target="_blank" class="btn-cta" data-i18n="btn.apply">
+                << href="https://www.klubinvestoru.com/clenstvi" target="_blank" class="btn-cta" data-i18n-html="btn.apply">">
                     <i class="bi bi-person-plus"></i>
                     Apply to Join
                 </a>
@@ -1001,12 +1001,12 @@ document.getElementById('pdfPreviewModal').addEventListener('hidden.bs.modal', f
                 </div>
             {% else %}
                 {% if current_user.is_admin %}
-                    <a href="{{ url_for('analyst.dashboard') }}" class="btn-cta" data-i18n="btn.dashboard">
+                    << href="{{ url_for('analyst.dashboard') }}" class="btn-cta" data-i18n-html="btn.dashboard">">
                         <i class="bi bi-speedometer2"></i>
                         Go to Dashboard
                     </a>
                 {% else %}
-                    <a href="{{ url_for('analyst.dashboard') }}" class="btn-cta" data-i18n="btn.my_dashboard">
+                    << href="{{ url_for('analyst.dashboard') }}" class="btn-cta" data-i18n-html="btn.view_my_dashboard">">
                         <i class="bi bi-speedometer2"></i>
                         View My Dashboard
                     </a>

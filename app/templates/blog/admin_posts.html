@@ -6,8 +6,8 @@
 <!-- Header -->
 <section class="blog-hero">
     <div class="container">
-        <h1><i class="bi bi-shield"></i> Research Administration</h1>
-        <p>Manage all research articles across the platform.</p>
+        <h1 data-i18n-html="blogadmin.research_administration"><i class="bi bi-shield"></i> Research Administration</h1>
+        <p data-i18n="blogadmin.manage_all_research_articles_across_the_platform">Manage all research articles across the platform.</p>
     </div>
 </section>
 
@@ -28,7 +28,7 @@
         <div>
             <form class="d-flex gap-2" method="GET">
                 <select name="status" class="form-select" onchange="this.form.submit()">
-                    <option value="">All Status</option>
+                    <option value="" data-i18n="blogadmin.all_status">All Status</option>
                     <option value="published" {% if status_filter == 'published' %}selected{% endif %}>Published</option>
                     <option value="draft" {% if status_filter == 'draft' %}selected{% endif %}>Draft</option>
                 </select>
@@ -109,25 +109,25 @@
                         </td>
                         <td>
                             <div class="btn-group">
-                                <a href="{{ url_for('blog.edit_post', post_id=post.id) }}" class="btn btn-sm btn-outline-primary" title="Edit">
+                                <a href="{{ url_for('blog.edit_post', post_id=post.id) }}" class="btn btn-sm btn-outline-primary" data-i18n-title="blogadmin.ph_edit" title="Edit">
                                     <i class="bi bi-pencil"></i>
                                 </a>
                                 {% if post.status == 'published' %}
-                                <a href="{{ url_for('blog.post', slug=post.slug) }}" class="btn btn-sm btn-outline-info" title="View" target="_blank">
+                                <a href="{{ url_for('blog.post', slug=post.slug) }}" class="btn btn-sm btn-outline-info" data-i18n-title="blogadmin.ph_view" title="View" target="_blank">
                                     <i class="bi bi-eye"></i>
                                 </a>
                                 {% else %}
-                                <a href="{{ url_for('blog.preview_post', post_id=post.id) }}" class="btn btn-sm btn-outline-info" title="Preview" target="_blank">
+                                <a href="{{ url_for('blog.preview_post', post_id=post.id) }}" class="btn btn-sm btn-outline-info" data-i18n-title="blogadmin.ph_preview" title="Preview" target="_blank">
                                     <i class="bi bi-eye"></i>
                                 </a>
                                 {% endif %}
                                 <form action="{{ url_for('blog.toggle_featured', post_id=post.id) }}" method="POST" class="d-inline">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" class="btn btn-sm {% if post.is_featured %}btn-warning{% else %}btn-outline-warning{% endif %}" title="Toggle Featured">
+                                    <button type="submit" class="btn btn-sm {% if post.is_featured %}btn-warning{% else %}btn-outline-warning{% endif %}" data-i18n-title="blogadmin.ph_toggle_featured" title="Toggle Featured">
                                         <i class="bi bi-star{% if post.is_featured %}-fill{% endif %}"></i>
                                     </button>
                                 </form>
-                                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ post.id }}" title="Delete">
+                                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ post.id }}" data-i18n-title="blogadmin.ph_delete" title="Delete">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </div>
@@ -141,7 +141,7 @@
     
     <!-- Pagination -->
     {% if pagination.pages > 1 %}
-    <nav aria-label="Admin articles pagination" class="blog-pagination">
+    <nav data-i18n-aria-label="blogadmin.ph_admin_articles_pagination" aria-label="Admin articles pagination" class="blog-pagination">
         <ul class="pagination">
             {% if pagination.has_prev %}
             <li class="page-item">
@@ -184,7 +184,7 @@
     <!-- Empty State -->
     <div class="blog-empty">
         <i class="bi bi-inbox"></i>
-        <h3>No articles found</h3>
+        <h3 data-i18n="blogadmin.no_articles_found">No articles found</h3>
         <p>There are no articles{% if status_filter %} with this status{% endif %}.</p>
     </div>
     {% endif %}
@@ -196,19 +196,19 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Delete Article</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title" data-i18n-html="blogadmin.delete_article"><i class="bi bi-exclamation-triangle"></i> Delete Article</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" data-i18n-aria-label="blogadmin.ph_close" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <p>Are you sure you want to delete "<strong>{{ post.title }}</strong>"?</p>
                 <p>Author: {{ post.author_name }}</p>
-                <p class="text-danger">This action cannot be undone.</p>
+                <p class="text-danger" data-i18n="blogadmin.this_action_cannot_be_undone">This action cannot be undone.</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <form action="{{ url_for('blog.delete_post', post_id=post.id) }}" method="POST" class="d-inline">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="btn btn-danger">
+                    <button type="submit" class="btn btn-danger" data-i18n-html="blogadmin.yes_delete">
                         <i class="bi bi-trash"></i> Yes, Delete
                     </button>
                 </form>

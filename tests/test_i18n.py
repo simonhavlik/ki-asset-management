@@ -88,7 +88,12 @@ def test_language_toggle_button_calls_toggle():
 # Pages that are fully translated. Add to this list as coverage grows; the test
 # then guarantees the page never regresses back to showing English in Czech mode.
 FULLY_TRANSLATED = [
-    "main/about.html", "main/wall.html", "main/privacy.html", "main/terms.html",
+    # Every public page. These must not fall back to English when CS is selected.
+    "base.html",
+    "main/index.html", "main/about.html", "main/methodology.html",
+    "main/wall.html", "main/privacy.html", "main/terms.html",
+    "blog/index.html", "blog/post.html", "blog/author.html",
+    "blog/my_posts.html", "blog/admin_posts.html",
     "auth/login.html", "auth/register.html", "auth/forgot_password.html",
     "auth/reset_password.html", "auth/set_password.html", "auth/activate.html",
 ]
