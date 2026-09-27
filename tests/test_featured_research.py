@@ -92,9 +92,12 @@ def test_home_page_renders_inline_viewer_and_serves_pdf():
             client = app.test_client()
 
             html = client.get("/").get_data(as_text=True)
-            assert 'id="featured-research"' in html
+            assert 'id="research"' in html
             assert 'id="featuredResearchFrame"' in html
+            assert 'class="research-viewer"' in html
             assert "function selectFeaturedResearch" in html
+            # the old blog-card research section is gone
+            assert "From Our Research" not in html
 
             pdf = client.get(f"/blog/pdf/{post_id}")
             assert pdf.status_code == 200

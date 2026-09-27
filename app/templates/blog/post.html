@@ -75,7 +75,7 @@
 {% endif %}
 
 <!-- Post Header -->
-<header class="blog-post-header">
+<header class="blog-post-header{% if post.is_pdf_post %} blog-post-header--compact{% endif %}">
     <div class="container">
         <!-- Breadcrumbs -->
         <nav data-i18n-aria-label="blogpost.ph_breadcrumb" aria-label="breadcrumb" class="mb-3">
@@ -98,6 +98,7 @@
         <!-- Title -->
         <h1 class="blog-post-title">{{ post.title }}</h1>
         
+        {% if not post.is_pdf_post %}
         <!-- Meta -->
         <div class="blog-post-meta">
             <span class="blog-post-meta-item">
@@ -110,12 +111,10 @@
                 <i class="bi bi-calendar3"></i>
                 {{ post.formatted_date }}
             </span>
-            {% if not post.is_pdf_post %}
             <span class="blog-post-meta-item">
                 <i class="bi bi-clock"></i>
                 {{ post.reading_time }} min read
             </span>
-            {% endif %}
             <span class="blog-post-meta-item">
                 <i class="bi bi-eye"></i>
                 {{ post.view_count }} views
@@ -139,6 +138,7 @@
             </a>
             {% endfor %}
         </div>
+        {% endif %}
         {% endif %}
         
         <!-- Edit buttons for author/admin -->
@@ -170,6 +170,7 @@
 </header>
 
 <!-- Student Research Disclaimer -->
+{% if not post.is_pdf_post %}
 <div class="container mt-4">
     <div class="alert alert-warning alert-dismissible fade show" role="alert">
         <div class="d-flex align-items-start">
@@ -187,13 +188,14 @@
         <button type="button" class="btn-close" data-bs-dismiss="alert" data-i18n-aria-label="blogpost.ph_close" aria-label="Close"></button>
     </div>
 </div>
+{% endif %}
 
 <!-- Post Content -->
-<article class="container mb-5">
-    <div class="row justify-content-center">
-        <div class="col-lg-8">
-            <!-- Featured Image -->
-            {% if post.og_image %}
+<article class="{% if post.is_pdf_post %}container-fluid px-3 px-lg-4{% else %}container{% endif %} mb-5">
+    <div class="row justify-content-center g-4">
+        <div class="{% if post.is_pdf_post %}col-lg-8 col-xl-9{% else %}col-lg-8{% endif %}">
+            <!-- Featured Image (PDF posts show a small version in the sidebar) -->
+            {% if post.og_image and not post.is_pdf_post %}
             <img src="{{ post.og_image }}" alt="{{ post.title }}" class="img-fluid rounded-4 mb-4 w-100" style="max-height: 400px; object-fit: cover;">
             {% endif %}
             
@@ -419,6 +421,41 @@
             </div>
             {% endif %}
         </div>
+
+        {% if post.is_pdf_post %}
+        <aside class="col-lg-4 col-xl-3">
+            <div class="pdf-post-aside">
+                {% if post.og_image %}
+                <img src="{{ post.og_image }}" alt="{{ post.title }}" class="pdf-post-aside-img">
+                {% endif %}
+                <div class="pdf-post-aside-meta">
+                    <span><i class="bi bi-person-circle"></i> {{ post.author_name }}</span>
+                    <span><i class="bi bi-calendar3"></i> {{ post.formatted_date }}</span>
+                    <span><i class="bi bi-eye"></i> {{ post.view_count }} views</span>
+                    {% if post.category %}<span><i class="bi bi-folder"></i> {{ post.category }}</span>{% endif %}
+                </div>
+                {% if post.tag_list %}
+                <div class="pdf-post-aside-tags">
+                    {% for tag in post.tag_list %}
+                    <a href="{{ url_for('blog.index', tag=tag) }}" class="badge bg-light text-dark"><i class="bi bi-tag"></i> {{ tag }}</a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <a href="{{ post.pdf_url }}" target="_blank" class="btn btn-primary w-100">
+                    <i class="bi bi-download"></i> Download PDF
+                </a>
+                <div class="pdf-post-aside-disclaimer">
+                    <strong data-i18n="blogpost.student_research_not_financial_advice">Student Research — Not Financial Advice</strong>
+                    <span data-i18n-html="blogpost.we_are_students_passionate_about_equity_research">
+                        We are students passionate about equity research. This content is published for educational 
+                        and informational purposes only. It does <strong>not constitute investment advice</strong>, 
+                        nor should it be used as the basis for any investment decision. Always conduct your own 
+                        research and consult with a qualified financial advisor before making investment decisions.
+                    </span>
+                </div>
+            </div>
+        </aside>
+        {% endif %}
     </div>
 </article>
 

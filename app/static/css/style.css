@@ -1646,83 +1646,117 @@ canvas {
 }
 
 /* -----------------------------------------------------------------
-   Featured Research - Inline PDF Viewer (main landing page)
+   Featured Research - horizontal inline PDF viewer (landing page)
+   Compact top bar + narrow report picker + wide PDF viewer so the PDF
+   is visible immediately without scrolling past marketing copy.
    ----------------------------------------------------------------- */
-.featured-research-list {
+.research-topbar {
     display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    height: 100%;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
 }
 
-.featured-research-item {
+.research-topbar-title {
     display: flex;
-    align-items: flex-start;
+    align-items: baseline;
     gap: 0.875rem;
+    flex-wrap: wrap;
+}
+
+.research-topbar-title .section-label {
+    margin-bottom: 0;
+}
+
+.research-layout {
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: stretch;
+}
+
+.research-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    max-height: clamp(500px, 74vh, 880px);
+    overflow-y: auto;
+    padding-right: 0.25rem;
+}
+
+.research-pick {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
     width: 100%;
     text-align: left;
     background: var(--color-white);
     border: 1px solid var(--color-gray-200);
     border-radius: var(--radius-lg);
-    padding: 1rem 1.125rem;
+    padding: 0.625rem 0.75rem;
     cursor: pointer;
     transition: all var(--transition-base);
     font: inherit;
     color: inherit;
 }
 
-.featured-research-item:hover {
+.research-pick:hover {
     border-color: rgba(26, 156, 94, 0.35);
     box-shadow: var(--shadow-md);
-    transform: translateY(-2px);
 }
 
-.featured-research-item.active {
+.research-pick.active {
     border-color: var(--primary-green);
     box-shadow: var(--shadow-glow);
     background: var(--primary-green-faint);
 }
 
-.featured-research-item-icon {
+.research-pick-thumb {
     flex-shrink: 0;
-    width: 38px;
-    height: 38px;
+    width: 42px;
+    height: 42px;
+    border-radius: var(--radius-md);
+    background-size: cover;
+    background-position: center;
+    background-color: var(--color-gray-100);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: var(--radius-lg);
-    background: var(--gradient-primary);
-    color: #fff;
-    font-size: 1.1rem;
+    color: var(--primary-green);
 }
 
-.featured-research-item-body {
+.research-pick-body {
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
+    gap: 0.2rem;
     min-width: 0;
 }
 
-.featured-research-item-title {
+.research-pick-title {
     font-weight: 600;
-    font-size: 0.95rem;
-    line-height: 1.35;
+    font-size: 0.85rem;
+    line-height: 1.3;
     color: var(--color-gray-900);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
-.featured-research-item-meta {
+.research-pick-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.75rem;
-    font-size: 0.78rem;
+    gap: 0.5rem;
+    font-size: 0.72rem;
     color: var(--color-gray-400);
 }
 
-.featured-research-viewer {
+.research-viewer {
     display: flex;
     flex-direction: column;
-    height: 100%;
-    min-height: 560px;
+    min-width: 0;
     background: var(--color-white);
     border: 1px solid var(--color-gray-200);
     border-radius: var(--radius-xl);
@@ -1730,17 +1764,17 @@ canvas {
     box-shadow: var(--shadow-lg);
 }
 
-.featured-research-viewer-bar {
+.research-viewer-bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    padding: 0.75rem 1rem;
+    padding: 0.625rem 0.875rem;
     background: var(--color-gray-900);
     color: #fff;
 }
 
-.featured-research-viewer-title {
+.research-viewer-title {
     font-size: 0.9rem;
     font-weight: 600;
     white-space: nowrap;
@@ -1748,32 +1782,122 @@ canvas {
     text-overflow: ellipsis;
 }
 
-.featured-research-viewer-actions {
+.research-viewer-actions {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
     flex-shrink: 0;
 }
 
-.featured-research-frame {
-    flex: 1;
-    min-height: 480px;
+.research-viewer-frame {
+    height: clamp(520px, 74vh, 880px);
     background: var(--color-gray-100);
 }
 
-.featured-research-frame iframe {
+.research-viewer-frame iframe {
     width: 100%;
     height: 100%;
     border: 0;
     display: block;
 }
 
+.research-note {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 1rem 0 0;
+    font-size: 0.78rem;
+    color: var(--color-gray-400);
+}
+
 @media (max-width: 991.98px) {
-    .featured-research-viewer {
-        min-height: 460px;
+    .research-layout {
+        grid-template-columns: 1fr;
     }
 
-    .featured-research-frame {
-        min-height: 400px;
+    .research-picker {
+        max-height: none;
+    }
+
+    .research-viewer-frame {
+        height: 72vh;
+    }
+}
+
+/* -----------------------------------------------------------------
+   PDF research article - compact header + side meta panel
+   Keeps the PDF itself at the top of the viewport on wide screens,
+   with the (small) cover image and labels beside it instead of above.
+   ----------------------------------------------------------------- */
+.blog-post-header.blog-post-header--compact {
+    padding: 2rem 0 1.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.blog-post-header.blog-post-header--compact .blog-post-title {
+    font-size: 1.6rem;
+    margin-bottom: 0;
+}
+
+.pdf-post-aside {
+    position: sticky;
+    top: 90px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    padding: 1rem;
+    background: var(--color-white);
+    border: 1px solid var(--color-gray-200);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-md);
+}
+
+.pdf-post-aside-img {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    border-radius: var(--radius-lg);
+}
+
+.pdf-post-aside-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+    color: var(--color-gray-500);
+}
+
+.pdf-post-aside-meta i {
+    color: var(--primary-green);
+    margin-right: 0.35rem;
+}
+
+.pdf-post-aside-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.pdf-post-aside-disclaimer {
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--color-gray-500);
+    border-top: 1px solid var(--color-gray-200);
+    padding-top: 0.75rem;
+}
+
+.pdf-post-aside-disclaimer strong {
+    display: block;
+    color: var(--color-gray-700);
+    margin-bottom: 0.25rem;
+}
+
+@media (max-width: 991.98px) {
+    .pdf-post-aside {
+        position: static;
+    }
+
+    .pdf-post-aside-img {
+        height: 160px;
     }
 }

@@ -479,7 +479,6 @@ def index():
         get_cached_portfolio_chart,
         get_cached_growth_timeline,
         get_cached_top_sectors,
-        get_cached_latest_blog_posts,
         get_cached_featured_research
     )
     
@@ -487,7 +486,6 @@ def index():
     chart_data = get_cached_portfolio_chart()
     growth_data = get_cached_growth_timeline()
     top_sectors = get_cached_top_sectors()
-    latest_blog_posts = get_cached_latest_blog_posts(limit=3)
     featured_research = get_cached_featured_research(limit=6)
     
     return render_template('main/index.html', 
@@ -495,7 +493,6 @@ def index():
                          chart_data=chart_data,
                          growth_data=growth_data,
                          top_sectors=top_sectors,
-                         latest_blog_posts=latest_blog_posts,
                          featured_research=featured_research)
 
 
