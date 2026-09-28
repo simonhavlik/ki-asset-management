@@ -99,6 +99,32 @@ def parse_stock_analysis_filename(filename: str) -> tuple:
 # PUBLIC ROUTES (SEO Optimized)
 # ============================================================================
 
+def _read_uploaded_pdf(pdf_path):
+    """Read a PDF previously uploaded to static/uploads so it can be stored durably.
+
+    Uploads are written to disk so path-based editor actions (generate-from-pdfs,
+    the hidden pdf_path field) work, but Render's filesystem is ephemeral, so the
+    authoritative copy is kept in the database. Returns (bytes, filename).
+    """
+    if not pdf_path or '..' in pdf_path:
+        return None, None
+    from werkzeug.utils import secure_filename
+    uploads_dir = os.path.abspath(os.path.join(current_app.root_path, 'static', 'uploads', 'blog_pdfs'))
+    full_path = os.path.abspath(os.path.join(current_app.root_path, 'static', pdf_path))
+    try:
+        if os.path.commonpath([full_path, uploads_dir]) != uploads_dir:
+            return None, None
+    except ValueError:
+        return None, None
+    if not os.path.isfile(full_path):
+        return None, None
+    try:
+        with open(full_path, 'rb') as fh:
+            return fh.read(), secure_filename(os.path.basename(full_path))
+    except OSError:
+        return None, None
+
+
 @blog_bp.route('/')
 def index():
     """
@@ -361,7 +387,10 @@ def new_post():
         # Determine status based on is_public
         status = 'published' if is_public else 'draft'
         published_at = datetime.utcnow() if is_public else None
-        
+
+        # Persist the uploaded file's bytes into the DB (the disk copy is ephemeral).
+        pdf_bytes, pdf_name = _read_uploaded_pdf(pdf_path)
+
         # Create post
         blog_post = BlogPost(
             title=sanitized_title,
@@ -374,6 +403,9 @@ def new_post():
             content_type=content_type,
             doc_type=doc_type,
             pdf_path=pdf_path if pdf_path else None,
+            pdf_binary=pdf_bytes,
+            pdf_content_type='application/pdf' if pdf_bytes else None,
+            pdf_filename_db=pdf_name,
             additional_pdfs=additional_pdfs,
             is_public=is_public,
             author_id=current_user.id,
@@ -478,6 +510,11 @@ def edit_post(post_id):
         blog_post.doc_type = doc_type
         blog_post.og_image = og_image if og_image else None
         blog_post.pdf_path = pdf_path if pdf_path else None
+        pdf_bytes, pdf_name = _read_uploaded_pdf(pdf_path)
+        if pdf_bytes:
+            blog_post.pdf_binary = pdf_bytes
+            blog_post.pdf_content_type = 'application/pdf'
+            blog_post.pdf_filename_db = pdf_name
         blog_post.additional_pdfs = additional_pdfs
         blog_post.is_public = is_public
         blog_post.updated_at = datetime.utcnow()
@@ -1002,12 +1039,21 @@ def upload_pdf_api():
         
         # Read file content into memory for database storage
         file_content = file.read()
+
+        # Also write a copy to disk: the editor's path-based actions
+        # (generate-from-pdfs, hidden pdf_path field) need a real file path.
+        uploads_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'blog_pdfs')
+        os.makedirs(uploads_dir, exist_ok=True)
+        safe_name = secure_filename(file.filename) or 'upload.pdf'
+        stored_name = f"{os.urandom(4).hex()}_{safe_name}"
+        with open(os.path.join(uploads_dir, stored_name), 'wb') as fh:
+            fh.write(file_content)
+        relative_path = f"uploads/blog_pdfs/{stored_name}"
         
         # Initialize return data
         suggested_title = None
         company_name = None
         ticker = None
-        relative_path = None
         
         # Only parse PDFs for title extraction and database storage
         if is_pdf:
