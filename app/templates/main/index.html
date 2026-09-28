@@ -1043,11 +1043,13 @@
     </button>
 </div>
 
-<!-- Left vertical section rail -->
+<!-- Left vertical section names -->
 <nav class="secrail" id="secrail" aria-label="Sections">
     {% for sid, label, icon in secnav_items %}
-    <button type="button" class="secrail-dot" data-target="{{ sid }}" aria-label="{{ label }}">
-        <span class="secrail-tip">{{ label }}</span>
+    <button type="button" class="secrail-item" data-target="{{ sid }}" aria-label="{{ label }}">
+        <span class="secrail-num">{{ "%02d"|format(loop.index) }}</span>
+        <span class="secrail-text">{{ label }}</span>
+        <span class="secrail-line"></span>
     </button>
     {% endfor %}
 </nav>
@@ -1063,7 +1065,7 @@
 
     var toggle = nav ? document.getElementById('secnavToggle') : null;
     var items = [].slice.call(document.querySelectorAll('.secnav-item'));
-    var dots = [].slice.call(document.querySelectorAll('.secrail-dot'));
+    var dots = [].slice.call(document.querySelectorAll('.secrail-item'));
     var ids = dots.concat(items).map(function (b) { return b.dataset.target; })
                  .filter(function (v, i, a) { return v && a.indexOf(v) === i; });
     var expanded = false;
@@ -1113,7 +1115,12 @@
         lastActive = id;
         if (nav) nav.dataset.active = id;
         items.forEach(function (b) { b.classList.toggle('is-active', b.dataset.target === id); });
-        dots.forEach(function (b) { b.classList.toggle('is-active', b.dataset.target === id); });
+        var activeIdx = ids.indexOf(id);
+        dots.forEach(function (b) {
+            var i = ids.indexOf(b.dataset.target);
+            b.classList.toggle('is-active', i === activeIdx);
+            b.classList.toggle('is-past', i > -1 && i < activeIdx);
+        });
         var el = document.getElementById(id);
         if (rail && el) rail.classList.toggle('is-inverted', bgIsDark(el));
     }

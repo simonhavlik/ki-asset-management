@@ -250,19 +250,26 @@ h1, h2, h3, h4, h5, h6 {
    Navigation - Professional Corporate
    ----------------------------------------------------------------- */
 .navbar {
-    background: rgba(255, 255, 255, 0.95) !important;
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border-bottom: 1px solid var(--color-gray-200);
-    padding: 0.875rem 0;
-    transition: all var(--transition-base);
+    background: rgba(250, 251, 252, 0.72) !important;
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 1px solid transparent;
+    padding: 0.62rem 0;
+    transition: background var(--transition-base), border-color var(--transition-base),
+                box-shadow var(--transition-base), padding var(--transition-base);
     z-index: 1030;
 }
 
+/* Solid fallback where backdrop-filter is unavailable */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .navbar { background: rgba(250, 251, 252, 0.98) !important; }
+}
+
 .navbar.scrolled {
-    background: rgba(255, 255, 255, 0.98) !important;
-    box-shadow: var(--shadow-md);
-    padding: 0.625rem 0;
+    background: rgba(250, 251, 252, 0.86) !important;
+    border-bottom-color: var(--color-gray-200);
+    box-shadow: 0 10px 30px -24px rgba(15, 20, 25, 0.45);
+    padding: 0.5rem 0;
 }
 
 .navbar-brand {
@@ -282,15 +289,15 @@ h1, h2, h3, h4, h5, h6 {
 .nav-link {
     font-weight: 500;
     color: var(--color-gray-600) !important;
-    padding: 0.5rem 1rem !important;
+    padding: 0.4rem 0.85rem !important;
     border-radius: var(--radius-md);
-    transition: all var(--transition-fast);
-    font-size: 0.9rem;
+    transition: color var(--transition-fast);
+    font-size: 0.85rem;
 }
 
 .nav-link:hover {
     color: var(--primary-green) !important;
-    background: var(--primary-green-faint);
+    background: transparent;
 }
 
 .navbar-toggler {
@@ -3170,17 +3177,17 @@ canvas {
     background: linear-gradient(to top, rgba(15, 20, 25, 0.85), rgba(15, 20, 25, 0));
 }
 
-/* Left vertical section rail */
+/* Left vertical section names (mirrors the personal site) */
 .secrail {
     position: fixed;
-    left: 1.1rem;
+    left: 1.5rem;
     top: 50%;
     transform: translateY(-50%);
     z-index: 120;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.8rem;
+    gap: 1.5rem;
     opacity: 0;
     transition: opacity 0.3s ease;
     pointer-events: none;
@@ -3191,73 +3198,77 @@ canvas {
     pointer-events: auto;
 }
 
-.secrail-dot {
-    position: relative;
-    width: 10px;
-    height: 10px;
-    padding: 0;
+.secrail-item {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    background: none;
     border: 0;
-    border-radius: 50%;
-    background: var(--color-gray-300);
+    padding: 0;
     cursor: pointer;
-    transition: background var(--transition-base), transform var(--transition-base), box-shadow var(--transition-base);
+    opacity: 0.3;
+    transition: opacity 0.3s ease;
 }
 
-.secrail-dot:hover {
-    background: var(--color-gray-500);
-    transform: scale(1.25);
+.secrail-item:hover { opacity: 0.6; }
+.secrail-item.is-active { opacity: 1; }
+
+.secrail-num {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--color-gray-400);
+    transition: color 0.3s ease;
 }
 
-.secrail-dot.is-active {
-    background: var(--primary-green);
-    transform: scale(1.4);
-    box-shadow: 0 0 0 4px rgba(26, 156, 94, 0.15);
+.secrail-item.is-active .secrail-num,
+.secrail-item.is-past .secrail-num {
+    color: var(--color-gray-900);
 }
 
-.secrail-tip {
-    position: absolute;
-    left: 20px;
-    top: 50%;
-    transform: translateY(-50%) translateX(-4px);
-    white-space: nowrap;
-    font-size: 0.72rem;
+.secrail-text {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+    font-size: 11px;
     font-weight: 600;
-    color: var(--color-gray-600);
-    background: var(--color-white);
-    border: 1px solid var(--color-gray-200);
-    border-radius: 999px;
-    padding: 0.2rem 0.6rem;
-    box-shadow: var(--shadow-sm);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-gray-400);
+    transition: color 0.3s ease;
+}
+
+.secrail-item.is-active .secrail-text { color: var(--color-gray-900); }
+
+.secrail-line {
+    width: 1px;
+    height: 32px;
+    background: var(--color-gray-300);
     opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.18s ease, transform 0.18s ease;
+    transition: opacity 0.3s ease, background 0.3s ease;
 }
 
-.secrail-dot:hover .secrail-tip {
+.secrail-item.is-active .secrail-line {
+    background: var(--color-gray-900);
     opacity: 1;
-    transform: translateY(-50%) translateX(0);
 }
 
-/* Invert the rail over dark sections (stats / CTA) */
-.secrail.is-inverted .secrail-dot {
-    background: rgba(255, 255, 255, 0.4);
+/* Invert over dark sections (stats / CTA) */
+.secrail.is-inverted .secrail-num { color: rgba(255, 255, 255, 0.45); }
+
+.secrail.is-inverted .secrail-item.is-active .secrail-num,
+.secrail.is-inverted .secrail-item.is-past .secrail-num {
+    color: #ffffff;
 }
 
-.secrail.is-inverted .secrail-dot:hover {
-    background: rgba(255, 255, 255, 0.75);
-}
+.secrail.is-inverted .secrail-text { color: rgba(255, 255, 255, 0.45); }
+.secrail.is-inverted .secrail-item.is-active .secrail-text { color: #ffffff; }
+.secrail.is-inverted .secrail-line { background: rgba(255, 255, 255, 0.35); }
 
-.secrail.is-inverted .secrail-dot.is-active {
+.secrail.is-inverted .secrail-item.is-active .secrail-line {
     background: #2cce7e;
-    box-shadow: 0 0 0 4px rgba(44, 206, 126, 0.22);
 }
 
-.secrail.is-inverted .secrail-tip {
-    color: #e6ebef;
-    background: #0f1419;
-    border-color: #1a2028;
-}
-
-@media (max-width: 991.98px) {
+@media (max-width: 1199.98px) {
     .secrail { display: none; }
 }
