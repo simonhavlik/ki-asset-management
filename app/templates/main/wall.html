@@ -3,88 +3,90 @@
 {% block title %}Ideas Wall – KI Asset Management{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="container wall-page">
+
     <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <header class="wall-head reveal">
         <div>
-            <h1 class="mb-1" data-i18n-html="wall.ideas_wall"><i class="bi bi-chat-square-text"></i> Ideas Wall</h1>
-            <p class="text-muted mb-0" data-i18n="wall.share_and_discuss_stock_ideas_with_the_team">Share and discuss stock ideas with the team</p>
+            <span class="section-label" data-i18n="wall.label">Ideas</span>
+            <h1 class="wall-head-title" data-i18n-html="wall.ideas_wall"><i class="bi bi-chat-square-text"></i> Ideas Wall</h1>
+            <p class="wall-head-sub" data-i18n="wall.share_and_discuss_stock_ideas_with_the_team">Share and discuss stock ideas with the team</p>
         </div>
         {% if current_user.is_authenticated %}
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newIdeaModal" data-i18n-html="wall.share_idea">
             <i class="bi bi-plus-lg"></i> Share Idea
         </button>
         {% endif %}
-    </div>
+    </header>
 
     <!-- Filters -->
-    <div class="card mb-4">
-        <div class="card-body">
-            <div class="row g-3 align-items-center">
-                <div class="col-md-3">
-                    <label class="form-label mb-1" data-i18n-html="wall.sentiment"><i class="bi bi-funnel"></i> Sentiment</label>
-                    <select class="form-select" id="sentimentFilter">
-                        <option value="all" data-i18n="wall.all_ideas">All Ideas</option>
-                        <option value="bullish" data-i18n="wall.bullish">🐂 Bullish</option>
-                        <option value="bearish" data-i18n="wall.bearish">🐻 Bearish</option>
-                        <option value="neutral" data-i18n="wall.neutral">⚖️ Neutral</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label mb-1" data-i18n-html="wall.sort_by"><i class="bi bi-sort-down"></i> Sort By</label>
-                    <select class="form-select" id="sortFilter">
-                        <option value="newest" data-i18n="wall.newest_first">Newest First</option>
-                        <option value="popular" data-i18n="wall.most_popular">Most Popular</option>
-                        <option value="trending">Trending</option>
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label mb-1" data-i18n-html="wall.search"><i class="bi bi-search"></i> Search</label>
-                    <input type="text" class="form-control" id="searchIdeas" data-i18n-placeholder="wall.ph_search_by_ticker_company_or_keyword" placeholder="Search by ticker, company, or keyword...">
-                </div>
-            </div>
+    <div class="wall-filters reveal">
+        <div class="wall-filter">
+            <label class="form-label" data-i18n-html="wall.sentiment"><i class="bi bi-funnel"></i> Sentiment</label>
+            <select class="form-select form-select-sm" id="sentimentFilter">
+                <option value="all" data-i18n="wall.all_ideas">All Ideas</option>
+                <option value="bullish" data-i18n="wall.bullish">Bullish</option>
+                <option value="bearish" data-i18n="wall.bearish">Bearish</option>
+                <option value="neutral" data-i18n="wall.neutral">Neutral</option>
+            </select>
+        </div>
+        <div class="wall-filter">
+            <label class="form-label" data-i18n-html="wall.sort_by"><i class="bi bi-sort-down"></i> Sort By</label>
+            <select class="form-select form-select-sm" id="sortFilter">
+                <option value="newest" data-i18n="wall.newest_first">Newest First</option>
+                <option value="popular" data-i18n="wall.most_popular">Most Popular</option>
+            </select>
+        </div>
+        <div class="wall-filter wall-filter-search">
+            <label class="form-label" data-i18n-html="wall.search"><i class="bi bi-search"></i> Search</label>
+            <input type="text" class="form-control form-control-sm" id="searchIdeas"
+                   data-i18n-placeholder="wall.ph_search_by_ticker_company_or_keyword"
+                   placeholder="Search by ticker, company, or keyword...">
         </div>
     </div>
 
-    <!-- Ideas Grid -->
-    <div class="ideas-wall" id="ideasWall">
+    <!-- Ideas grid -->
+    <div class="wall-grid" id="ideasWall">
         {% for idea in ideas %}
-        <div class="idea-card" data-sentiment="{{ idea.sentiment }}">
-            <div class="idea-card-header">
-                <div class="idea-author-avatar">
-                    {{ idea.author_name[0]|upper }}
-                </div>
-                <div class="idea-meta">
-                    <div class="idea-author">{{ idea.author_name }}</div>
-                    <div class="idea-date">{{ idea.created_at.strftime('%b %d, %Y') }}</div>
-                </div>
-                <span class="idea-badge {{ idea.sentiment }}">{{ idea.sentiment }}</span>
+        <article class="wall-card" id="idea-{{ idea.id }}" data-sentiment="{{ idea.sentiment }}"
+                 data-likes="{{ idea.likes }}" data-created="{{ idea.created_at.isoformat() if idea.created_at else '' }}">
+            <div class="wall-card-head">
+                <span class="wall-avatar">{{ idea.author_name[0]|upper }}</span>
+                <span class="wall-who">
+                    <span class="wall-author">{{ idea.author_name }}</span>
+                    <span class="wall-date">{{ idea.created_at.strftime('%b %d, %Y') }}</span>
+                </span>
+                <span class="wall-badge {{ idea.sentiment }}">{{ idea.sentiment }}</span>
             </div>
-            
-            <h5 class="idea-title">{{ idea.title }}</h5>
-            <p class="idea-content">{{ idea.content }}</p>
-            
+
+            <h2 class="wall-title">{{ idea.title }}</h2>
+            <p class="wall-content">{{ idea.content }}</p>
+
             {% if idea.ticker %}
-            <span class="idea-ticker">
-                <i class="bi bi-graph-up"></i> {{ idea.ticker }}
-            </span>
+            <span class="wall-ticker"><i class="bi bi-graph-up"></i> {{ idea.ticker }}</span>
             {% endif %}
-            
-            <div class="idea-actions">
-                <div class="idea-action" onclick="likeIdea({{ idea.id }})">
-                    <i class="bi bi-hand-thumbs-up"></i>
-                    <span id="likes-{{ idea.id }}">{{ idea.likes }}</span>
-                </div>
-                <div class="idea-action" onclick="toggleComments({{ idea.id }})">
-                    <i class="bi bi-chat"></i>
-                    <span>{{ idea.comments.count() }}</span>
-                </div>
-                <div class="idea-action">
-                    <i class="bi bi-share"></i>
-                </div>
+
+            <div class="wall-actions">
+                {% if current_user.is_authenticated %}
+                <form method="POST" action="{{ url_for('main.like_idea', idea_id=idea.id) }}" class="wall-action-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="wall-action" title="Like">
+                        <i class="bi bi-hand-thumbs-up"></i> <span>{{ idea.likes }}</span>
+                    </button>
+                </form>
+                {% else %}
+                <span class="wall-action is-static" title="Log in to like">
+                    <i class="bi bi-hand-thumbs-up"></i> <span>{{ idea.likes }}</span>
+                </span>
+                {% endif %}
+
+                <button type="button" class="wall-action" onclick="toggleComments({{ idea.id }})">
+                    <i class="bi bi-chat"></i> <span>{{ idea.comments.count() }}</span>
+                </button>
+
                 {% if current_user.is_authenticated and (current_user.id == idea.author_id or current_user.is_admin) %}
                 <div class="dropdown ms-auto">
-                    <button class="btn btn-sm btn-link text-muted" type="button" data-bs-toggle="dropdown">
+                    <button class="wall-action" type="button" data-bs-toggle="dropdown" aria-label="More">
                         <i class="bi bi-three-dots-vertical"></i>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end">
@@ -94,7 +96,7 @@
                             </button>
                         </li>
                         <li>
-                            <form method="POST" action="{{ url_for('main.delete_idea', idea_id=idea.id) }}" class="d-inline" onsubmit="return confirm('Delete this idea?')">
+                            <form method="POST" action="{{ url_for('main.delete_idea', idea_id=idea.id) }}" onsubmit="return confirm('Delete this idea?')">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="dropdown-item text-danger" data-i18n-html="wall.delete">
                                     <i class="bi bi-trash"></i> Delete
@@ -105,34 +107,34 @@
                 </div>
                 {% endif %}
             </div>
-            
-            <!-- Comments Section (Hidden by default) -->
-            <div id="comments-{{ idea.id }}" class="mt-3 pt-3 border-top" style="display: none;">
+
+            <!-- Comments -->
+            <div id="comments-{{ idea.id }}" class="wall-comments" hidden>
                 {% for comment in idea.comments %}
-                <div class="d-flex gap-2 mb-2">
-                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" 
-                         style="width: 28px; height: 28px; font-size: 0.75rem;">
-                        {{ comment.author_name[0]|upper }}
-                    </div>
-                    <div class="flex-grow-1">
-                        <small class="fw-bold">{{ comment.author_name }}</small>
-                        <p class="small mb-0 text-muted">{{ comment.content }}</p>
+                <div class="wall-comment">
+                    <span class="wall-avatar wall-avatar-sm">{{ comment.author_name[0]|upper }}</span>
+                    <div class="wall-comment-body">
+                        <span class="wall-comment-author">{{ comment.author_name }}</span>
+                        <p class="wall-comment-text">{{ comment.content }}</p>
                     </div>
                 </div>
                 {% endfor %}
+
                 {% if current_user.is_authenticated %}
-                <div class="input-group input-group-sm mt-2">
-                    <input type="text" class="form-control" data-i18n-placeholder="wall.ph_add_a_comment" placeholder="Add a comment...">
-                    <button class="btn btn-outline-primary" type="button">Post</button>
-                </div>
+                <form method="POST" action="{{ url_for('main.add_comment', idea_id=idea.id) }}" class="wall-comment-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="text" name="content" class="form-control form-control-sm"
+                           data-i18n-placeholder="wall.ph_add_a_comment" placeholder="Add a comment..." required>
+                    <button type="submit" class="btn btn-sm btn-primary" data-i18n="wall.post">Post</button>
+                </form>
                 {% endif %}
             </div>
-        </div>
+        </article>
         {% else %}
-        <div class="text-center py-5">
-            <i class="bi bi-chat-square-text display-1 text-muted"></i>
-            <h4 class="mt-3 text-muted" data-i18n="wall.no_ideas_yet">No ideas yet</h4>
-            <p class="text-muted" data-i18n="wall.be_the_first_to_share_a_stock_idea">Be the first to share a stock idea!</p>
+        <div class="wall-empty">
+            <i class="bi bi-chat-square-text"></i>
+            <h3 data-i18n="wall.no_ideas_yet">No ideas yet</h3>
+            <p data-i18n="wall.be_the_first_to_share_a_stock_idea">Be the first to share a stock idea!</p>
         </div>
         {% endfor %}
     </div>
@@ -142,11 +144,8 @@
     <nav class="mt-4">
         <ul class="pagination justify-content-center">
             {% if pagination.has_prev %}
-            <li class="page-item">
-                <a class="page-link" href="{{ url_for('main.wall', page=pagination.prev_num) }}">Previous</a>
-            </li>
+            <li class="page-item"><a class="page-link" href="{{ url_for('main.wall', page=pagination.prev_num) }}">Previous</a></li>
             {% endif %}
-            
             {% for page_num in pagination.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
                 {% if page_num %}
                     {% if page_num == pagination.page %}
@@ -155,14 +154,11 @@
                     <li class="page-item"><a class="page-link" href="{{ url_for('main.wall', page=page_num) }}">{{ page_num }}</a></li>
                     {% endif %}
                 {% else %}
-                <li class="page-item disabled"><span class="page-link">...</span></li>
+                <li class="page-item disabled"><span class="page-link">…</span></li>
                 {% endif %}
             {% endfor %}
-            
             {% if pagination.has_next %}
-            <li class="page-item">
-                <a class="page-link" href="{{ url_for('main.wall', page=pagination.next_num) }}">Next</a>
-            </li>
+            <li class="page-item"><a class="page-link" href="{{ url_for('main.wall', page=pagination.next_num) }}">Next</a></li>
             {% endif %}
         </ul>
     </nav>
@@ -189,13 +185,11 @@
                         <label class="form-label">Sentiment</label>
                         <div class="btn-group w-100" role="group">
                             <input type="radio" class="btn-check" name="sentiment" id="sentimentBullish" value="bullish" checked>
-                            <label class="btn btn-outline-success" for="sentimentBullish" data-i18n="wall.bullish">🐂 Bullish</label>
-                            
+                            <label class="btn btn-outline-success" for="sentimentBullish" data-i18n="wall.bullish">Bullish</label>
                             <input type="radio" class="btn-check" name="sentiment" id="sentimentNeutral" value="neutral">
-                            <label class="btn btn-outline-secondary" for="sentimentNeutral" data-i18n="wall.neutral">⚖️ Neutral</label>
-                            
+                            <label class="btn btn-outline-secondary" for="sentimentNeutral" data-i18n="wall.neutral">Neutral</label>
                             <input type="radio" class="btn-check" name="sentiment" id="sentimentBearish" value="bearish">
-                            <label class="btn btn-outline-danger" for="sentimentBearish" data-i18n="wall.bearish">🐻 Bearish</label>
+                            <label class="btn btn-outline-danger" for="sentimentBearish" data-i18n="wall.bearish">Bearish</label>
                         </div>
                     </div>
                     <div class="mb-3">
@@ -238,13 +232,11 @@
                         <label class="form-label">Sentiment</label>
                         <div class="btn-group w-100" role="group">
                             <input type="radio" class="btn-check" name="sentiment" id="sentimentBullish{{ idea.id }}" value="bullish" {% if idea.sentiment == 'bullish' %}checked{% endif %}>
-                            <label class="btn btn-outline-success" for="sentimentBullish{{ idea.id }}" data-i18n="wall.bullish">🐂 Bullish</label>
-                            
+                            <label class="btn btn-outline-success" for="sentimentBullish{{ idea.id }}" data-i18n="wall.bullish">Bullish</label>
                             <input type="radio" class="btn-check" name="sentiment" id="sentimentNeutral{{ idea.id }}" value="neutral" {% if idea.sentiment == 'neutral' %}checked{% endif %}>
-                            <label class="btn btn-outline-secondary" for="sentimentNeutral{{ idea.id }}" data-i18n="wall.neutral">⚖️ Neutral</label>
-                            
+                            <label class="btn btn-outline-secondary" for="sentimentNeutral{{ idea.id }}" data-i18n="wall.neutral">Neutral</label>
                             <input type="radio" class="btn-check" name="sentiment" id="sentimentBearish{{ idea.id }}" value="bearish" {% if idea.sentiment == 'bearish' %}checked{% endif %}>
-                            <label class="btn btn-outline-danger" for="sentimentBearish{{ idea.id }}" data-i18n="wall.bearish">🐻 Bearish</label>
+                            <label class="btn btn-outline-danger" for="sentimentBearish{{ idea.id }}" data-i18n="wall.bearish">Bearish</label>
                         </div>
                     </div>
                     <div class="mb-3">
@@ -271,38 +263,64 @@
 
 {% block extra_js %}
 <script>
-// Filter functionality
-document.getElementById('sentimentFilter')?.addEventListener('change', function() {
-    const sentiment = this.value;
-    document.querySelectorAll('.idea-card').forEach(card => {
-        if (sentiment === 'all' || card.dataset.sentiment === sentiment) {
-            card.style.display = 'block';
+(function () {
+    const grid = document.getElementById('ideasWall');
+    const cards = () => Array.from(grid.querySelectorAll('.wall-card'));
+
+    // Sentiment filter
+    const sentimentFilter = document.getElementById('sentimentFilter');
+    sentimentFilter?.addEventListener('change', () => {
+        const val = sentimentFilter.value;
+        document.querySelectorAll('.wall-empty').forEach(e => e.remove());
+        cards().forEach(c => {
+            c.style.display = (val === 'all' || c.dataset.sentiment === val) ? '' : 'none';
+        });
+        checkEmpty();
+    });
+
+    // Search
+    const searchBox = document.getElementById('searchIdeas');
+    searchBox?.addEventListener('input', () => {
+        const q = searchBox.value.toLowerCase();
+        document.querySelectorAll('.wall-empty').forEach(e => e.remove());
+        cards().forEach(c => {
+            c.style.display = c.textContent.toLowerCase().includes(q) ? '' : 'none';
+        });
+        checkEmpty();
+    });
+
+    // Sort (client-side)
+    const sortFilter = document.getElementById('sortFilter');
+    sortFilter?.addEventListener('change', () => {
+        const list = cards();
+        if (sortFilter.value === 'popular') {
+            list.sort((a, b) => (+b.dataset.likes) - (+a.dataset.likes));
         } else {
-            card.style.display = 'none';
+            list.sort((a, b) => (b.dataset.created || '').localeCompare(a.dataset.created || ''));
         }
+        list.forEach(c => grid.appendChild(c));
     });
-});
 
-// Search functionality
-document.getElementById('searchIdeas')?.addEventListener('input', function() {
-    const query = this.value.toLowerCase();
-    document.querySelectorAll('.idea-card').forEach(card => {
-        const text = card.textContent.toLowerCase();
-        card.style.display = text.includes(query) ? 'block' : 'none';
-    });
-});
+    function checkEmpty() {
+        const anyVisible = cards().some(c => c.style.display !== 'none');
+        if (!anyVisible) {
+            const div = document.createElement('div');
+            div.className = 'wall-empty';
+            div.innerHTML = '<i class="bi bi-chat-square-text"></i><h3>No matching ideas</h3>';
+            grid.appendChild(div);
+        }
+    }
 
-// Like functionality
-function likeIdea(ideaId) {
-    // In production, this would make an AJAX call
-    const likesEl = document.getElementById('likes-' + ideaId);
-    likesEl.textContent = parseInt(likesEl.textContent) + 1;
-}
+    window.toggleComments = function (id) {
+        const el = document.getElementById('comments-' + id);
+        if (el) el.hidden = !el.hidden;
+    };
 
-// Toggle comments
-function toggleComments(ideaId) {
-    const commentsDiv = document.getElementById('comments-' + ideaId);
-    commentsDiv.style.display = commentsDiv.style.display === 'none' ? 'block' : 'none';
-}
+    // Open the comment box when arriving via #idea-<id>
+    if (location.hash && location.hash.startsWith('#idea-')) {
+        const el = document.querySelector(location.hash + ' .wall-comments');
+        if (el) el.hidden = false;
+    }
+})();
 </script>
 {% endblock %}

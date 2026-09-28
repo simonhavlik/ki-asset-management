@@ -826,79 +826,96 @@
 </section>
 
 {% if featured_research %}
-<!-- Featured Research - inline PDF viewer -->
-<section class="section" id="research">
+<!-- Featured Research - browser-style inline PDF viewer -->
+<section class="section research-section" id="research">
+    <div class="research-glow research-glow-a" aria-hidden="true"></div>
+    <div class="research-glow research-glow-b" aria-hidden="true"></div>
+
     <div class="container-fluid px-3 px-lg-5">
-        <div class="research-topbar reveal">
-            <div class="research-topbar-title">
-                <span class="section-label" data-i18n="home.featured">Featured</span>
-                <h2 class="section-title mb-0" data-i18n="home.featured_research">Featured Research</h2>
-            </div>
-            <a href="{{ url_for('blog.index') }}" class="btn btn-primary" data-i18n-html="home.view_all_research">
-                <i class="bi bi-journal-text"></i> View All Research
-            </a>
-        </div>
+        <h2 class="visually-hidden" data-i18n="home.featured_research">Featured Research</h2>
 
-        <div class="research-layout reveal">
-            <!-- Report picker -->
-            <aside class="research-picker" role="tablist" aria-label="Featured research reports">
-                {% for post in featured_research %}
-                <button type="button"
-                        class="research-pick{% if loop.first %} active{% endif %}"
-                        role="tab"
-                        aria-selected="{{ 'true' if loop.first else 'false' }}"
-                        data-pdf-url="{{ post.pdf_url }}"
-                        data-article-url="{{ url_for('blog.post', slug=post.slug) }}"
-                        data-title="{{ post.title | e }}"
-                        onclick="selectFeaturedResearch(this)">
-                    {% if post.og_image %}
-                    <span class="research-pick-thumb" style="background-image: url('{{ post.og_image }}');"></span>
-                    {% else %}
-                    <span class="research-pick-thumb research-pick-thumb-empty"><i class="bi bi-file-earmark-pdf"></i></span>
-                    {% endif %}
-                    <span class="research-pick-body">
-                        <span class="research-pick-title">{{ post.title }}</span>
-                        <span class="research-pick-meta">
-                            {% if post.category %}<span>{{ post.category }}</span>{% endif %}
-                            <span>{{ post.formatted_date }}</span>
-                        </span>
-                    </span>
-                </button>
-                {% endfor %}
-            </aside>
-
-            <!-- Inline PDF viewer -->
-            <div class="research-viewer">
-                <div class="research-viewer-bar">
-                    <span class="research-viewer-title" id="featuredResearchTitle">{{ featured_research[0].title }}</span>
-                    <span class="research-viewer-actions">
-                        <a id="featuredResearchArticle"
-                           href="{{ url_for('blog.post', slug=featured_research[0].slug) }}"
-                           class="btn btn-sm btn-outline-light"
-                           data-i18n-html="home.read_article">
-                            <i class="bi bi-journal-text"></i> Read Article
-                        </a>
-                        <a id="featuredResearchOpen"
-                           href="{{ featured_research[0].pdf_url }}"
-                           target="_blank" rel="noopener"
-                           class="btn btn-sm btn-light"
-                           title="Open PDF in new tab" aria-label="Open PDF in new tab">
-                            <i class="bi bi-box-arrow-up-right"></i>
-                        </a>
-                        <a id="featuredResearchDownload"
-                           href="{{ featured_research[0].pdf_url }}"
-                           download
-                           class="btn btn-sm btn-light"
-                           title="Download PDF" aria-label="Download PDF">
-                            <i class="bi bi-download"></i>
-                        </a>
+        <div class="browser reveal">
+            <!-- window chrome -->
+            <div class="browser-chrome">
+                <span class="browser-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                <div class="browser-tabs">
+                    <span class="browser-tab">
+                        <i class="bi bi-file-earmark-pdf-fill"></i>
+                        <span data-i18n="home.featured_research">Featured Research</span>
                     </span>
                 </div>
-                <div class="research-viewer-frame">
-                    <iframe id="featuredResearchFrame"
-                            src="{{ featured_research[0].pdf_url }}"
-                            title="{{ featured_research[0].title }}"
-                            loading="lazy"></iframe>
+                <a href="{{ url_for('blog.index') }}" class="browser-link" data-i18n-html="home.view_all_research">
+                    <i class="bi bi-journal-text"></i> View All Research
+                </a>
+            </div>
+
+            <!-- address bar -->
+            <div class="browser-bar">
+                <i class="bi bi-lock-fill"></i>
+                <span class="browser-url" id="featuredResearchUrl">ki.havliksimon.eu/research</span>
+            </div>
+
+            <!-- viewport -->
+            <div class="browser-body">
+                <aside class="research-picker" role="tablist" aria-label="Featured research reports">
+                    {% for post in featured_research %}
+                    <button type="button"
+                            class="research-pick{% if loop.first %} active{% endif %}"
+                            role="tab"
+                            aria-selected="{{ 'true' if loop.first else 'false' }}"
+                            data-pdf-url="{{ post.pdf_url }}"
+                            data-article-url="{{ url_for('blog.post', slug=post.slug) }}"
+                            data-title="{{ post.title | e }}"
+                            data-slug="{{ post.slug }}"
+                            onclick="selectFeaturedResearch(this)">
+                        {% if post.og_image %}
+                        <span class="research-pick-thumb" style="background-image: url('{{ post.og_image }}');"></span>
+                        {% else %}
+                        <span class="research-pick-thumb research-pick-thumb-empty"><i class="bi bi-file-earmark-pdf"></i></span>
+                        {% endif %}
+                        <span class="research-pick-body">
+                            <span class="research-pick-title">{{ post.title }}</span>
+                            <span class="research-pick-meta">
+                                {% if post.category %}<span>{{ post.category }}</span>{% endif %}
+                                <span>{{ post.formatted_date }}</span>
+                            </span>
+                        </span>
+                    </button>
+                    {% endfor %}
+                </aside>
+
+                <div class="research-viewer">
+                    <div class="research-viewer-bar">
+                        <span class="research-viewer-title" id="featuredResearchTitle">{{ featured_research[0].title }}</span>
+                        <span class="research-viewer-actions">
+                            <a id="featuredResearchArticle"
+                               href="{{ url_for('blog.post', slug=featured_research[0].slug) }}"
+                               class="btn btn-sm btn-outline-light"
+                               data-i18n-html="home.read_article">
+                                <i class="bi bi-journal-text"></i> Read Article
+                            </a>
+                            <a id="featuredResearchOpen"
+                               href="{{ featured_research[0].pdf_url }}"
+                               target="_blank" rel="noopener"
+                               class="btn btn-sm btn-light"
+                               title="Open PDF in new tab" aria-label="Open PDF in new tab">
+                                <i class="bi bi-box-arrow-up-right"></i>
+                            </a>
+                            <a id="featuredResearchDownload"
+                               href="{{ featured_research[0].pdf_url }}"
+                               download
+                               class="btn btn-sm btn-light"
+                               title="Download PDF" aria-label="Download PDF">
+                                <i class="bi bi-download"></i>
+                            </a>
+                        </span>
+                    </div>
+                    <div class="research-viewer-frame">
+                        <iframe id="featuredResearchFrame"
+                                src="{{ featured_research[0].pdf_url }}"
+                                title="{{ featured_research[0].title }}"
+                                loading="lazy"></iframe>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1037,6 +1054,7 @@ function selectFeaturedResearch(button) {
     const pdfUrl = button.getAttribute('data-pdf-url');
     const articleUrl = button.getAttribute('data-article-url');
     const title = button.getAttribute('data-title') || '';
+    const slug = button.getAttribute('data-slug') || '';
 
     document.querySelectorAll('.research-pick').forEach((item) => {
         item.classList.remove('active');
@@ -1050,9 +1068,11 @@ function selectFeaturedResearch(button) {
     const articleLink = document.getElementById('featuredResearchArticle');
     const openLink = document.getElementById('featuredResearchOpen');
     const downloadLink = document.getElementById('featuredResearchDownload');
+    const urlEl = document.getElementById('featuredResearchUrl');
 
     if (frame && pdfUrl) frame.src = pdfUrl;
     if (titleEl) titleEl.textContent = title;
+    if (urlEl) urlEl.textContent = 'ki.havliksimon.eu/research' + (slug ? '/' + slug : '');
     if (articleLink && articleUrl) articleLink.href = articleUrl;
     if (openLink && pdfUrl) openLink.href = pdfUrl;
     if (downloadLink && pdfUrl) downloadLink.href = pdfUrl;

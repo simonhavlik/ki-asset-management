@@ -342,23 +342,17 @@ def _serialize_blog_post(post) -> dict:
         'reading_time': post.reading_time,
         'tag_list': post.tag_list,
         'formatted_date': post.formatted_date,
+        # PDF fields: templates use these to offer an inline preview / download,
+        # and SimpleBlogPost must expose them after a cache round-trip.
+        'is_pdf_post': post.is_pdf_post,
+        'pdf_url': post.pdf_url,
+        'pdf_filename': post.pdf_filename,
     }
 
 
 def _serialize_blog_post_with_pdf(post) -> dict:
-    """
-    Like _serialize_blog_post, but also exposes the PDF fields the main-page
-    featured-research viewer needs. SimpleBlogPost delegates to dict keys, so a
-    plain BlogPost property that is not serialized would be undefined in the
-    template once the value has passed through the cache.
-    """
-    data = _serialize_blog_post(post)
-    data.update({
-        'is_pdf_post': post.is_pdf_post,
-        'pdf_url': post.pdf_url,
-        'pdf_filename': post.pdf_filename,
-    })
-    return data
+    """Back-compat alias. PDF fields are now part of the standard serializer."""
+    return _serialize_blog_post(post)
 
 
 def get_cached_latest_blog_posts(limit: int = 3, force_refresh: bool = False) -> list:

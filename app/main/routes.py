@@ -683,9 +683,16 @@ def add_comment(idea_id):
     
     db.session.add(comment)
     db.session.commit()
-    
+
+    # The wall page is cached, so drop the cache or the new comment won't show.
+    try:
+        from ..utils.neon_cache import invalidate_wall_cache
+        invalidate_wall_cache()
+    except Exception as e:
+        current_app.logger.warning(f"Failed to invalidate wall cache: {e}")
+
     flash('Comment added!', 'success')
-    return redirect(url_for('main.wall'))
+    return redirect(url_for('main.wall') + f'#idea-{idea.id}')
 
 
 @main_bp.route('/wall/idea/<int:idea_id>/like', methods=['POST'])
@@ -704,19 +711,24 @@ def like_idea(idea_id):
     import os
     
     idea = Idea.query.get_or_404(idea_id)
-    idea.likes_count += 1
+    idea.likes_count = (idea.likes_count or 0) + 1
     db.session.commit()
-    
-    # Skip cache invalidation for likes in NEON_OPTIMIZE mode
-    # Likes are non-critical and will refresh on next page load
-    if os.environ.get('NEON_OPTIMIZE', 'true').lower() != 'true':
-        try:
-            from ..utils.neon_cache import invalidate_wall_cache
-            invalidate_wall_cache()
-        except Exception:
-            pass
-    
-    return {'success': True, 'likes': idea.likes_count}
+
+    # Likes are shown on the cached wall page, so invalidate it.
+    try:
+        from ..utils.neon_cache import invalidate_wall_cache
+        invalidate_wall_cache()
+    except Exception as e:
+        current_app.logger.warning(f"Failed to invalidate wall cache: {e}")
+
+    # AJAX callers get JSON; a plain form POST is redirected back to the wall.
+    wants_json = (
+        request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        or request.accept_mimetypes.best == 'application/json'
+    )
+    if wants_json:
+        return {'success': True, 'likes': idea.likes_count}
+    return redirect(url_for('main.wall') + f'#idea-{idea.id}')
 
 
 @main_bp.route('/wall/idea/<int:idea_id>/edit', methods=['POST'])
