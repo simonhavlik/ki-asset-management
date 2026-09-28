@@ -141,3 +141,26 @@ def test_widget_lives_on_the_analyst_pages_and_the_modal_is_unclipped(app, clien
 def test_progress_endpoint_requires_login(client):
     r = client.get('/analyst/refresh-progress')
     assert r.status_code in (302, 401)
+
+
+def test_a_refresh_only_starts_from_an_explicit_start_press(app):
+    """Opening the panel must never kick off a 5-10 minute system-wide job.
+
+    People click the button out of curiosity and repeatedly; only the Start
+    button inside the panel may POST to refresh-data.
+    """
+    import pathlib
+
+    src = (pathlib.Path(app.root_path) / 'templates' / 'analyst' / '_refresh_modal.html').read_text(encoding='utf-8')
+    assert 'refreshStartBtn' in src, 'no explicit start control'
+    assert 'data-i18n="analyst.refresh_start"' in src
+    # exactly one place performs the POST: the start handler
+    assert src.count('fetch(START_URL') == 1, 'the start POST must exist exactly once'
+    start_handler = src.index("startBtn.addEventListener")
+    assert src.index('fetch(START_URL') > start_handler, \
+        'the POST must be inside the start handler, never on open'
+    # and opening the panel only reads state
+    open_handler = src.index("btn.addEventListener('click'")
+    body = src[open_handler:start_handler]
+    assert 'fetchState()' in body, 'opening the panel must read the state'
+    assert 'START_URL' not in body, 'opening the panel must not touch the start endpoint'

@@ -1,7 +1,11 @@
-{# Global refresh control: the modal half of the widget - included once, at the end of <body>
-   A modal inside the fixed navbar is clipped by it (and does not exist at all
-   when the navbar is collapsed), which showed as a dimmed page with no panel.
-   The markup is included from base.html at the end of <body> instead. #}
+{# Modal half of the refresh widget (the button half is _refresh_button.html).
+   Included once, at the end of <body>, so it can never be clipped by the fixed
+   navbar.
+
+   Deliberate two-step: pressing "Refresh data" only opens this panel and shows
+   the state. The recalculation starts solely from the Start button inside it,
+   because an accidental or repeated click must not kick off a 5-10 minute
+   whole-system job. #}
 <div class="modal fade" id="refreshModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content term-modal">
@@ -10,7 +14,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div id="refreshLive">
+                <div id="refreshLive" class="d-none">
                     <div class="term-progress"><div class="term-progress-fill" id="refreshBar"></div></div>
                     <div class="term-progress-meta">
                         <span id="refreshStatus" data-i18n="analyst.refresh_starting">Starting…</span>
@@ -22,33 +26,44 @@
                     </p>
                 </div>
 
-                <div id="refreshResult" class="d-none">
-                    <div class="term-result">
-                        <div class="term-result-row">
-                            <span data-i18n="analyst.refresh_finished_at">Finished</span>
-                            <strong id="refreshFinishedAt">–</strong>
+                <div id="refreshIdle">
+                    <p class="term-footnote mb-3" data-i18n="analyst.refresh_intro">
+                        Nothing runs until you press Start. A refresh recalculates prices, performance,
+                        benchmarks, caches and every analyst dashboard and can take 5–10 minutes.
+                    </p>
+
+                    <div id="refreshResult" class="d-none">
+                        <div class="lead-title" data-i18n="analyst.refresh_last_run">Last run</div>
+                        <div class="term-result">
+                            <div class="term-result-row">
+                                <span data-i18n="analyst.refresh_finished_at">Finished</span>
+                                <strong id="refreshFinishedAt">–</strong>
+                            </div>
+                            <div class="term-result-row">
+                                <span data-i18n="analyst.refresh_duration">Duration</span>
+                                <strong id="refreshDuration">–</strong>
+                            </div>
+                            <div class="term-result-row">
+                                <span data-i18n="analyst.refresh_views">Views updated</span>
+                                <strong id="refreshViews">–</strong>
+                            </div>
+                            <div class="term-result-row">
+                                <span data-i18n="analyst.refresh_errors">Errors</span>
+                                <strong id="refreshErrors">–</strong>
+                            </div>
                         </div>
-                        <div class="term-result-row">
-                            <span data-i18n="analyst.refresh_duration">Duration</span>
-                            <strong id="refreshDuration">–</strong>
+                        <div class="term-error d-none" id="refreshErrorBox">
+                            <strong data-i18n="analyst.refresh_failed">Refresh failed</strong>
+                            <pre class="term-log" id="refreshErrorMsg"></pre>
                         </div>
-                        <div class="term-result-row">
-                            <span data-i18n="analyst.refresh_views">Views updated</span>
-                            <strong id="refreshViews">–</strong>
-                        </div>
-                        <div class="term-result-row">
-                            <span data-i18n="analyst.refresh_errors">Errors</span>
-                            <strong id="refreshErrors">–</strong>
-                        </div>
-                    </div>
-                    <div class="term-error d-none" id="refreshErrorBox">
-                        <strong data-i18n="analyst.refresh_failed">Refresh failed</strong>
-                        <pre class="term-log" id="refreshErrorMsg"></pre>
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
                 <a href="#" class="btn btn-sm btn-light d-none" id="refreshReload" data-i18n="analyst.refresh_reload">Reload page</a>
+                <button type="button" class="btn btn-sm btn-success" id="refreshStartBtn">
+                    <i class="bi bi-play-fill"></i> <span data-i18n="analyst.refresh_start">Start refresh</span>
+                </button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="analyst.close">Close</button>
             </div>
         </div>
@@ -63,17 +78,20 @@
         if (!btn || !modalEl || typeof bootstrap === 'undefined') return;
 
         var modal = new bootstrap.Modal(modalEl);
+        var startBtn = document.getElementById('refreshStartBtn');
+        var reloadEl = document.getElementById('refreshReload');
+        var liveBox = document.getElementById('refreshLive');
+        var idleBox = document.getElementById('refreshIdle');
+        var resultBox = document.getElementById('refreshResult');
+        var errorBox = document.getElementById('refreshErrorBox');
+        var errorMsg = document.getElementById('refreshErrorMsg');
         var bar = document.getElementById('refreshBar');
         var pct = document.getElementById('refreshPct');
         var statusEl = document.getElementById('refreshStatus');
         var logEl = document.getElementById('refreshLog');
         var chip = document.getElementById('refreshState');
-        var liveBox = document.getElementById('refreshLive');
-        var resultBox = document.getElementById('refreshResult');
-        var reloadEl = document.getElementById('refreshReload');
-        var errorBox = document.getElementById('refreshErrorBox');
-        var errorMsg = document.getElementById('refreshErrorMsg');
         var timer = null;
+        var startedHere = false;
 
         var STATE_URL = '{{ url_for("analyst.refresh_progress") }}';
         var START_URL = '{{ url_for("analyst.refresh_data") }}';
@@ -83,28 +101,37 @@
             var d = new Date(iso.indexOf('Z') === -1 && iso.indexOf('+') === -1 ? iso + 'Z' : iso);
             return isNaN(d) ? null : d;
         }
-
         function clock(iso) {
             var d = parseDate(iso);
             return d ? d.toLocaleString() : (iso || '–');
         }
-
         function shortTime(iso) {
             var d = parseDate(iso);
             return d ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
         }
-
         function dur(sec) {
             if (sec === null || sec === undefined) return '–';
             sec = Math.round(sec);
-            if (sec < 60) return sec + 's';
-            return Math.floor(sec / 60) + 'm ' + (sec % 60) + 's';
+            return sec < 60 ? sec + 's' : Math.floor(sec / 60) + 'm ' + (sec % 60) + 's';
         }
 
-        function showResult(last) {
+        function showLive() {
+            liveBox.classList.remove('d-none');
+            idleBox.classList.add('d-none');
+            startBtn.classList.add('d-none');
+            reloadEl.classList.add('d-none');
+        }
+
+        function showIdle(last, finishedNow) {
             liveBox.classList.add('d-none');
+            idleBox.classList.remove('d-none');
+            startBtn.classList.remove('d-none');
+            reloadEl.classList.toggle('d-none', !finishedNow);
+            if (!last) {
+                resultBox.classList.add('d-none');
+                return;
+            }
             resultBox.classList.remove('d-none');
-            reloadEl.classList.remove('d-none');
             document.getElementById('refreshFinishedAt').textContent = clock(last.finished_at || last.started_at);
             document.getElementById('refreshDuration').textContent = dur(last.duration_seconds);
             document.getElementById('refreshViews').textContent =
@@ -119,9 +146,7 @@
         }
 
         function renderLive(d) {
-            liveBox.classList.remove('d-none');
-            resultBox.classList.add('d-none');
-            reloadEl.classList.add('d-none');
+            showLive();
             var p = d.progress_pct || 0;
             bar.style.width = Math.max(p, 3) + '%';
             pct.textContent = p + '%';
@@ -137,13 +162,16 @@
             if (d && d.running) {
                 renderLive(d);
                 startPolling();
-            } else if (d && d.last) {
-                showResult(d.last);
+                return;
+            }
+            stopPolling();
+            var finishedNow = startedHere;
+            startedHere = false;
+            showIdle(d && d.last, finishedNow);
+            if (d && d.last) {
                 chip.textContent = (d.last.status === 'completed' ? '✓ ' : '✕ ') + shortTime(d.last.finished_at);
-                stopPolling();
             } else {
                 chip.textContent = '';
-                stopPolling();
             }
         }
 
@@ -152,33 +180,44 @@
                 .then(function (r) { return r.json(); })
                 .catch(function () { return null; });
         }
-
         function poll() { fetchState().then(function (d) { if (d) render(d); }); }
         function startPolling() { if (!timer) timer = setInterval(poll, 2500); }
         function stopPolling() { if (timer) { clearInterval(timer); timer = null; } }
 
+        // Opening the panel never starts anything: it only reports the state.
         btn.addEventListener('click', function () {
             modal.show();
-            fetchState().then(function (d) {
-                if (d && d.running) {
-                    render(d);                      // already running: just show it
-                    return;
-                }
-                return fetch(START_URL, {
-                    method: 'POST',
-                    headers: { 'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || '' }
-                }).then(function (r) { return r.json().catch(function () { return {}; }); })
-                  .then(function (s) {
-                      renderLive({ running: true, message: (s && s.message) || '', progress_pct: 0, logs: [] });
-                      startPolling();
-                  })
-                  .catch(function () { statusEl.textContent = 'Could not start the refresh.'; });
-            });
+            statusEl.textContent = '';
+            fetchState().then(function (d) { render(d || { running: false, last: null }); });
         });
 
-        // Keep the chip (and an open modal) current, whatever page you are on.
+        // The single place a refresh can begin.
+        startBtn.addEventListener('click', function () {
+            startedHere = true;
+            startBtn.disabled = true;
+            fetch(START_URL, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || '' }
+            }).then(function (r) { return r.json().catch(function () { return {}; }); })
+              .then(function (s) {
+                  startBtn.disabled = false;
+                  if (s && s.started === false) {
+                      // somebody else got there first, or the hourly limit: show it
+                      startedHere = false;
+                      return fetchState().then(function (d) { render(d || {}); });
+                  }
+                  renderLive({ running: true, message: (s && s.message) || '', progress_pct: 0, logs: [] });
+                  startPolling();
+              })
+              .catch(function () {
+                  startBtn.disabled = false;
+                  startedHere = false;
+              });
+        });
+
+        // Keep the chip current without ever starting a refresh.
         poll();
-        setInterval(function () { if (!timer) poll(); }, 20000);
+        setInterval(function () { if (!document.hidden) poll(); }, 20000);
     }
 
     if (document.readyState === 'loading') {
