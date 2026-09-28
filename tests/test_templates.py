@@ -85,3 +85,16 @@ def test_tags_are_balanced(path, tag):
     assert abs(opens - closes) <= 2, (
         f"{path.name}: <{tag}> opened {opens}x but closed {closes}x"
     )
+
+
+@pytest.mark.parametrize("path", ALL_TEMPLATES, ids=lambda p: p.name)
+def test_script_tags_are_balanced(path):
+    """An unclosed <script> swallows the next one (its content becomes invalid
+    JS and never runs). This happened when an edit dropped the closing tag of a
+    script, so the scroll-reveal observer never executed."""
+    text = read(path)
+    opens = len(re.findall(r"<script\b", text))
+    closes = text.count("</script>")
+    assert opens == closes, (
+        f"{path.name}: <script> opened {opens}x but closed {closes}x"
+    )
