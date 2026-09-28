@@ -769,6 +769,12 @@
             </p>
         </div>
         
+        <div class="team-photo reveal">
+            <img src="{{ url_for('static', filename='images/team-photo.jpg') }}"
+                 alt="KI Asset Management team" loading="lazy">
+            <span class="team-photo-caption" data-i18n="team.photo_caption">The KI Asset Management team</span>
+        </div>
+
         <div class="team-grid">
             <!-- Adam Kolomazník -->
             <div class="team-card reveal">
@@ -1036,23 +1042,37 @@
         <i class="bi bi-list"></i>
     </button>
 </div>
+
+<!-- Left vertical section rail -->
+<nav class="secrail" id="secrail" aria-label="Sections">
+    {% for sid, label, icon in secnav_items %}
+    <button type="button" class="secrail-dot" data-target="{{ sid }}" aria-label="{{ label }}">
+        <span class="secrail-tip">{{ label }}</span>
+    </button>
+    {% endfor %}
+</nav>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// Section navigation (bottom-right): expandable jump-to menu + back to top.
+// Section navigation: bottom-right "Jump to" menu + left vertical rail.
 (function () {
     var nav = document.getElementById('secnav');
-    if (!nav) return;
-    var panel = document.getElementById('secnavPanel');
-    var toggle = document.getElementById('secnavToggle');
-    var items = Array.prototype.slice.call(nav.querySelectorAll('.secnav-item'));
+    var rail = document.getElementById('secrail');
+    if (!nav && !rail) return;
+
+    var toggle = nav ? document.getElementById('secnavToggle') : null;
+    var items = [].slice.call(document.querySelectorAll('.secnav-item'));
+    var dots = [].slice.call(document.querySelectorAll('.secrail-dot'));
+    var ids = dots.concat(items).map(function (b) { return b.dataset.target; })
+                 .filter(function (v, i, a) { return v && a.indexOf(v) === i; });
     var expanded = false;
 
     function setExpanded(v) {
         expanded = v;
+        if (!nav) return;
         nav.classList.toggle('is-expanded', v);
-        toggle.setAttribute('aria-expanded', v ? 'true' : 'false');
+        if (toggle) toggle.setAttribute('aria-expanded', v ? 'true' : 'false');
     }
     function goTo(id) {
         var el = document.getElementById(id);
@@ -1060,27 +1080,65 @@
         setExpanded(false);
     }
 
-    toggle.addEventListener('click', function () { setExpanded(!expanded); });
-    nav.addEventListener('mouseenter', function () { if (window.matchMedia('(hover: hover)').matches) setExpanded(true); });
-    nav.addEventListener('mouseleave', function () { if (window.matchMedia('(hover: hover)').matches) setExpanded(false); });
-    items.forEach(function (b) { b.addEventListener('click', function () { goTo(b.dataset.target); }); });
-    nav.querySelector('.secnav-top').addEventListener('click', function () { window.scrollTo({ top: 0, behavior: 'smooth' }); setExpanded(false); });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setExpanded(false); });
-
-    function onScroll() { nav.classList.toggle('is-visible', window.scrollY > window.innerHeight * 0.5); }
-    window.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
-
-    if ('IntersectionObserver' in window) {
-        var io = new IntersectionObserver(function (entries) {
-            entries.forEach(function (e) {
-                if (!e.isIntersecting) return;
-                nav.dataset.active = e.target.id;
-                items.forEach(function (b) { b.classList.toggle('is-active', b.dataset.target === e.target.id); });
-            });
-        }, { threshold: 0.2, rootMargin: '-15% 0px -55% 0px' });
-        items.forEach(function (b) { var el = document.getElementById(b.dataset.target); if (el) io.observe(el); });
+    if (nav) {
+        toggle.addEventListener('click', function () { setExpanded(!expanded); });
+        nav.addEventListener('mouseenter', function () { if (window.matchMedia('(hover: hover)').matches) setExpanded(true); });
+        nav.addEventListener('mouseleave', function () { if (window.matchMedia('(hover: hover)').matches) setExpanded(false); });
+        var topBtn = nav.querySelector('.secnav-top');
+        if (topBtn) topBtn.addEventListener('click', function () { window.scrollTo({ top: 0, behavior: 'smooth' }); setExpanded(false); });
     }
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setExpanded(false); });
+    items.concat(dots).forEach(function (b) { b.addEventListener('click', function () { goTo(b.dataset.target); }); });
+
+    // Is the section behind the rail sitting on a dark background?
+    function bgIsDark(el) {
+        var node = el;
+        while (node && node !== document.documentElement) {
+            var m = (window.getComputedStyle(node).backgroundColor || '').match(/rgba?\(([^)]+)\)/);
+            if (m) {
+                var p = m[1].split(',').map(function (x) { return parseFloat(x); });
+                var a = p.length > 3 ? p[3] : 1;
+                if (a > 0.5) {
+                    return ((0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2]) / 255) < 0.5;
+                }
+            }
+            node = node.parentElement;
+        }
+        return false;
+    }
+
+    var lastActive = null;
+    function setActive(id) {
+        if (!id || id === lastActive) return;
+        lastActive = id;
+        if (nav) nav.dataset.active = id;
+        items.forEach(function (b) { b.classList.toggle('is-active', b.dataset.target === id); });
+        dots.forEach(function (b) { b.classList.toggle('is-active', b.dataset.target === id); });
+        var el = document.getElementById(id);
+        if (rail && el) rail.classList.toggle('is-inverted', bgIsDark(el));
+    }
+
+    function update() {
+        var mid = window.innerHeight * 0.5;
+        var current = ids[0];
+        ids.forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el && el.getBoundingClientRect().top <= mid) current = id;
+        });
+        setActive(current);
+        var past = window.scrollY > window.innerHeight * 0.4;
+        if (nav) nav.classList.toggle('is-visible', past);
+        if (rail) rail.classList.toggle('is-visible', past);
+    }
+
+    var ticking = false;
+    window.addEventListener('scroll', function () {
+        if (ticking) return;
+        ticking = true;
+        window.requestAnimationFrame(function () { update(); ticking = false; });
+    }, { passive: true });
+    window.addEventListener('resize', update);
+    update();
 })();
 
 // Scroll reveal animation
