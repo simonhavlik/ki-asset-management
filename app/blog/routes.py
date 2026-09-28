@@ -119,6 +119,9 @@ def _read_uploaded_pdf(pdf_path):
         return None, None
     if not os.path.isfile(full_path):
         return None, None
+    # Only real PDFs go into the inline-PDF storage/columns.
+    if not full_path.lower().endswith('.pdf'):
+        return None, None
     try:
         with open(full_path, 'rb') as fh:
             return fh.read(), secure_filename(os.path.basename(full_path))
@@ -1203,6 +1206,10 @@ def generate_from_pdfs_api():
                 
             # Security: ensure path doesn't traverse outside uploads
             if '..' in path or path.startswith('/'):
+                continue
+
+            # Only PDFs can be parsed as PDFs (a .pptx breaks PDFium).
+            if not path.lower().endswith('.pdf'):
                 continue
                 
             full_path = os.path.join(current_app.root_path, 'static', path)

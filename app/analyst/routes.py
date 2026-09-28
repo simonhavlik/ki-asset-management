@@ -22,6 +22,75 @@ def before_request():
         # Admins can also view analyst pages, but we may redirect to admin dashboard?
         pass
 
+# Indices used as the "closest comparison" for a coverage region.
+_COVERAGE_INDICES = {
+    'China':  {'ticker': 'MCHI', 'label': 'MSCI China', 'note': 'Offshore Chinese equities (Tencent, Alibaba, ...)'},
+    'US':     {'ticker': 'SPY',  'label': 'S&P 500', 'note': 'US large caps'},
+    'Global': {'ticker': 'EEMS', 'label': 'MSCI EM Small Cap (EEMS)', 'note': 'Emerging-market small caps'},
+}
+_CHINA_SUFFIXES = ('.SS', '.SZ', '.HK')
+_CHINA_ADRS = {
+    'BILI', 'TUYA', 'TCEHY', 'BABA', 'JD', 'PDD', 'NIO', 'XPEV', 'LI', 'BEKE',
+    'TCOM', 'NTES', 'VIPS', 'YUMC', 'EDU', 'GOTU', 'ZTO', 'FUTU', 'TIGR', 'QFIN',
+    'HTHT', 'ATHM', 'WB', 'BIDU', 'MOMO', 'HUYA', 'DOYU', 'IQ', 'BZUN', 'KC',
+    'API', 'NOAH', 'LX', 'TAL', 'CHWY', 'CHA', 'BZAI',
+}
+
+
+def get_coverage_benchmark(analyses):
+    """Pick the index that best matches what an analyst actually covers.
+
+    The rule is fixed and disclosed: the benchmark matches the *largest* share
+    of the analyst's covered tickers (China / US / other). A China-focused
+    analyst is fairly measured against a China index rather than the S&P 500.
+    Tie-break order is China > US > Global; the UI shows the counts.
+    """
+    tickers = []
+    for a in analyses:
+        company = getattr(a, 'company', None)
+        if company and company.ticker_symbol:
+            tickers.append(company.ticker_symbol.strip().upper())
+
+    if not tickers:
+        return {**_COVERAGE_INDICES['Global'], 'region': 'Global', 'matched': 0, 'total': 0}
+
+    china = sum(1 for t in tickers if t.endswith(_CHINA_SUFFIXES) or t in _CHINA_ADRS)
+    # Plain symbols (no exchange suffix) that are not China ADRs are US listings.
+    us = sum(1 for t in tickers if '.' not in t and t not in _CHINA_ADRS)
+    other = len(tickers) - china - us
+
+    if china > 0 and china >= max(us, other):
+        region, matched = 'China', china
+    elif us > 0 and us >= other:
+        region, matched = 'US', us
+    else:
+        region, matched = 'Global', other
+    return {**_COVERAGE_INDICES[region], 'region': region, 'matched': matched, 'total': len(tickers),
+            'counts': {'China': china, 'US': us, 'Other': other}}
+
+
+def _risk_metrics(values):
+    """Volatility, max drawdown and a Sharpe-like ratio from a cumulative % series."""
+    if not values or len(values) < 3:
+        return None
+    rets = [values[i] - values[i - 1] for i in range(1, len(values))]
+    mean = sum(rets) / len(rets)
+    var = sum((r - mean) ** 2 for r in rets) / len(rets)
+    vol = var ** 0.5
+    peak = values[0]
+    mdd = 0.0
+    for v in values:
+        peak = max(peak, v)
+        mdd = min(mdd, v - peak)
+    return {
+        'total_return': round(values[-1], 2),
+        'volatility': round(vol, 2),
+        'max_drawdown': round(mdd, 2),
+        'sharpe': round(mean / vol, 2) if vol else None,
+        'points': len(values),
+    }
+
+
 def generate_ai_insights(performance, comparison_data):
     """Generate AI-powered insights based on performance data."""
     insights = []
@@ -402,7 +471,7 @@ def _get_benchmark_series_from_cache(dates, ticker):
     """
     series = []
     
-    if not dates:
+    if dates is None or len(dates) == 0:
         return series
     
     # Normalize dates to datetime objects
@@ -627,20 +696,61 @@ def dashboard():
             analyst_rank = i
             break
     
-    # Get benchmark comparisons
-    spy_return = 15.0  # S&P 500 approximate
-    vt_return = 12.0   # FTSE All-World approximate
-    
-    user_return = perf.get('avg_return') or 0
+    # Closest comparison index for this analyst's coverage (China -> CSI 300),
+    # plus the real return series from the cached benchmark prices.
+    primary_index = get_coverage_benchmark(my_analyses)
+
+    performance_chart = None
+    risk_metrics = None
+    chart_returns = {}
+    approved_ids = [a.id for a in approved]
+    if approved_ids:
+        try:
+            series = get_portfolio_series_for_analyses(approved_ids)
+            if series and series.get('dates'):
+                import pandas as pd
+                dates = pd.to_datetime(series['dates'])
+                primary_series = _get_benchmark_series_from_cache(dates, primary_index['ticker'])
+                port = series.get('portfolio_series') or []
+                performance_chart = {
+                    'dates': series['dates'],
+                    'portfolio': port,
+                    'primary': primary_series,
+                    'primary_label': primary_index['label'],
+                    'spy': series.get('spy_series'),
+                    'eems': series.get('eems_series'),
+                }
+                risk_metrics = _risk_metrics(port)
+
+                def _last(seq):
+                    return seq[-1] if seq else None
+
+                chart_returns = {
+                    'portfolio': _last(port),
+                    'primary': _last(primary_series),
+                    'spy': _last(series.get('spy_series')),
+                }
+        except Exception as e:
+            logger.warning(f"Could not build performance chart: {e}")
+
+    def _diff(a, b):
+        return (a - b) if (a is not None and b is not None) else None
+
     benchmark_comparison = {
-        'spy_diff': user_return - spy_return,
-        'vt_diff': user_return - vt_return
+        'primary_ticker': primary_index['ticker'],
+        'primary_label': primary_index['label'],
+        'primary_return': chart_returns.get('primary'),
+        'portfolio_return': chart_returns.get('portfolio'),
+        'primary_diff': _diff(chart_returns.get('portfolio'), chart_returns.get('primary')),
+        'spy_diff': _diff(chart_returns.get('portfolio'), chart_returns.get('spy')),
+        'vt_diff': None,
     }
-    
+
     comparison_data = {
         'team_avg': team_avg_return,
-        'spy_diff': benchmark_comparison['spy_diff'],
-        'vt_diff': benchmark_comparison['vt_diff']
+        'spy_diff': benchmark_comparison['spy_diff'] or 0,
+        'primary_diff': benchmark_comparison['primary_diff'],
+        'primary_label': primary_index['label'],
     }
     
     # Generate AI insights
@@ -666,6 +776,9 @@ def dashboard():
                            analyst_rank=analyst_rank,
                            total_analysts=total_analysts,
                            benchmark_comparison=benchmark_comparison,
+                           primary_index=primary_index,
+                           performance_chart=performance_chart,
+                           risk_metrics=risk_metrics,
                            ai_insights=ai_insights,
                            stock_impacts=stock_impacts,
                            admin_stats=admin_stats,

@@ -167,85 +167,72 @@
     <div class="row">
         <!-- Left Column -->
         <div class="col-lg-8">
-            <!-- Performance Comparison -->
-            <div class="comparison-card mb-4">
-                <div class="comparison-header">
-                    <i class="bi bi-people"></i>
-                    <h5 class="comparison-title">How You Compare</h5>
+            <!-- Performance Terminal -->
+            <div class="term-panel mb-4">
+                <div class="term-bar">
+                    <span class="term-dots"><i></i><i></i><i></i></span>
+                    <span class="term-title">PERFORMANCE TERMINAL</span>
+                    <span class="term-sym">{{ primary_index.ticker }}</span>
+                    <span class="term-chg {{ 'up' if (benchmark_comparison.primary_diff or 0) >= 0 else 'down' }}">
+                        {{ '\u25b2' if (benchmark_comparison.primary_diff or 0) >= 0 else '\u25bc' }}
+                        {{ "%+.1f"|format(benchmark_comparison.primary_diff or 0) }}%
+                    </span>
                 </div>
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="comparison-item">
-                            <div>
-                                <div class="comparison-label">Your Average Return</div>
-                                <div class="comparison-bar">
-                                    <div class="comparison-bar-fill {% if (performance.avg_return or 0) > 0 %}positive{% elif (performance.avg_return or 0) < 0 %}negative{% else %}neutral{% endif %}" 
-                                         style="width: {{ min(abs(performance.avg_return or 0), 100) }}%"></div>
-                                </div>
-                            </div>
-                            <span class="comparison-value {% if (performance.avg_return or 0) > 0 %}positive{% elif (performance.avg_return or 0) < 0 %}negative{% else %}neutral{% endif %}">
-                                {{ "%.1f"|format(performance.avg_return or 0) }}%
-                            </span>
-                        </div>
-                        <div class="comparison-item">
-                            <div>
-                                <div class="comparison-label">Team Average</div>
-                                <div class="comparison-bar">
-                                    <div class="comparison-bar-fill {% if (team_avg_return or 0) > 0 %}positive{% elif (team_avg_return or 0) < 0 %}negative{% else %}neutral{% endif %}" 
-                                         style="width: {{ min(abs(team_avg_return or 0), 100) }}%"></div>
-                                </div>
-                            </div>
-                            <span class="comparison-value {% if (team_avg_return or 0) > 0 %}positive{% elif (team_avg_return or 0) < 0 %}negative{% else %}neutral{% endif %}">
-                                {{ "%.1f"|format(team_avg_return or 0) }}%
-                            </span>
-                        </div>
-                        <div class="comparison-item">
-                            <div>
-                                <div class="comparison-label">Best Analyst</div>
-                                <div class="comparison-bar">
-                                    <div class="comparison-bar-fill positive" 
-                                         style="width: {{ min(abs(best_analyst_return or 0), 100) }}%"></div>
-                                </div>
-                            </div>
-                            <span class="comparison-value positive">
-                                {{ "%.1f"|format(best_analyst_return or 0) }}%
-                            </span>
-                        </div>
+
+                <div class="term-kpis">
+                    <div class="term-kpi">
+                        <span class="term-kpi-label">Portfolio return</span>
+                        <span class="term-kpi-value {{ 'up' if (benchmark_comparison.portfolio_return or 0) >= 0 else 'down' }}">
+                            {% if benchmark_comparison.portfolio_return is not none %}{{ "%+.1f"|format(benchmark_comparison.portfolio_return) }}%{% else %}\u2014{% endif %}
+                        </span>
                     </div>
-                    <div class="col-md-6">
-                        <div class="comparison-item">
-                            <div>
-                                <div class="comparison-label">vs S&P 500 (SPY)</div>
-                                <div class="comparison-bar">
-                                    <div class="comparison-bar-fill {% if (benchmark_comparison.spy_diff or 0) > 0 %}positive{% elif (benchmark_comparison.spy_diff or 0) < 0 %}negative{% else %}neutral{% endif %}" 
-                                         style="width: {{ min(abs(benchmark_comparison.spy_diff or 0) * 2, 100) }}%"></div>
-                                </div>
-                            </div>
-                            <span class="comparison-value {% if (benchmark_comparison.spy_diff or 0) > 0 %}positive{% elif (benchmark_comparison.spy_diff or 0) < 0 %}negative{% else %}neutral{% endif %}">
-                                {{ "+%.1f"|format(benchmark_comparison.spy_diff or 0) if (benchmark_comparison.spy_diff or 0) > 0 else "%.1f"|format(benchmark_comparison.spy_diff or 0) }}%
-                            </span>
-                        </div>
-                        <div class="comparison-item">
-                            <div>
-                                <div class="comparison-label">vs FTSE All-World (VT)</div>
-                                <div class="comparison-bar">
-                                    <div class="comparison-bar-fill {% if (benchmark_comparison.vt_diff or 0) > 0 %}positive{% elif (benchmark_comparison.vt_diff or 0) < 0 %}negative{% else %}neutral{% endif %}" 
-                                         style="width: {{ min(abs(benchmark_comparison.vt_diff or 0) * 2, 100) }}%"></div>
-                                </div>
-                            </div>
-                            <span class="comparison-value {% if (benchmark_comparison.vt_diff or 0) > 0 %}positive{% elif (benchmark_comparison.vt_diff or 0) < 0 %}negative{% else %}neutral{% endif %}">
-                                {{ "+%.1f"|format(benchmark_comparison.vt_diff or 0) if (benchmark_comparison.vt_diff or 0) > 0 else "%.1f"|format(benchmark_comparison.vt_diff or 0) }}%
-                            </span>
-                        </div>
-                        <div class="comparison-item">
-                            <div>
-                                <div class="comparison-label">Your Rank</div>
-                            </div>
-                            <span class="comparison-value">
-                                #{{ analyst_rank }} of {{ total_analysts }}
-                            </span>
-                        </div>
+                    <div class="term-kpi">
+                        <span class="term-kpi-label">{{ primary_index.label }}</span>
+                        <span class="term-kpi-value muted">
+                            {% if benchmark_comparison.primary_return is not none %}{{ "%+.1f"|format(benchmark_comparison.primary_return) }}%{% else %}\u2014{% endif %}
+                        </span>
                     </div>
+                    <div class="term-kpi">
+                        <span class="term-kpi-label">Alpha vs closest index</span>
+                        <span class="term-kpi-value {{ 'up' if (benchmark_comparison.primary_diff or 0) >= 0 else 'down' }}">
+                            {% if benchmark_comparison.primary_diff is not none %}{{ "%+.1f"|format(benchmark_comparison.primary_diff) }}%{% else %}\u2014{% endif %}
+                        </span>
+                    </div>
+                    <div class="term-kpi">
+                        <span class="term-kpi-label">Rank</span>
+                        <span class="term-kpi-value">#{{ analyst_rank }}<small>/{{ total_analysts }}</small></span>
+                    </div>
+                    <div class="term-kpi">
+                        <span class="term-kpi-label">Win rate</span>
+                        <span class="term-kpi-value">{% if performance.win_rate is not none %}{{ "%.0f"|format(performance.win_rate) }}%{% else %}\u2014{% endif %}</span>
+                    </div>
+                    <div class="term-kpi">
+                        <span class="term-kpi-label">Max drawdown</span>
+                        <span class="term-kpi-value down">{% if risk_metrics %}{{ "%.1f"|format(risk_metrics.max_drawdown) }}%{% else %}\u2014{% endif %}</span>
+                    </div>
+                    <div class="term-kpi">
+                        <span class="term-kpi-label">Volatility</span>
+                        <span class="term-kpi-value muted">{% if risk_metrics %}{{ "%.2f"|format(risk_metrics.volatility) }}{% else %}\u2014{% endif %}</span>
+                    </div>
+                    <div class="term-kpi">
+                        <span class="term-kpi-label">Sharpe (like)</span>
+                        <span class="term-kpi-value {{ 'up' if risk_metrics and (risk_metrics.sharpe or 0) >= 0 else 'down' }}">
+                            {% if risk_metrics and risk_metrics.sharpe is not none %}{{ "%.2f"|format(risk_metrics.sharpe) }}{% else %}\u2014{% endif %}
+                        </span>
+                    </div>
+                </div>
+
+                {% if performance_chart %}
+                <div class="term-chart">
+                    <canvas id="analystPerfChart" height="260"></canvas>
+                </div>
+                {% endif %}
+
+                <div class="term-note">
+                    <i class="bi bi-info-circle"></i>
+                    Closest index for your coverage: <strong>{{ primary_index.label }}</strong>
+                    ({{ primary_index.matched }}/{{ primary_index.total }} covered tickers classified as {{ primary_index.region }}).
+                    S&amp;P 500 and EEMS are shown for reference only.
                 </div>
             </div>
 
@@ -468,14 +455,51 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 // Stock row click handler for impact isolation
 document.querySelectorAll('.stock-row').forEach(row => {
     row.addEventListener('click', function() {
-        const ticker = this.dataset.ticker;
-        // Could open a modal with detailed impact analysis
-        console.log('Clicked on stock:', ticker);
+        console.log('Clicked on stock:', this.dataset.ticker);
     });
 });
 </script>
+{% if performance_chart %}
+<script>
+(function () {
+    var el = document.getElementById('analystPerfChart');
+    if (!el || typeof Chart === 'undefined') return;
+    var data = {
+        dates: {{ performance_chart.dates | tojson }},
+        portfolio: {{ performance_chart.portfolio | tojson }},
+        primary: {{ performance_chart.primary | tojson }},
+        spy: {{ performance_chart.spy | tojson }}
+    };
+    new Chart(el.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: data.dates,
+            datasets: [
+                { label: 'Your portfolio', data: data.portfolio, borderColor: '#1a9c5e', backgroundColor: 'rgba(26,156,94,0.12)', borderWidth: 2.5, fill: true, tension: 0.35, pointRadius: 0 },
+                { label: '{{ performance_chart.primary_label }}', data: data.primary, borderColor: '#b8860b', backgroundColor: 'transparent', borderWidth: 2, borderDash: [6, 4], tension: 0.35, pointRadius: 0 },
+                { label: 'S&P 500', data: data.spy, borderColor: '#9aa5b1', backgroundColor: 'transparent', borderWidth: 1.5, tension: 0.35, pointRadius: 0 }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { labels: { color: '#c5cdd4', boxWidth: 12 } },
+                tooltip: { callbacks: { label: function (c) { return c.dataset.label + ': ' + (c.parsed.y >= 0 ? '+' : '') + c.parsed.y.toFixed(1) + '%'; } } }
+            },
+            scales: {
+                x: { ticks: { color: '#6b7682', maxTicksLimit: 6 }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                y: { ticks: { color: '#6b7682', callback: function (v) { return v + '%'; } }, grid: { color: 'rgba(255,255,255,0.05)' } }
+            }
+        }
+    });
+})();
+</script>
+{% endif %}
 {% endblock %}

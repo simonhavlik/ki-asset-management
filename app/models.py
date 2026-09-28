@@ -424,8 +424,21 @@ class BlogPost(db.Model):
         return self.status == 'published' and self.is_public and self.published_at
     
     @property
+    def primary_file_ext(self):
+        """Lower-case extension of the primary attached file ('' if unknown)."""
+        base = (self.pdf_filename or self.pdf_path or '').lower().split('?')[0].rsplit('/', 1)[-1]
+        return base.rsplit('.', 1)[-1] if '.' in base else ''
+
+    @property
     def is_pdf_post(self):
-        """Check if this is a PDF-only blog post with accessible PDF."""
+        """True only when the primary file is an inline-viewable PDF.
+
+        Presentations (.pptx/.ppt) are downloadable, not iframe-renderable, so
+        they must not take the inline-PDF code path.
+        """
+        ext = self.primary_file_ext
+        if ext and ext != 'pdf':
+            return False
         # Database PDF always works
         if self.pdf_binary:
             return True

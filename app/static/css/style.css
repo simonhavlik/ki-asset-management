@@ -2611,3 +2611,138 @@ canvas {
         height: 160px;
     }
 }
+
+/* -----------------------------------------------------------------
+   Analyst dashboard - performance terminal
+   ----------------------------------------------------------------- */
+.term-panel {
+    background: #0f1419;
+    border: 1px solid #1a2028;
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    box-shadow: 0 22px 44px -24px rgba(15, 20, 25, 0.55);
+    color: #e6ebef;
+}
+
+.term-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.9rem;
+    background: linear-gradient(180deg, #171d24, #11161c);
+    border-bottom: 1px solid #1a2028;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+}
+
+.term-dots {
+    display: inline-flex;
+    gap: 0.35rem;
+}
+
+.term-dots i {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.term-dots i:nth-child(1) { background: #ff5f57; }
+.term-dots i:nth-child(2) { background: #febc2e; }
+.term-dots i:nth-child(3) { background: #28c840; }
+
+.term-title { color: #c5cdd4; font-weight: 700; }
+.term-sym { color: #2cce7e; font-weight: 700; }
+.term-chg { margin-left: auto; font-weight: 700; }
+.term-chg.up { color: #2cce7e; }
+.term-chg.down { color: #ff6b6b; }
+
+.term-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1px;
+    background: #1a2028;
+}
+
+.term-kpi {
+    background: #0f1419;
+    padding: 0.85rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.term-kpi-label {
+    font-size: 0.64rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #6b7682;
+    font-weight: 600;
+}
+
+.term-kpi-value {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #e6ebef;
+}
+
+.term-kpi-value small {
+    font-size: 0.7rem;
+    color: #6b7682;
+    font-weight: 600;
+}
+
+.term-kpi-value.up { color: #2cce7e; }
+.term-kpi-value.down { color: #ff6b6b; }
+.term-kpi-value.muted { color: #9aa5b1; }
+
+.term-chart {
+    height: 300px;
+    padding: 1rem 1rem 0.5rem;
+    background: #0f1419;
+}
+
+.term-note {
+    padding: 0.7rem 1rem 0.9rem;
+    font-size: 0.72rem;
+    color: #6b7682;
+    border-top: 1px solid #1a2028;
+}
+
+.term-note strong { color: #c5cdd4; }
+
+@media (max-width: 767.98px) {
+    .term-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .term-chart { height: 240px; }
+}
+
+/* Non-PDF primary document (e.g. PowerPoint): download card */
+.doc-download {
+    text-align: center;
+    padding: 2.5rem 1.5rem;
+    border: 1px dashed var(--color-gray-300);
+    border-radius: var(--radius-xl);
+    background: var(--color-cream);
+    color: var(--color-gray-600);
+}
+
+.doc-download i {
+    font-size: 2.6rem;
+    color: var(--primary-green);
+    display: block;
+    margin-bottom: 0.75rem;
+}
+
+.doc-download h4 {
+    font-size: 1.15rem;
+    color: var(--color-gray-900);
+    margin-bottom: 0.5rem;
+}
+
+.doc-download p {
+    max-width: 440px;
+    margin: 0 auto 1.25rem;
+    font-size: 0.9rem;
+}
