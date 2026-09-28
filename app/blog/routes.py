@@ -466,9 +466,7 @@ def edit_post(post_id):
         category = request.form.get('category', '').strip()
         tags = request.form.get('tags', '').strip()
         content_type = request.form.get('content_type', 'html')
-        doc_type = (request.form.get('doc_type', 'research') or 'research').strip().lower()
-        if doc_type not in ('research', 'presentation'):
-            doc_type = 'research'
+        doc_type_raw = request.form.get('doc_type')  # None when the form omits it
         og_image = request.form.get('og_image', '').strip()
         is_public = request.form.get('is_public') == 'on'
         is_featured = request.form.get('is_featured') == 'on'
@@ -511,7 +509,11 @@ def edit_post(post_id):
         blog_post.category = category if category else None
         blog_post.tags = tags if tags else None
         blog_post.content_type = content_type
-        blog_post.doc_type = doc_type
+        # Only change the document type when the form actually sent one; older or
+        # cached editor pages do not include doc_type and must not reset it.
+        if doc_type_raw is not None:
+            _dt = doc_type_raw.strip().lower()
+            blog_post.doc_type = _dt if _dt in ('research', 'presentation') else 'research'
         blog_post.og_image = og_image if og_image else None
         blog_post.pdf_path = pdf_path if pdf_path else None
         pdf_bytes, pdf_name = _read_uploaded_pdf(pdf_path)
