@@ -291,10 +291,11 @@ def register_cli(app):
                       f'database host will deliver it')
 
     @app.cli.command('mail-status')
-    def mail_status():
+    @click.option('--check', is_flag=True, help='Also try the Gmail API credentials for real.')
+    def mail_status(check):
         """Show the mail configuration and how deep the outbox is.
 
-        Example: flask mail-status
+        Example: flask mail-status --check
         """
         from .email_service import outbox_pending_count
 
@@ -315,6 +316,11 @@ def register_cli(app):
         show('outbox pending', pending if pending is not None else 'unavailable')
         from .email_service import _provider_chain
         show('provider order', ' -> '.join(_provider_chain()))
+
+        if check:
+            from .email_service import check_gmail_api
+            ok, detail = check_gmail_api()
+            show('gmail api check', f'OK - {detail}' if ok else f'FAILED - {detail}')
 
     @app.cli.command('send-outbox')
     @click.option('--limit', default=20, help='Maximum number of messages to retry.')

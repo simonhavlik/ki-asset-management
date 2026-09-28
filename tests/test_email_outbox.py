@@ -209,3 +209,30 @@ def test_drain_outbox_gives_up_after_max_attempts(app, monkeypatch):
         row = EmailOutbox.query.first()
         assert row.status == 'failed', 'must stop retrying a permanently broken send'
         assert row.attempts == EmailOutbox.MAX_ATTEMPTS
+
+
+def test_check_gmail_api_reports_bad_refresh_token(app, monkeypatch):
+    """A revoked/expired refresh token must be diagnosable, not a mystery."""
+    import app.email_service as es
+
+    es._gmail_token.update({'value': None, 'expires_at': 0.0})
+    monkeypatch.setattr(es.requests, 'post', lambda url, **kw: _FakeResponse(
+        400, text='{"error": "invalid_grant", "error_description": "Token has been expired or revoked."}'))
+    _configure_gmail(app)
+
+    with app.app_context():
+        ok, detail = es.check_gmail_api()
+    assert ok is False
+    assert 'invalid_grant' in detail
+    assert '7 days' in detail, 'the message must explain the Testing-mode trap'
+
+
+def test_check_gmail_api_reports_success(app, monkeypatch):
+    import app.email_service as es
+
+    _fake_google(monkeypatch)
+    _configure_gmail(app)
+    with app.app_context():
+        ok, detail = es.check_gmail_api()
+    assert ok is True
+    assert 'access token obtained' in detail

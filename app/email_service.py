@@ -163,7 +163,16 @@ def _gmail_access_token():
         timeout=10,
     )
     if resp.status_code != 200:
-        raise RuntimeError(f'token endpoint returned {resp.status_code}: {resp.text[:200]}')
+        body = resp.text[:300]
+        hint = ''
+        if 'invalid_grant' in body:
+            hint = (
+                ' - the refresh token was rejected. Most common cause: the OAuth client is '
+                'External and still in "Testing", and Google revokes those refresh tokens '
+                'after 7 days. Create/keep the client as Internal (project owned by the '
+                'Workspace account) and re-run scripts/gmail_oauth_setup.py.'
+            )
+        raise RuntimeError(f'token endpoint returned {resp.status_code}: {body}{hint}')
     payload = resp.json()
     if 'access_token' not in payload:
         raise RuntimeError(f'token endpoint returned no access_token: {str(payload)[:200]}')
@@ -171,6 +180,15 @@ def _gmail_access_token():
     _gmail_token['value'] = payload['access_token']
     _gmail_token['expires_at'] = now + int(payload.get('expires_in', 3600))
     return _gmail_token['value']
+
+
+def check_gmail_api():
+    """Prove the Gmail API credentials work. Returns (ok, detail)."""
+    try:
+        token = _gmail_access_token()
+        return True, f'access token obtained ({token[:10]}...)'
+    except Exception as e:
+        return False, str(e)[:300]
 
 
 def _send_gmail_api(to, subject, body, html=None):
