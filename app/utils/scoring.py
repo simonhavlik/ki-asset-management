@@ -101,12 +101,28 @@ def last_term(ref: date | None = None) -> date:
     return shift_term(current_term(ref), -1)
 
 
-def term_choices(back: int = 8, ref: date | None = None) -> list[dict]:
-    """All time, then the current term, the previous one, and older ones."""
+def earliest_analysis_date() -> date | None:
+    """Oldest analysis in the database, so the term list does not offer empty
+    periods from years before the club had any data."""
+    try:
+        return db.session.query(func.min(Analysis.analysis_date)).scalar()
+    except Exception:
+        return None
+
+
+def term_choices(back: int = 12, ref: date | None = None,
+                 earliest: date | None = None) -> list[dict]:
+    """All time, then the current term, the previous one, and older ones that
+    can actually contain data."""
     this = current_term(ref)
+    if earliest is None:
+        earliest = earliest_analysis_date()
+    oldest = term_start_for(earliest) if earliest else shift_term(this, -back)
     choices = [{'key': ALL_TIME, 'label_key': 'scoring.all_time', 'label': 'All time'}]
     for i in range(back + 1):
         start = shift_term(this, -i)
+        if start < oldest:
+            break
         first, last = term_bounds(start)
         key = term_key(start)
         choices.append({
@@ -121,8 +137,28 @@ def term_choices(back: int = 8, ref: date | None = None) -> list[dict]:
     return choices
 
 
-def resolve_term(key: str | None, ref: date | None = None) -> tuple[date | None, date | None]:
-    """Map a ``?term=`` key to (start, end); (None, None) means all time."""
+def _parse_date(value: str | None) -> date | None:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value.strip())
+    except Exception:
+        return None
+
+
+def resolve_term(key: str | None, ref: date | None = None,
+                 date_from: str | None = None, date_to: str | None = None
+                 ) -> tuple[date | None, date | None]:
+    """Map a ``?term=`` key to (start, end); (None, None) means all time.
+
+    ``term=custom`` uses the from/to date inputs, so any window is possible, not
+    just the six-month terms.
+    """
+    if key == 'custom':
+        start, end = _parse_date(date_from), _parse_date(date_to)
+        if start and end and start > end:
+            start, end = end, start
+        return start, end
     if not key or key == ALL_TIME:
         return None, None
     if key == 'current':
@@ -167,6 +203,12 @@ def _activity_rows(start: date | None, end: date | None) -> dict[int, dict]:
             User.email.label('email'),
             func.count(func.distinct(Analysis.id)).label('total'),
             func.sum(case((Analysis.status == 'On Watchlist', 1), else_=0)).label('approved'),
+            # distinct companies, not analyses: one analyst covering the same name
+            # three times has still added one company to the portfolio
+            func.count(func.distinct(case((Analysis.is_in_portfolio.is_(True),
+                                           Analysis.company_id)))).label('portfolio_companies'),
+            func.count(func.distinct(case((Analysis.status == 'On Watchlist',
+                                           Analysis.company_id)))).label('approved_companies'),
         )
         .select_from(Analysis)
         .join(analysis_analysts, analysis_analysts.c.analysis_id == Analysis.id)
@@ -186,6 +228,8 @@ def _activity_rows(start: date | None, end: date | None) -> dict[int, dict]:
             'name': _name(row.full_name, row.email),
             'total': int(row.total or 0),
             'approved': int(row.approved or 0),
+            'portfolio_companies': int(row.portfolio_companies or 0),
+            'approved_companies': int(row.approved_companies or 0),
             'avg_return': None,
             'wins': 0,
             'scored': 0,
@@ -260,6 +304,8 @@ def leaderboards(start: date | None = None, end: date | None = None,
         row.setdefault('avg_return', None)
         row.setdefault('wins', 0)
         row.setdefault('scored', 0)
+        row.setdefault('portfolio_companies', 0)
+        row.setdefault('approved_companies', 0)
 
     entries = list(merged.values())
 
@@ -273,6 +319,16 @@ def leaderboards(start: date | None = None, end: date | None = None,
         if e['total']:
             by_total.append({**e, 'value': e['total'],
                              'detail': f"{e['approved']} board approved"})
+    by_portfolio = []
+    for e in entries:
+        if e['portfolio_companies']:
+            by_portfolio.append({**e, 'value': e['portfolio_companies'],
+                                 'detail': f"{e['total']} analyses"})
+    by_approved_companies = []
+    for e in entries:
+        if e['approved_companies']:
+            by_approved_companies.append({**e, 'value': e['approved_companies'],
+                                          'detail': f"{e['approved']} approved analyses"})
     by_return = []
     for e in entries:
         if e['avg_return'] is not None and e['scored']:
@@ -293,6 +349,10 @@ def leaderboards(start: date | None = None, end: date | None = None,
                                reverse=True, fmt=lambda v: f'{v:g}'),
         'most_analyses': _rank(by_total, lambda e: (e['value'], e['name']),
                                reverse=True, fmt=lambda v: f'{v:g}'),
+        'portfolio_companies': _rank(by_portfolio, lambda e: (e['value'], e['name']),
+                                     reverse=True, fmt=lambda v: f'{v:g}'),
+        'approved_companies': _rank(by_approved_companies, lambda e: (e['value'], e['name']),
+                                    reverse=True, fmt=lambda v: f'{v:g}'),
         'top_performance': _rank(by_return, lambda e: (e['value'], e['name']),
                                  reverse=True, fmt=lambda v: f'{v:+.1f}%'),
         'best_win_rate': _rank(by_winrate, lambda e: (e['value'], e['scored'], e['name']),
@@ -300,13 +360,17 @@ def leaderboards(start: date | None = None, end: date | None = None,
     }
 
 
-def term_overview(key: str | None = None, ref: date | None = None) -> dict:
-    """Everything the template needs for the selected term."""
-    start, end = resolve_term(key, ref)
+def term_overview(key: str | None = None, ref: date | None = None,
+                  date_from: str | None = None, date_to: str | None = None) -> dict:
+    """Everything the template needs for the selected term or custom range."""
+    start, end = resolve_term(key, ref, date_from, date_to)
     data = leaderboards(start, end)
-    if start is None:
+    if start is None and end is None:
         label = 'All time'
         label_key = 'scoring.all_time'
+    elif key == 'custom':
+        label = f'{start.isoformat() if start else "…"} – {end.isoformat() if end else "…"}'
+        label_key = None
     else:
         label = term_label(start)
         label_key = None

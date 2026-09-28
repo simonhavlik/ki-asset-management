@@ -1179,7 +1179,9 @@ def overview():
     # term via ?term=. Cheap aggregate queries, memoised for a few minutes.
     from ..utils.scoring import term_choices
     scoring_key = request.args.get('term') or 'current'
-    scoring = _memo_term_scoring(scoring_key)
+    date_from = request.args.get('from')
+    date_to = request.args.get('to')
+    scoring = _memo_term_scoring(scoring_key, date_from, date_to)
 
     return render_template('analyst/overview.html',
                            current_filter=current_filter,
@@ -1199,6 +1201,8 @@ def overview():
                            needs_refresh=needs_refresh,
                            scoring=scoring,
                            scoring_key=scoring_key,
+                           scoring_from=date_from or (scoring['start'] or ''),
+                           scoring_to=date_to or (scoring['end'] or ''),
                            term_choices=term_choices())
 
 
@@ -1208,15 +1212,16 @@ _TERM_SCORING_CACHE: Dict[str, Any] = {}
 _TERM_SCORING_TTL_SECONDS = 300
 
 
-def _memo_term_scoring(key: str):
+def _memo_term_scoring(key: str, date_from: str | None = None, date_to: str | None = None):
     from datetime import datetime as _dt
     from ..utils.scoring import term_overview
-    hit = _TERM_SCORING_CACHE.get(key)
+    cache_key = f'{key}|{date_from or ""}|{date_to or ""}'
+    hit = _TERM_SCORING_CACHE.get(cache_key)
     now = _dt.utcnow()
     if hit and (now - hit[0]).total_seconds() < _TERM_SCORING_TTL_SECONDS:
         return hit[1]
-    data = term_overview(key)
-    _TERM_SCORING_CACHE[key] = (now, data)
+    data = term_overview(key, date_from=date_from, date_to=date_to)
+    _TERM_SCORING_CACHE[cache_key] = (now, data)
     return data
 
 

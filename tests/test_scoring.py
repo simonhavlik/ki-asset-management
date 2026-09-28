@@ -195,3 +195,101 @@ def test_term_overview_marks_all_time_and_current(app):
         current = scoring.term_overview('current')
     assert all_time['start'] is None and all_time['label_key'] == 'scoring.all_time'
     assert current['start'] is not None and current['label_key'] == 'scoring.current_term'
+
+
+# --------------------------------------------------------------------------- #
+# Distinct-company rankings and arbitrary date ranges
+# --------------------------------------------------------------------------- #
+def _seed_companies(app):
+    """ana covers one company three times; bob covers two companies once each."""
+    from app.models import (Analysis, Company, PerformanceCalculation, User,
+                            analysis_analysts)
+
+    with app.app_context():
+        db.session.execute(analysis_analysts.delete())
+        for model in (PerformanceCalculation, Analysis, Company, User):
+            model.query.delete()
+        db.session.commit()
+
+        companies = {}
+        for name in ('Alpha', 'Beta', 'Gamma'):
+            c = Company(name=name, ticker_symbol=name[:3].upper())
+            db.session.add(c)
+            companies[name] = c
+        db.session.commit()
+
+        users = {}
+        for key in ('ana', 'bob'):
+            u = User(email=f'{key}@klubinvestoru.com', full_name=key, is_active=True)
+            u.set_password('irrelevant-password')
+            db.session.add(u)
+            users[key] = u
+        db.session.commit()
+
+        plan = [
+            ('ana', 'Alpha', date(2026, 3, 5), 'On Watchlist', True),
+            ('ana', 'Alpha', date(2026, 4, 5), 'On Watchlist', False),
+            ('ana', 'Alpha', date(2026, 5, 5), 'Refused', False),
+            ('bob', 'Beta', date(2026, 3, 6), 'On Watchlist', True),
+            ('bob', 'Gamma', date(2026, 4, 6), 'On Watchlist', True),
+        ]
+        for who, company, when, status, in_portfolio in plan:
+            a = Analysis(company_id=companies[company].id, analysis_date=when,
+                         status=status, is_in_portfolio=in_portfolio)
+            db.session.add(a)
+            db.session.commit()
+            db.session.execute(analysis_analysts.insert().values(
+                analysis_id=a.id, user_id=users[who].id, role='analyst'))
+        db.session.commit()
+        return {k: v.id for k, v in users.items()}
+
+
+def test_company_rankings_count_companies_not_analyses(app):
+    _seed_companies(app)
+    with app.app_context():
+        boards = scoring.leaderboards(*scoring.term_bounds(date(2026, 2, 1)))
+
+    # ana filed three analyses but they are all the same company
+    approved = {r['name']: r['value'] for r in boards['approved_companies']}
+    assert approved == {'ana': 1, 'bob': 2}
+    portfolio = {r['name']: r['value'] for r in boards['portfolio_companies']}
+    assert portfolio == {'ana': 1, 'bob': 2}
+    # while the analysis counts stay as filed
+    counts = {r['name']: r['value'] for r in boards['most_analyses']}
+    assert counts == {'ana': 3, 'bob': 2}
+
+
+def test_term_list_stops_at_the_first_data(app):
+    """No empty periods from years before the club had any analyses."""
+    _seed(app)                      # earliest analysis: 2026-03-10
+    with app.app_context():
+        choices = scoring.term_choices(ref=date(2026, 9, 28))
+    keys = [c['key'] for c in choices]
+    assert keys[0] == 'all'
+    assert keys[1] == '2026-08', 'the current term comes first'
+    assert '2026-02' in keys, 'the term holding the first analysis is offered'
+    assert '2025-08' not in keys and '2024-02' not in keys, 'empty periods offered'
+
+
+def test_a_custom_range_is_honoured(app):
+    _seed(app)
+    with app.app_context():
+        data = scoring.term_overview('custom', date_from='2026-03-01', date_to='2026-06-30')
+    assert data['start'] == '2026-03-01' and data['end'] == '2026-06-30'
+    assert {r['name']: r['value'] for r in data['most_analyses']} == {'ana': 3, 'bob': 2}
+    # the September analysis is outside the window
+    assert all(r['name'] != 'sep' for r in data['most_analyses'])
+
+
+def test_a_reversed_custom_range_still_works(app):
+    _seed(app)
+    with app.app_context():
+        flipped = scoring.term_overview('custom', date_from='2026-06-30', date_to='2026-03-01')
+    assert flipped['start'] == '2026-03-01' and flipped['end'] == '2026-06-30'
+
+
+def test_a_broken_custom_range_does_not_crash(app):
+    _seed(app)
+    with app.app_context():
+        data = scoring.term_overview('custom', date_from='not-a-date', date_to='')
+    assert data['start'] is None and data['end'] is None

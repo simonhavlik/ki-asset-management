@@ -2964,6 +2964,16 @@ canvas {
     gap: 1rem 1.25rem;
 }
 
+.lead-grid.cols-3 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 1199.98px) {
+    .lead-grid.cols-3 {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
 .lead-title {
     font-size: 0.68rem;
     text-transform: uppercase;
