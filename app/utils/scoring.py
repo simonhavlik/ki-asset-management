@@ -21,7 +21,7 @@ from __future__ import annotations
 import calendar
 from datetime import date, timedelta
 
-from sqlalchemy import case, func
+from sqlalchemy import case, func, or_
 from sqlalchemy.orm import aliased
 
 from ..extensions import db
@@ -203,10 +203,17 @@ def _activity_rows(start: date | None, end: date | None) -> dict[int, dict]:
             User.email.label('email'),
             func.count(func.distinct(Analysis.id)).label('total'),
             func.sum(case((Analysis.status == 'On Watchlist', 1), else_=0)).label('approved'),
-            # distinct companies, not analyses: one analyst covering the same name
-            # three times has still added one company to the portfolio
-            func.count(func.distinct(case((Analysis.is_in_portfolio.is_(True),
-                                           Analysis.company_id)))).label('portfolio_companies'),
+            # Distinct companies, not analyses: one analyst covering the same name
+            # three times has still added one company to the portfolio.
+            #
+            # "In the portfolio" means purchased (a portfolio_purchases row) OR
+            # flagged by the admin, because the flag is only kept in sync
+            # sometimes: counting it alone showed an empty table while the club
+            # has purchases on record.
+            func.count(func.distinct(case(
+                (or_(Analysis.is_in_portfolio.is_(True),
+                     Analysis.portfolio_purchases.any()),
+                 Analysis.company_id)))).label('portfolio_companies'),
             func.count(func.distinct(case((Analysis.status == 'On Watchlist',
                                            Analysis.company_id)))).label('approved_companies'),
         )

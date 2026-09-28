@@ -293,3 +293,22 @@ def test_a_broken_custom_range_does_not_crash(app):
     with app.app_context():
         data = scoring.term_overview('custom', date_from='not-a-date', date_to='')
     assert data['start'] is None and data['end'] is None
+
+
+def test_a_recorded_purchase_counts_as_being_in_the_portfolio(app):
+    """Purchases live in portfolio_purchases; the admin flag is not always kept
+    in sync, so counting the flag alone showed an empty table."""
+    from app.models import Analysis, PortfolioPurchase
+
+    ids = _seed_companies(app)
+    with app.app_context():
+        beta = Analysis.query.filter_by(company_id=Company.query.filter_by(name='Beta').first().id).first()
+        db.session.add(PortfolioPurchase(analysis_id=beta.id, purchase_date=date(2026, 3, 20),
+                                         added_by=ids['bob']))
+        db.session.commit()
+        boards = scoring.leaderboards(*scoring.term_bounds(date(2026, 2, 1)))
+    portfolio = {r['name']: r['value'] for r in boards['portfolio_companies']}
+    assert portfolio == {'ana': 1, 'bob': 2}, 'the purchase must count for its analyst'
+
+
+from app.models import Company  # noqa: E402  (used by the test above)
