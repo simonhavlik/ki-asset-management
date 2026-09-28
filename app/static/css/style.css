@@ -189,7 +189,7 @@ body {
 
 main {
     flex: 1 0 auto;
-    padding-top: 72px;
+    padding-top: 88px;
 }
 
 .footer {
@@ -250,26 +250,64 @@ h1, h2, h3, h4, h5, h6 {
    Navigation - Professional Corporate
    ----------------------------------------------------------------- */
 .navbar {
-    background: rgba(250, 251, 252, 0.72) !important;
+    /* Floating "macOS dock" capsule */
+    top: 0.7rem;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: min(1180px, calc(100% - 1.6rem));
+    background: rgba(250, 251, 252, 0.68) !important;
     backdrop-filter: saturate(180%) blur(20px);
     -webkit-backdrop-filter: saturate(180%) blur(20px);
-    border-bottom: 1px solid transparent;
-    padding: 0.62rem 0;
-    transition: background var(--transition-base), border-color var(--transition-base),
-                box-shadow var(--transition-base), padding var(--transition-base);
+    border: 1px solid rgba(15, 20, 25, 0.08);
+    border-radius: 999px;
+    padding: 0.4rem 0.7rem;
+    box-shadow: 0 12px 32px -20px rgba(15, 20, 25, 0.4);
+    transition: background var(--transition-base), box-shadow var(--transition-base),
+                border-color var(--transition-base), padding var(--transition-base);
     z-index: 1030;
 }
 
 /* Solid fallback where backdrop-filter is unavailable */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    .navbar { background: rgba(250, 251, 252, 0.98) !important; }
+    .navbar { background: rgba(250, 251, 252, 0.97) !important; }
 }
 
 .navbar.scrolled {
-    background: rgba(250, 251, 252, 0.86) !important;
-    border-bottom-color: var(--color-gray-200);
-    box-shadow: 0 10px 30px -24px rgba(15, 20, 25, 0.45);
-    padding: 0.5rem 0;
+    background: rgba(250, 251, 252, 0.84) !important;
+    border-color: rgba(15, 20, 25, 0.11);
+    box-shadow: 0 18px 44px -22px rgba(15, 20, 25, 0.5);
+    padding: 0.34rem 0.7rem;
+}
+
+/* The dock spans itself - the Bootstrap container must not cap it */
+.navbar > .container {
+    max-width: none;
+    width: 100%;
+    padding-left: 0.35rem;
+    padding-right: 0.35rem;
+}
+
+@media (max-width: 991.98px) {
+    .navbar {
+        border-radius: 1.4rem;
+        padding: 0.45rem 0.6rem;
+    }
+
+    .navbar .navbar-collapse {
+        margin-top: 0.5rem;
+        padding-top: 0.6rem;
+        border-top: 1px solid var(--color-gray-200);
+    }
+
+    .navbar .nav-link {
+        padding: 0.55rem 0.75rem !important;
+        border-radius: var(--radius-md);
+    }
+
+    .navbar .nav-link:hover {
+        background: var(--color-gray-100);
+    }
 }
 
 .navbar-brand {
@@ -313,7 +351,7 @@ h1, h2, h3, h4, h5, h6 {
    ----------------------------------------------------------------- */
 .hero-section {
     position: relative;
-    min-height: calc(100vh - 72px);
+    min-height: calc(100vh - 88px);
     display: flex;
     align-items: center;
     overflow: hidden;
