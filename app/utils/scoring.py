@@ -25,7 +25,8 @@ from sqlalchemy import case, func, or_
 from sqlalchemy.orm import aliased
 
 from ..extensions import db
-from ..models import Analysis, PerformanceCalculation, User, analysis_analysts
+from ..models import (Analysis, PerformanceCalculation, User, Vote,
+                       analysis_analysts)
 
 # February: terms are Feb-Jul and Aug-Jan. Change to 8 for Aug-Jan/Feb-Jul, etc.
 TERM_START_MONTH = 2
@@ -195,7 +196,28 @@ def _latest_calculation_on_or_before(cutoff: date):
     )
 
 
+def _board_vote_totals():
+    """Yes/no vote totals per analysis, as used by the Board menu.
+
+    Board approval is NOT the analyst's own 'On Watchlist' status: the analysts
+    mark their analyses, the board then votes, and an analysis is board approved
+    when the yes votes outnumber the no votes (the same rule as
+    unified_calculator._is_board_approved, so the page and the board agree).
+    """
+    return (
+        db.session.query(
+            Vote.analysis_id.label('analysis_id'),
+            func.sum(case((Vote.vote.is_(True), 1), else_=0)).label('yes'),
+            func.sum(case((Vote.vote.is_(False), 1), else_=0)).label('no'),
+        )
+        .group_by(Vote.analysis_id)
+        .subquery()
+    )
+
+
 def _activity_rows(start: date | None, end: date | None) -> dict[int, dict]:
+    votes = _board_vote_totals()
+    board_approved = votes.c.yes > votes.c.no
     q = (
         db.session.query(
             User.id.label('user_id'),
@@ -220,8 +242,14 @@ def _activity_rows(start: date | None, end: date | None) -> dict[int, dict]:
         .select_from(Analysis)
         .join(analysis_analysts, analysis_analysts.c.analysis_id == Analysis.id)
         .join(User, User.id == analysis_analysts.c.user_id)
+        .outerjoin(votes, votes.c.analysis_id == Analysis.id)
         .filter(analysis_analysts.c.role == 'analyst')
         .group_by(User.id, User.full_name, User.email)
+    )
+    q = q.add_columns(
+        func.sum(case((board_approved, 1), else_=0)).label('board_approved'),
+        func.count(func.distinct(case((board_approved, Analysis.company_id)))
+                   ).label('board_approved_companies'),
     )
     if start:
         q = q.filter(Analysis.analysis_date >= start)
@@ -237,6 +265,8 @@ def _activity_rows(start: date | None, end: date | None) -> dict[int, dict]:
             'approved': int(row.approved or 0),
             'portfolio_companies': int(row.portfolio_companies or 0),
             'approved_companies': int(row.approved_companies or 0),
+            'board_approved': int(row.board_approved or 0),
+            'board_approved_companies': int(row.board_approved_companies or 0),
             'avg_return': None,
             'wins': 0,
             'scored': 0,
@@ -313,6 +343,8 @@ def leaderboards(start: date | None = None, end: date | None = None,
         row.setdefault('scored', 0)
         row.setdefault('portfolio_companies', 0)
         row.setdefault('approved_companies', 0)
+        row.setdefault('board_approved', 0)
+        row.setdefault('board_approved_companies', 0)
 
     entries = list(merged.values())
 
@@ -326,6 +358,16 @@ def leaderboards(start: date | None = None, end: date | None = None,
         if e['total']:
             by_total.append({**e, 'value': e['total'],
                              'detail': f"{e['approved']} board approved"})
+    by_board = []
+    for e in entries:
+        if e['board_approved']:
+            by_board.append({**e, 'value': e['board_approved'],
+                             'detail': f"{e['total']} analyses"})
+    by_board_companies = []
+    for e in entries:
+        if e['board_approved_companies']:
+            by_board_companies.append({**e, 'value': e['board_approved_companies'],
+                                       'detail': f"{e['board_approved']} approved analyses"})
     by_portfolio = []
     for e in entries:
         if e['portfolio_companies']:
@@ -356,6 +398,10 @@ def leaderboards(start: date | None = None, end: date | None = None,
                                reverse=True, fmt=lambda v: f'{v:g}'),
         'most_analyses': _rank(by_total, lambda e: (e['value'], e['name']),
                                reverse=True, fmt=lambda v: f'{v:g}'),
+        'board_approved': _rank(by_board, lambda e: (e['value'], e['name']),
+                                reverse=True, fmt=lambda v: f'{v:g}'),
+        'board_approved_companies': _rank(by_board_companies, lambda e: (e['value'], e['name']),
+                                          reverse=True, fmt=lambda v: f'{v:g}'),
         'portfolio_companies': _rank(by_portfolio, lambda e: (e['value'], e['name']),
                                      reverse=True, fmt=lambda v: f'{v:g}'),
         'approved_companies': _rank(by_approved_companies, lambda e: (e['value'], e['name']),

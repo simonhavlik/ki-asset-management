@@ -195,7 +195,23 @@
                 <div class="card-body">
                     <div class="lead-grid cols-3">
                         <div>
-                            <div class="lead-title" data-i18n="scoring.most_approved">Most board-approved</div>
+                            <div class="lead-title" data-i18n="scoring.board_approved">Board-approved analyses</div>
+                            {% for a in scoring.board_approved %}
+                            <div class="lead-row"><span>{{ a.rank }}. {{ a.name }}</span><span class="muted">{{ a.value_display }}</span></div>
+                            {% else %}
+                            <div class="lead-row muted" data-i18n="scoring.no_data">No data</div>
+                            {% endfor %}
+                        </div>
+                        <div>
+                            <div class="lead-title" data-i18n="scoring.board_approved_companies">Board-approved companies</div>
+                            {% for a in scoring.board_approved_companies %}
+                            <div class="lead-row"><span>{{ a.rank }}. {{ a.name }}</span><span class="muted">{{ a.value_display }}</span></div>
+                            {% else %}
+                            <div class="lead-row muted" data-i18n="scoring.no_data">No data</div>
+                            {% endfor %}
+                        </div>
+                        <div>
+                            <div class="lead-title" data-i18n="scoring.analyst_approved">Analyst-approved analyses</div>
                             {% for a in scoring.most_approved %}
                             <div class="lead-row"><span>{{ a.rank }}. {{ a.name }}</span><span class="muted">{{ a.value_display }}</span></div>
                             {% else %}
@@ -203,16 +219,16 @@
                             {% endfor %}
                         </div>
                         <div>
-                            <div class="lead-title" data-i18n="scoring.portfolio_companies">Companies in portfolio</div>
-                            {% for a in scoring.portfolio_companies %}
+                            <div class="lead-title" data-i18n="scoring.analyst_approved_companies">Analyst-approved companies</div>
+                            {% for a in scoring.approved_companies %}
                             <div class="lead-row"><span>{{ a.rank }}. {{ a.name }}</span><span class="muted">{{ a.value_display }}</span></div>
                             {% else %}
                             <div class="lead-row muted" data-i18n="scoring.no_data">No data</div>
                             {% endfor %}
                         </div>
                         <div>
-                            <div class="lead-title" data-i18n="scoring.approved_companies">Companies board-approved</div>
-                            {% for a in scoring.approved_companies %}
+                            <div class="lead-title" data-i18n="scoring.purchased_companies">Companies purchased</div>
+                            {% for a in scoring.portfolio_companies %}
                             <div class="lead-row"><span>{{ a.rank }}. {{ a.name }}</span><span class="muted">{{ a.value_display }}</span></div>
                             {% else %}
                             <div class="lead-row muted" data-i18n="scoring.no_data">No data</div>

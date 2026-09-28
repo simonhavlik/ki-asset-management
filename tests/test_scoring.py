@@ -87,8 +87,9 @@ def _seed(app):
                             analysis_analysts)
 
     with app.app_context():
-        from app.models import analysis_analysts
+        from app.models import Vote, analysis_analysts
         db.session.execute(analysis_analysts.delete())
+        Vote.query.delete()          # orphans would attach to reused analysis ids
         for model in (PerformanceCalculation, Analysis, Company, User):
             model.query.delete()
         db.session.commit()
@@ -206,7 +207,10 @@ def _seed_companies(app):
                             analysis_analysts)
 
     with app.app_context():
+        from app.models import PortfolioPurchase, Vote
         db.session.execute(analysis_analysts.delete())
+        Vote.query.delete()
+        PortfolioPurchase.query.delete()
         for model in (PerformanceCalculation, Analysis, Company, User):
             model.query.delete()
         db.session.commit()
@@ -312,3 +316,52 @@ def test_a_recorded_purchase_counts_as_being_in_the_portfolio(app):
 
 
 from app.models import Company  # noqa: E402  (used by the test above)
+
+
+def test_board_approval_is_the_board_vote_not_the_analyst_flag(app):
+    """The two approvals are different things.
+
+    Analyst approval is the analysts' own 'On Watchlist' mark. Board approval is
+    the board's vote in the Board menu: yes votes must outnumber no votes. An
+    analysis the analysts approved but the board rejected must not appear in the
+    board-approved table (and vice versa).
+    """
+    from app.models import Analysis, User, Vote
+
+    _seed_companies(app)
+    with app.app_context():
+        # Alpha (ana) is analyst-approved but the board votes it down
+        alpha = Analysis.query.filter_by(status='On Watchlist').first()
+        # Beta (bob) is analyst-approved and the board approves it 2:1
+        beta = Analysis.query.join(Company).filter(Company.name == 'Beta').first()
+
+        voters = User.query.limit(3).all()
+        for i, voter in enumerate(voters):
+            db.session.add(Vote(analysis_id=beta.id, user_id=voter.id, vote=(i < 2)))   # 2 yes, 1 no
+            db.session.add(Vote(analysis_id=alpha.id, user_id=voter.id, vote=(i == 2)))  # 1 yes, 2 no
+        db.session.commit()
+
+        boards = scoring.leaderboards(*scoring.term_bounds(date(2026, 2, 1)))
+
+    board_counts = {r['name']: r['value'] for r in boards['board_approved']}
+    assert board_counts == {'bob': 1}, 'only the analysis the board voted for counts'
+
+    analyst_counts = {r['name']: r['value'] for r in boards['most_approved']}
+    assert analyst_counts == {'ana': 2, 'bob': 2}, 'analyst approval is unchanged'
+
+    company_counts = {r['name']: r['value'] for r in boards['board_approved_companies']}
+    assert company_counts == {'bob': 1}
+
+
+def test_a_tied_board_vote_is_not_approval(app):
+    from app.models import Analysis, User, Vote
+
+    _seed_companies(app)
+    with app.app_context():
+        gamma = Analysis.query.join(Company).filter(Company.name == 'Gamma').first()
+        voters = User.query.limit(2).all()
+        for i, voter in enumerate(voters):
+            db.session.add(Vote(analysis_id=gamma.id, user_id=voter.id, vote=(i == 0)))  # 1 yes, 1 no
+        db.session.commit()
+        boards = scoring.leaderboards(*scoring.term_bounds(date(2026, 2, 1)))
+    assert boards['board_approved'] == [], 'a tie is not approval'
