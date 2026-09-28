@@ -2,6 +2,7 @@
 <html lang="en" data-lang="en">
 <head>
     <meta charset="UTF-8">
+    <script>document.documentElement.classList.add('js');</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="KI Asset Management - Prague Club of Investors Analyst Performance Tracker. Real capital management experience for motivated students.">
     <meta name="theme-color" content="#1a1a2e">
@@ -346,6 +347,42 @@
         document.addEventListener('DOMContentLoaded', function () {
             document.querySelectorAll('form').forEach(ensureToken);
         });
+    })();
+    <script>
+    // Global scroll reveal: .reveal elements fade/rise in when they enter view.
+    // The `.js` class (set in <head>) scopes the hidden state, so the page still
+    // renders fully when JavaScript is unavailable and there is no flash before
+    // the stylesheet applies.
+    (function () {
+        function show(el) { el.classList.add('active'); }
+        function init() {
+            var els = document.querySelectorAll('.reveal');
+            if (!els.length) return;
+            if (!('IntersectionObserver' in window)) {
+                els.forEach(show);
+                return;
+            }
+            var io = new IntersectionObserver(function (entries) {
+                entries.forEach(function (entry) {
+                    if (entry.isIntersecting) {
+                        show(entry.target);
+                        io.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+            els.forEach(function (el) {
+                if (el.getBoundingClientRect().top < window.innerHeight) {
+                    show(el);
+                } else {
+                    io.observe(el);
+                }
+            });
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
     })();
     </script>
 </body>
