@@ -157,18 +157,25 @@ def client_ip():
     return request.remote_addr or 'unknown'
 
 
-def rate_limit(limit=5, window=900, key_func=None):
+def rate_limit(limit=5, window=900, key_func=None, methods=('POST',)):
     """
     Decorator to apply rate limiting to a route.
-    
+
     Args:
         limit: Maximum number of requests allowed
         window: Time window in seconds
         key_func: Function to generate the rate limit key (defaults to IP + endpoint)
+        methods: HTTP methods that consume quota. Defaults to POST only: counting
+            GET meant a user exhausted the budget just by *loading* the login
+            page, so repeated attempts locked them out entirely (5 requests per
+            15 minutes covered two page loads and a redirect).
     """
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
+            if request.method not in methods:
+                return f(*args, **kwargs)
+
             if key_func:
                 key = key_func()
             else:

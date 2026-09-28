@@ -280,13 +280,22 @@ class TestRateLimitKeying:
     users shared a single global quota and a few logins locked out the site.
     """
 
+    @pytest.fixture(autouse=True)
+    def _fresh_limiter(self):
+        """The limiter store is process-global; start every test with an empty one."""
+        from app.security import rate_limiter
+        rate_limiter.storage.clear()
+        yield
+        rate_limiter.storage.clear()
+
+
     def _app(self):
         from app import create_app
         from app.security import rate_limit
         app = create_app()
         app.config['WTF_CSRF_ENABLED'] = False
 
-        @app.route('/_rl_probe')
+        @app.route('/_rl_probe', methods=['GET', 'POST'])
         @rate_limit(limit=1, window=60)
         def _rl_probe():
             return 'ok'
@@ -294,19 +303,19 @@ class TestRateLimitKeying:
 
     def test_clients_do_not_share_a_quota(self):
         c = self._app().test_client()
-        r1 = c.get('/_rl_probe', headers={'X-Forwarded-For': '203.0.113.10'})
-        r2 = c.get('/_rl_probe', headers={'X-Forwarded-For': '203.0.113.11'})
+        r1 = c.post('/_rl_probe', headers={'X-Forwarded-For': '203.0.113.10'})
+        r2 = c.post('/_rl_probe', headers={'X-Forwarded-For': '203.0.113.11'})
         assert r1.status_code == 200
         assert r2.status_code == 200, 'second client inherited the first client quota'
         # the same client, however, is now out of budget
-        r3 = c.get('/_rl_probe', headers={'X-Forwarded-For': '203.0.113.10'})
+        r3 = c.post('/_rl_probe', headers={'X-Forwarded-For': '203.0.113.10'})
         assert r3.status_code == 429
         assert r3.headers['Retry-After']
 
     def test_limited_response_is_a_page_for_browsers(self):
         c = self._app().test_client()
-        c.get('/_rl_probe', headers={'X-Forwarded-For': '203.0.113.99'})
-        r = c.get('/_rl_probe', headers={'X-Forwarded-For': '203.0.113.99'})
+        c.post('/_rl_probe', headers={'X-Forwarded-For': '203.0.113.99'})
+        r = c.post('/_rl_probe', headers={'X-Forwarded-For': '203.0.113.99'})
         assert r.status_code == 429
         assert b'Too many requests' in r.data
 
@@ -318,3 +327,44 @@ class TestRateLimitKeying:
         ):
             from app.security import client_ip
             assert client_ip() == '203.0.113.77'
+
+
+class TestRateLimitMethods:
+    """Loading a page must not consume the quota - only real attempts should.
+
+    Regression: the limiter sat on the login route (GET+POST), so 5 page loads
+    in 15 minutes locked the user out of their own account.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _fresh_limiter(self):
+        from app.security import rate_limiter
+        rate_limiter.storage.clear()
+        yield
+        rate_limiter.storage.clear()
+
+
+    def _app(self):
+        from app import create_app
+        from app.security import rate_limit
+        app = create_app()
+        app.config['WTF_CSRF_ENABLED'] = False
+
+        @app.route('/_rl_form', methods=['GET', 'POST'])
+        @rate_limit(limit=3, window=60)
+        def _rl_form():
+            return 'ok'
+        return app
+
+    def test_get_requests_do_not_consume_quota(self):
+        c = self._app().test_client()
+        for _ in range(10):
+            assert c.get('/_rl_form').status_code == 200
+        # ten page loads later, a real attempt must still be allowed
+        assert c.post('/_rl_form').status_code == 200
+
+    def test_post_attempts_are_still_limited(self):
+        c = self._app().test_client()
+        codes = [c.post('/_rl_form').status_code for _ in range(4)]
+        assert codes[:3] == [200, 200, 200]
+        assert codes[3] == 429, 'the limit must still stop repeated attempts'

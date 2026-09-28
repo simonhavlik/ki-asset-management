@@ -12,7 +12,7 @@ from ..utils.email_normalization import normalize_email
 auth_bp = Blueprint('auth', __name__, template_folder='../templates/auth')
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
-@rate_limit(limit=5, window=900)  # 5 attempts per 15 minutes
+@rate_limit(limit=10, window=900)  # 10 failed attempts per 15 minutes (POST only)
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('analyst.dashboard'))
