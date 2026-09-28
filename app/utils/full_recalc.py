@@ -18,19 +18,55 @@ logger = logging.getLogger(__name__)
 # coverage-based "closest index" used on the analyst pages.
 BENCHMARK_TICKERS = ['SPY', 'VT', 'EEMS', 'MCHI', 'ASHR']
 
+# A 'running' log row older than this cannot be a live job (deploys and Render's
+# idle spin-down kill the worker), so it must not block a new refresh forever.
+REFRESH_INTERRUPTED_AFTER_MINUTES = 45
+
+_job_lock = threading.Lock()
+_job_thread = None
+
 
 def start_full_recalculation(run_type: str = 'manual'):
     """Start a full recalculation unless one is already running.
 
     Returns (started: bool, message: str).
+
+    Two guards, because the obvious one is not enough: the calculator's own lock
+    is only taken once the job reaches the recalculation stage, so a second
+    press during the benchmark phase (seconds long) used to start a *second*
+    whole-system job. The in-process thread handle closes that window atomically,
+    and a recent 'running' log row covers a second worker or a restart.
     """
+    from datetime import datetime, timedelta
     from .unified_calculator import is_calculation_running
 
-    if is_calculation_running():
-        return False, 'A recalculation is already in progress'
+    global _job_thread
+    with _job_lock:
+        if _job_thread is not None and _job_thread.is_alive():
+            return False, 'A refresh is already running'
+        if is_calculation_running():
+            return False, 'A recalculation is already in progress'
 
-    threading.Thread(target=_run_full_recalculation, args=(run_type,), daemon=True,
-                     name='full-recalculation').start()
+        # Cross-worker guard: another process (or the same one before a restart)
+        # may be mid-run. A 'running' row older than the interruption window is
+        # a corpse, so it does not block anything.
+        try:
+            from ..models import RecalculationLog
+            cutoff = datetime.utcnow() - timedelta(minutes=REFRESH_INTERRUPTED_AFTER_MINUTES)
+            recent = (RecalculationLog.query
+                      .filter(RecalculationLog.status == 'running',
+                              RecalculationLog.started_at >= cutoff)
+                      .order_by(RecalculationLog.id.desc())
+                      .first())
+            if recent is not None:
+                return False, 'A refresh that started a few minutes ago is still running'
+        except Exception as e:
+            # A failure here must not block a legitimate refresh.
+            logger.warning(f'Could not check for a running refresh: {e}')
+
+        _job_thread = threading.Thread(target=_run_full_recalculation, args=(run_type,),
+                                       daemon=True, name='full-recalculation')
+        _job_thread.start()
     return True, 'Recalculation started'
 
 

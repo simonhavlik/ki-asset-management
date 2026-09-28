@@ -164,3 +164,36 @@ def test_a_refresh_only_starts_from_an_explicit_start_press(app):
     body = src[open_handler:start_handler]
     assert 'fetchState()' in body, 'opening the panel must read the state'
     assert 'START_URL' not in body, 'opening the panel must not touch the start endpoint'
+
+
+def test_a_second_start_is_refused_while_one_is_running(app, monkeypatch):
+    """Only one whole-system refresh may exist at a time.
+
+    The calculator's own lock is taken late (after the benchmark phase), so a
+    second press seconds later used to start a second job - the exact way
+    repeated clicking turns into two concurrent recalculations.
+    """
+    from app.utils import full_recalc
+
+    with app.app_context():
+        from app.models import RecalculationLog
+        RecalculationLog.query.delete()
+        db.session.commit()
+
+        import threading
+        release = threading.Event()
+
+        def slow_job(run_type):
+            release.wait(timeout=5)
+
+        monkeypatch.setattr(full_recalc, '_run_full_recalculation', slow_job)
+        monkeypatch.setattr(full_recalc, '_job_thread', None)
+
+        started, message = full_recalc.start_full_recalculation('manual')
+        assert started is True, message
+
+        second, message2 = full_recalc.start_full_recalculation('manual')
+        assert second is False, 'a second refresh was allowed to start'
+        assert 'already' in message2.lower() or 'still running' in message2.lower()
+
+        release.set()
