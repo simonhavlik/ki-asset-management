@@ -339,6 +339,6 @@ See [Contributing Guide](contributing.md) for:
 
 ## 🆘 Getting Help
 
-- Check [AI Orientation](../AI-ORIENTATION.md) for technical reference
+- Check [AI Orientation](../../AGENTS.md) for technical reference
 - Review [Troubleshooting](../operations/troubleshooting.md)
 - Ask in team channels

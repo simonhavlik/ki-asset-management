@@ -6,14 +6,19 @@ Data protection and disaster recovery for KI Asset Management.
 
 ## 💾 Backup Strategy
 
-### Automatic Backups (neon.tech)
+### PostgreSQL (self-hosted) — this one is on you
 
-If using neon.tech PostgreSQL:
-- **Frequency:** Continuous with point-in-time recovery
-- **Retention:** 7 days (free tier)
-- **Type:** Full database backups
+Production runs on **self-hosted PostgreSQL**, which has **no managed backups**.
+A scheduled `pg_dump` is the only safety net:
 
-No action required - automatic!
+```bash
+# /etc/cron.daily/kiam-pgdump  (run as the postgres user)
+pg_dump -Fc --no-owner -d "$DATABASE_URL" -f /var/backups/kiam-$(date +%F).dump
+find /var/backups -name 'kiam-*.dump' -mtime +14 -delete
+```
+
+Keep a copy **off the database host** (object storage or another machine) —
+losing the host without an offsite dump means losing everything.
 
 ### Manual Backups
 
@@ -86,14 +91,16 @@ chmod +x scripts/backup.sh
 
 ## ♻️ Restore Procedures
 
-### PostgreSQL Restore (neon.tech)
+### PostgreSQL Restore (self-hosted)
 
-**From neon.tech Console:**
-1. Login to [neon.tech](https://neon.tech)
-2. Go to your project
-3. Click **Branches**
-4. Select **Restore** on desired backup point
-5. Follow prompts
+**From a dump:**
+```bash
+pg_restore -O --no-owner -d "$DATABASE_URL" /path/to/kiam-YYYY-MM-DD.dump
+```
+
+**Rebuild on a fresh host:** install PostgreSQL **17+** (older majors cannot load
+a 17 dump) → create the role and database → `pg_restore` the dump → update
+`DATABASE_URL` → redeploy.
 
 **From Manual Backup:**
 
@@ -184,7 +191,7 @@ flask run
    - Prevent further changes
 
 3. **Restore to point-in-time**
-   - Use neon.tech point-in-time recovery
+   - Restore the most recent dump (self-hosted Postgres has no PITR unless you add WAL archiving)
    - Or restore manual backup
 
 4. **Extract specific data**

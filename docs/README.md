@@ -1,19 +1,13 @@
 # 📚 Documentation Hub
 
 <p align="center">
-  <img src="../app/static/images/hero-bg.jpg" alt="KI Asset Management" width="100%" style="border-radius: 8px;">
-</p>
-
-<p align="center">
   <a href="https://flask.palletsprojects.com/">
     <img src="https://img.shields.io/badge/Flask-2.3.3-blue?style=for-the-badge&logo=flask" alt="Flask">
   </a>
   <a href="https://www.python.org/">
     <img src="https://img.shields.io/badge/Python-3.10+-green?style=for-the-badge&logo=python" alt="Python">
   </a>
-  <a href="../LICENSE">
-    <img src="https://img.shields.io/badge/License-Internal-orange?style=for-the-badge" alt="License">
-  </a>
+  <img src="https://img.shields.io/badge/License-Internal-orange?style=for-the-badge" alt="License">
 </p>
 
 <p align="center">
@@ -29,8 +23,8 @@
 | 🎯 **Getting Started** | 🚢 **Deployment** | 💻 **Development** |
 |:---:|:---:|:---:|
 | [Installation](getting-started/installation.md) | [Overview](deployment/README.md) | [Contributing](development/contributing.md) |
-| [First Steps](getting-started/first-steps.md) | [Render + Neon](deployment/render-neon.md) | [Architecture](development/architecture.md) |
-| [Quick Reference](reference/README.md) | [Koyeb](deployment/koyeb.md) | [AI Coding Tools](AI-ORIENTATION.md) |
+| [First Steps](getting-started/first-steps.md) | [Render](deployment/render.md) | [Architecture](development/architecture.md) |
+| [Quick Reference](reference/README.md) | [Koyeb](deployment/koyeb.md) | [AI Coding Tools](../AGENTS.md) |
 
 | 📖 **User Guides** | 🔧 **Operations** | 📋 **Reference** |
 |:---:|:---:|:---:|
@@ -50,9 +44,9 @@
 
 | 👤 **I'm an Investor** | 👨‍💻 **I'm a Developer** | 🤖 **I'm an AI Assistant** |
 |:---:|:---:|:---:|
-| Start with [User Guides](user-guides/README.md) | Check [Development](development/README.md) | Read [AI Orientation](AI-ORIENTATION.md) |
-| Learn the [Blog System](user-guides/blog.md) | Set up [Locally](getting-started/installation.md) | See [Project Structure](AI-ORIENTATION.md#-project-structure) |
-| Understand [Performance Tracking](user-guides/analyst.md) | Review [Architecture](development/architecture.md) | Learn [Common Operations](AI-ORIENTATION.md#-common-operations) |
+| Start with [User Guides](user-guides/README.md) | Check [Development](development/README.md) | Read the [AI agent guide](../AGENTS.md) |
+| Learn the [Blog System](user-guides/blog.md) | Set up [Locally](getting-started/installation.md) | See [Project Structure](../AGENTS.md#-key-project-structure) |
+| Understand [Performance Tracking](user-guides/analyst.md) | Review [Architecture](development/architecture.md) | Learn [Common Operations](../AGENTS.md) |
 
 </div>
 
@@ -84,7 +78,7 @@
 ├─────────────────────────────────────────────────────────────┤
 │  APIs: Yahoo Finance, DeepSeek AI, Brave Search, Unsplash   │
 ├─────────────────────────────────────────────────────────────┤
-│  Deployment: Render / Koyeb / Docker / Self-hosted          │
+│  Deployment: Render + self-hosted PostgreSQL / Docker       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -94,7 +88,7 @@
 
 ```
 docs/
-├── 📄 AI-ORIENTATION.md          # Guide for AI coding assistants
+└── (AI guidance lives at the repo root: AGENTS.md)
 ├── 📁 getting-started/            # Installation & first steps
 ├── 📁 deployment/                 # Deployment guides
 ├── 📁 development/                # Developer documentation
@@ -168,7 +162,7 @@ We welcome contributions! Please see our [Contributing Guide](development/contri
 </p>
 
 <p align="center">
-  <a href="../CHANGELOG.md">Changelog</a> •
-  <a href="../SECURITY.md">Security</a> •
-  <a href="../CONTRIBUTING.md">Contributing</a>
+  <a href="reference/changelog.md">Changelog</a> •
+  <a href="operations/security.md">Security</a> •
+  <a href="development/contributing.md">Contributing</a>
 </p>

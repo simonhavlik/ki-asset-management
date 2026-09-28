@@ -127,7 +127,7 @@ app/
 | Brave Search | Web search | api.search.brave.com |
 | Unsplash | Images | unsplash.com/developers |
 | SendGrid | Email | sendgrid.com |
-| neon.tech | Database | neon.tech |
+| PostgreSQL 17 | Database | self-hosted (club VPS) |
 
 ---
 
@@ -148,7 +148,7 @@ app/
 
 **Issue? Check:**
 1. [Troubleshooting](../operations/troubleshooting.md)
-2. [AI Orientation](../AI-ORIENTATION.md)
+2. [AI Orientation](../../AGENTS.md)
 3. [Deployment Guides](../deployment/)
 
 **Need more?**

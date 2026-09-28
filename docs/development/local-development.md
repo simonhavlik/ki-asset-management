@@ -24,7 +24,7 @@ Port 5000 is taken by macOS AirPlay Receiver, so the script uses 5001.
 template. Plain `.env` alone is not enough: a file called `.env.production`
 contains exactly the same secrets and would otherwise be committed.
 
-> **`.env` mirrors production.** It points `DATABASE_URL` at the live Neon
+> **`.env` mirrors production.** It points `DATABASE_URL` at the live production
 > database and holds the real API keys, so that local testing uses the same
 > configuration the server does. The consequence is that **any write you trigger
 > in the local UI (votes, imports, recalculation, purchases) changes production

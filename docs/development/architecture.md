@@ -253,16 +253,16 @@ All responses include:
 │   Browser   │     │   (Proxy)   │     │   (Flask)   │
 └─────────────┘     └─────────────┘     └──────┬──────┘
                                                │
-                                        ┌──────▼──────┐
-                                        │  PostgreSQL │
-                                        │  (neon.tech)│
-                                        └─────────────┘
+                                        ┌────────────────┐
+                                        │ PostgreSQL 17  │
+                                        │ (self-hosted)  │
+                                        └────────────────┘
 ```
 
 ### Scaling Considerations
 
 - **Horizontal**: Multiple Gunicorn workers (configured in systemd)
-- **Database**: Neon.tech auto-scales compute
+- **Database**: a single self-hosted PostgreSQL 17 instance (memory-capped)
 - **Static Files**: Serve via Nginx or CDN
 - **Caching**: Redis for distributed caching (optional)
 
@@ -384,5 +384,5 @@ scheduler.add_job(
 
 <p align="center">
   <strong>Questions about the architecture?</strong><br>
-  Check <a href="../AI-ORIENTATION.md">AI Orientation</a> for technical details
+  Check <a href="../../AGENTS.md">AI Orientation</a> for technical details
 </p>

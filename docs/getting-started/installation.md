@@ -226,4 +226,4 @@ Now that you're set up:
 
 - Check our [Troubleshooting Guide](../operations/troubleshooting.md)
 - Review [Common Issues](../operations/troubleshooting.md#common-issues)
-- See [AI Assistant Orientation](../AI-ORIENTATION.md) for technical details
+- See [AI Assistant Orientation](../../AGENTS.md) for technical details

@@ -63,7 +63,7 @@ Security best practices and hardening for KI Asset Management.
 - Secure cookies
 
 **At Rest:**
-- Database encryption (neon.tech)
+- Storage encryption on the database host; TLS for all app↔database traffic
 - No sensitive data in logs
 - Passwords hashed with bcrypt
 

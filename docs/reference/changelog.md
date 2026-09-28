@@ -7,10 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Database hosting moved off Neon** to **self-hosted PostgreSQL 17** on the club VPS
+  (Render egress is dynamic, so port `5432` is open with TLS + `scram-sha-256`; the
+  Postgres process is memory-capped via a systemd cgroup).
+  See [Production Infrastructure](../deployment/production.md).
+- Server DNS moved from the `nextdns` daemon to **NextDNS over DNS-over-TLS** via
+  `systemd-resolved` (same filtering, no daemon).
+
 ### Added
+- **Featured Research** block on the homepage — an inline PDF viewer fed by blog
+  posts marked *featured* that have an attached PDF.
 - Comprehensive documentation overhaul with new docs structure
 - AI Coding Assistant Orientation guide
 - Feature-rich wiki with unified styling
+
+### Removed
+- The redundant "From Our Research" blog-card section on the homepage (superseded by
+  the inline Featured Research viewer).
+- The `nextdns` daemon and the `cloudflared` tunnel on the production server.
 
 ## [1.0.0] - 2026-02-05
 

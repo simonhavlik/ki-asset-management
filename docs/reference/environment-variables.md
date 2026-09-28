@@ -25,7 +25,7 @@ USE_LOCAL_SQLITE=True
 **Option 2: PostgreSQL (Production)**
 ```bash
 USE_LOCAL_SQLITE=False
-DATABASE_URL=postgresql://user:password@host.neon.tech/db?sslmode=require
+DATABASE_URL=postgresql://user:password@your-db-host:5432/db?sslmode=require
 ```
 
 ---
@@ -131,7 +131,7 @@ UNSPLASH_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `NEON_OPTIMIZE` | Enable Neon.tech optimizations | `true` |
+| `NEON_OPTIMIZE` | Enable the aggressive in-memory cache (legacy name — production is self-hosted Postgres now) | `true` |
 | `CACHE_TYPE` | Cache backend | `SimpleCache` |
 | `CACHE_DEFAULT_TIMEOUT` | Default cache TTL | `300` (5 min) |
 | `PUBLIC_DATA_CACHE_TIMEOUT` | Public page cache | `3600` (1 hour) |
@@ -176,7 +176,7 @@ FLASK_ENV=production
 
 # Option 2: Production (PostgreSQL)
 USE_LOCAL_SQLITE=False
-DATABASE_URL=postgresql://username:password@hostname.neon.tech/database?sslmode=require
+DATABASE_URL=postgresql://username:password@your-db-host:5432/database?sslmode=require
 
 # =============================================================================
 # EMAIL (REQUIRED - CHOOSE ONE)

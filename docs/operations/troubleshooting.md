@@ -180,9 +180,9 @@ chmod -R 755 app/static
 - Review application logs
 
 **Database connection issues**
-- Neon.tech database may be suspended
-- Check connection string format
-- Verify network connectivity
+- Database host unreachable — is the VPS up and the firewall allowing `5432`?
+- Check the `DATABASE_URL` format and that the server runs PostgreSQL **17+**
+- Verify TLS + `scram-sha-256` credentials; check the DB host's Postgres log
 
 ### Docker-Specific
 
@@ -290,7 +290,7 @@ env | grep FLASK
 
 1. Check this troubleshooting guide
 2. Review application logs
-3. Check [AI Orientation](../AI-ORIENTATION.md)
+3. Check [AI Orientation](../../AGENTS.md)
 4. Search existing issues
 
 ### Information to Provide

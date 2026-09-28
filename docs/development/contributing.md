@@ -304,7 +304,7 @@ echo "SECRET_KEY=$(python -c 'import secrets; print(secrets.token_hex(32))')" >>
 ## 💬 Questions?
 
 - Check [Development Guide](README.md)
-- Review [AI Orientation](../AI-ORIENTATION.md)
+- Review [AI Orientation](../../AGENTS.md)
 - Ask in team channels
 
 **Remember**: When in doubt, ask! We're here to help each other learn and grow.

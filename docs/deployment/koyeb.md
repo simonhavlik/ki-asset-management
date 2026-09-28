@@ -1,5 +1,11 @@
 # Deploy to Koyeb + Neon.tech
 
+> ⚠️ **Note:** Neon's free tier suspends a project when its monthly quota is
+> exceeded (that is why this club moved to self-hosted PostgreSQL — see
+> [Production Infrastructure](production.md)). Everything below works with
+> **any PostgreSQL 17+** database; treat Neon as one managed option.
+
+
 Deploy KI Asset Management to Koyeb for **always-on availability** with no cold starts.
 
 > **⏱️ Time Required:** 20-25 minutes  

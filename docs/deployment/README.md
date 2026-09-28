@@ -10,8 +10,9 @@ Complete deployment options for KI Asset Management. Choose the platform that be
 
 | Platform | Best For | Cost | Complexity | Always-On |
 |:---:|:---:|:---:|:---:|:---:|
-| **[Render + Neon](render-neon.md)** | Beginners | Free tier | Easy | No* |
-| **[Koyeb + Neon](koyeb.md)** | Production | Free tier | Easy | ✅ Yes |
+| **[Production](production.md)** | This club | Club VPS | — | No* |
+| **[Render + PostgreSQL](render.md)** | Beginners | Free tier | Easy | No* |
+| **[Koyeb + Postgres](koyeb.md)** | Always-on | Free tier | Easy | ✅ Yes |
 | **[Dockploy](dockploy.md)** | Multiple apps | $5/month | Medium | ✅ Yes |
 | **[Docker](docker.md)** | Flexibility | Your server | Medium | ✅ Yes |
 | **[Server Setup](server-setup.md)** | Full control | Your server | Hard | ✅ Yes |
@@ -22,21 +23,22 @@ Complete deployment options for KI Asset Management. Choose the platform that be
 
 ---
 
-## 🚀 Recommended: Render + Neon.tech
+## 🚀 Production (this club): Render + self-hosted PostgreSQL
 
-**Best for:** First-time deployers, small teams, testing
+**What we actually run:** the Flask app on **Render** (free, Frankfurt) talking to a
+**self-hosted PostgreSQL 17** on the club VPS.
 
-**Why this combination?**
-- ✅ Free tiers sufficient for 20-50 users
-- ✅ Easy GitHub integration (auto-deploy on push)
-- ✅ Comprehensive documentation and support
-- ✅ PostgreSQL with automatic backups
+- ✅ Auto-deploy on push to `main`
+- ✅ Full control of the database (no managed quota limits)
+- ✅ Secrets live in Render env vars — the repo is public, the keys never are
+- ⚠️ Self-hosted Postgres has **no automatic backups** — the scheduled `pg_dump`
+  in [Backup & Restore](../operations/backup-restore.md) is mandatory
 
-**Get started:** [Render + Neon Guide](render-neon.md)
+**Get started:** [Production Infrastructure](production.md)
 
 ---
 
-## 🚀 Alternative: Koyeb + Neon.tech
+## 🚀 Alternative: Koyeb + managed PostgreSQL
 
 **Best for:** Production use, always-on requirement
 
@@ -142,7 +144,7 @@ All deployment options follow this architecture:
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
 │   Your Browser  │────▶│   Web Server     │────▶│   PostgreSQL    │
 │                 │     │   (Flask App)    │     │   Database      │
-└─────────────────┘     └──────────────────┘     │   (Neon.tech)   │
+└─────────────────┘     └──────────────────┘     │  (PostgreSQL 17)│
                               │                   └─────────────────┘
                               ▼
                         ┌──────────────────┐
@@ -172,7 +174,7 @@ Before deploying to production:
 ### Configuration
 - [ ] `FLASK_ENV=production` is set
 - [ ] `USE_LOCAL_SQLITE=False` for PostgreSQL
-- [ ] `DATABASE_URL` configured (neon.tech)
+- [ ] `DATABASE_URL` configured (PostgreSQL 17+)
 - [ ] Email configured (SendGrid for Render, SMTP for others)
 
 ### Domain (Optional)
@@ -214,7 +216,7 @@ git push origin main
 |---------|----------|--------------|
 | Web Hosting | Render | $0 |
 | Web Hosting | Koyeb | $0 |
-| Database | neon.tech | $0 |
+| Database | self-hosted PostgreSQL (own VPS) | $0 |
 | Email | SendGrid | $0 (100 emails/day) |
 | Domain (optional) | Various | $10-15/year |
 | **Total** | | **$0-15/year** |
@@ -222,7 +224,7 @@ git push origin main
 ### When to Upgrade
 
 Consider paid tiers when:
-- Database exceeds 500MB (neon.tech free limit)
+- Database outgrows the free tier / VPS
 - You need more than 20 concurrent connections
 - Build minutes exceed 500/month (Render)
 - Cold start delays become problematic
@@ -243,10 +245,10 @@ Consider paid tiers when:
 ### Issue: "Database connection failed"
 
 **Solution:**
-1. Verify neon.tech database is active (not suspended)
+1. Verify the database host is reachable and PostgreSQL is running
 2. Check `DATABASE_URL` format
 3. Ensure `USE_LOCAL_SQLITE=False`
-4. Try reconnecting string from neon.tech dashboard
+4. Re-check `DATABASE_URL` (host, port, credentials, `sslmode=require`)
 
 ### Issue: "Build failed"
 
@@ -268,15 +270,16 @@ Consider paid tiers when:
 
 Choose your deployment platform:
 
-1. **[Render + Neon](render-neon.md)** - Easiest setup (recommended for beginners)
-2. **[Koyeb](koyeb.md)** - Always-on alternative
-3. **[Dockploy](dockploy.md)** - Self-hosted PaaS for multiple apps
-4. **[Docker](docker.md)** - Container deployment
-5. **[Server Setup](server-setup.md)** - Self-hosted option
+1. **[Production](production.md)** - What this club actually runs (Render + self-hosted Postgres)
+2. **[Render + PostgreSQL](render.md)** - Generic Render recipe
+3. **[Koyeb](koyeb.md)** - Always-on alternative
+4. **[Dockploy](dockploy.md)** - Self-hosted PaaS for multiple apps
+5. **[Docker](docker.md)** - Container deployment
+6. **[Server Setup](server-setup.md)** - Self-hosted PostgreSQL
 
 ---
 
 <p align="center">
   <strong>Ready to deploy?</strong><br>
-  Start with <a href="render-neon.md">Render + Neon Guide</a> (recommended)
+  Start with <a href="production.md">Production Infrastructure</a>
 </p>

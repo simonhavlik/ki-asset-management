@@ -179,3 +179,7 @@ private_docs/
 # Node (jsdom for tests/js)
 node_modules/
 package-lock.json
+
+# DB dumps (contain user data - never commit)
+neon_kiam_*.dump
+neon_kiam_*.sql

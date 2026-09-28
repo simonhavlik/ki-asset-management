@@ -54,14 +54,14 @@ Start here if you're a developer:
 
 1. **[Installation](installation.md)** - Set up local environment
 2. **[Development Guide](../development/README.md)** - Coding standards and workflow
-3. **[AI Coding Tools](../AI-ORIENTATION.md)** - Quick reference for AI assistants
+3. **[AI Coding Tools](../../AGENTS.md)** - Quick reference for AI assistants
 
 ### 🏢 I Want to Deploy for My Organization
 
 Start here if you're deploying to production:
 
 1. **[Deployment Overview](../deployment/README.md)** - Choose your platform
-2. **[Render + Neon Guide](../deployment/render-neon.md)** - Recommended (free tier)
+2. **[Production Infrastructure](../deployment/production.md) & [Render guide](../deployment/render.md)** - Recommended (free tier)
 3. **[Koyeb Guide](../deployment/koyeb.md)** - Alternative (always-on)
 
 ---
@@ -102,7 +102,7 @@ Getting Started (You are here)
 
 Deployment
 ├── Overview
-├── Render + Neon (Recommended)
+├── Render + self-hosted PostgreSQL (this club)
 ├── Koyeb
 ├── Docker
 └── Server Setup
@@ -137,7 +137,7 @@ Reference
 
 - **Installation Issues:** See [Troubleshooting](../operations/troubleshooting.md)
 - **Deployment Questions:** Check [Deployment Guides](../deployment/)
-- **Development Help:** Read [AI Orientation](../AI-ORIENTATION.md)
+- **Development Help:** Read [AI Orientation](../../AGENTS.md)
 - **Feature Questions:** Browse [User Guides](../user-guides/)
 
 ---

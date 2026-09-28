@@ -321,8 +321,8 @@ Clear cache if needed:
 
 ### Database Maintenance
 
-- **Backup**: Automatic (neon.tech)
-- **Restore**: Via neon.tech dashboard
+- **Backup**: Scheduled `pg_dump` on the database host — see [Backup & Restore](../operations/backup-restore.md)
+- **Restore**: `pg_restore` from a dump
 - **Optimization**: Runs automatically
 
 ---
@@ -401,5 +401,5 @@ Clear cache if needed:
 
 <p align="center">
   <strong>Questions about admin features?</strong><br>
-  Contact the technical team or check <a href="../AI-ORIENTATION.md">technical documentation</a>
+  Contact the technical team or check <a href="../../AGENTS.md">technical documentation</a>
 </p>

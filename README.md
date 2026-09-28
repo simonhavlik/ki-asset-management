@@ -2,13 +2,11 @@
 
 [![Flask](https://img.shields.io/badge/Flask-2.3.3-blue)](https://flask.palletsprojects.com/)
 [![Python](https://img.shields.io/badge/Python-3.10+-green)](https://www.python.org/)
-[![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
+![License](https://img.shields.io/badge/License-Internal-orange)
 
 > **Production-grade analyst performance tracking for investment clubs**
 
 A Flask web application for tracking and comparing investment analyst performance, featuring AI-assisted workflows, board voting, and comprehensive performance analytics.
-
-![KI Asset Management](app/static/images/hero-bg.jpg)
 
 ---
 
@@ -69,7 +67,7 @@ Comprehensive documentation is available in the `/docs` directory:
 
 ### 🤖 AI Coding Tools
 
-**[AI Orientation Guide](docs/AI-ORIENTATION.md)** - Quick reference for Roo Code, Cursor, Claude, and other AI assistants working with this codebase.
+**[AI agent guide](AGENTS.md)** - Quick reference for Roo Code, Cursor, Claude, and other AI assistants working with this codebase.
 
 ---
 
@@ -94,7 +92,9 @@ Frontend: Bootstrap 5 + Tailwind CSS
 
 ## 🚢 Deployment
 
-**Recommended:** [Render + Neon](docs/deployment/render-neon.md) (Free tier, 20 min setup)
+**Production:** [Production Infrastructure](docs/deployment/production.md) — Render web app + self-hosted PostgreSQL 17 on the club VPS
+
+**Generic recipe:** [Deploy to Render](docs/deployment/render.md) (external PostgreSQL)
 
 **Alternative Options:**
 - [Koyeb](docs/deployment/koyeb.md) - Always-on, European servers
@@ -112,7 +112,7 @@ Frontend: Bootstrap 5 + Tailwind CSS
 | Frontend | Bootstrap 5, Tailwind CSS, Jinja2 |
 | Database | SQLite (dev), PostgreSQL (prod) |
 | APIs | Yahoo Finance, DeepSeek AI, Brave Search |
-| Deployment | Render, Koyeb, Dockploy, Docker |
+| Deployment | Render + self-hosted PostgreSQL 17 (prod); Docker / Koyeb / Dockploy alternatives |
 
 ---
 
@@ -122,13 +122,12 @@ We welcome contributions! Please see:
 
 - **[Contributing Guide](docs/development/contributing.md)** - How to contribute
 - **[Development Guide](docs/development/)** - Setup and workflow
-- **[Code of Conduct](CODE_OF_CONDUCT.md)** - Community guidelines
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Internal project of the Prague Club of Investors. Technology is public; credentials are not.
 
 ---
 

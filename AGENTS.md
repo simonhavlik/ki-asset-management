@@ -5,6 +5,21 @@
 
 ---
 
+## 🏭 Production (what is actually deployed)
+
+| Piece | Where |
+|---|---|
+| Web app | **Render** free web service, Frankfurt — auto-deploys on push to `main` |
+| Start command | `python render_start.py` (build: `pip install -r requirements.txt`) |
+| Database | **self-hosted PostgreSQL 17** on the club VPS ("charizard", Debian 12) |
+| Secrets | **only** in Render env vars — the repo is public, keys are never committed |
+
+Full detail: [docs/deployment/production.md](docs/deployment/production.md).
+The env var enabling the aggressive cache is still named `NEON_OPTIMIZE` even though
+production is no longer on Neon — the name is legacy, the behaviour is just caching.
+
+---
+
 ## ⚡ Critical First Steps
 
 ### 1. Use the local dev launcher
@@ -14,7 +29,7 @@
 `run-local.sh` forces a local SQLite database. **Read
 [docs/development/local-development.md](docs/development/local-development.md)
 first** — `.env` mirrors the deployment configuration, so using it directly
-points at the live Neon database and every UI action writes to production.
+points at the live production database and every UI action writes to production.
 Manually: `source venv/bin/activate` (the venv is Python 3.12, built with `uv`).
 
 ### 2. Run Python Commands with App Context

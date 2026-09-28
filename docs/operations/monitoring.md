@@ -27,7 +27,7 @@ Use this for:
 ### Database Health
 
 ```bash
-# PostgreSQL (neon.tech)
+# PostgreSQL (self-hosted)
 psql "$DATABASE_URL" -c "SELECT 1;"
 
 # Should return: 1
