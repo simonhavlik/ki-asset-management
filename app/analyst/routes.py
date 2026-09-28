@@ -890,8 +890,10 @@ def overview():
     - equal: Simple equal-weighted average
     """
     from ..utils.overview_cache import (
-        get_cached_overview_data, save_overview_cache, 
-        get_cache_status, should_use_cache, get_cache_age_days
+        get_cached_overview_data, save_overview_cache,
+        get_cache_status, should_use_cache, get_cache_age_days,
+        get_overview_cache_any, refresh_overview_async, overview_refresh_in_progress,
+        BACKGROUND_REFRESH_AFTER_DAYS
     )
     from ..utils.unified_calculator import UnifiedDataCalculator, recalculate_all_unified
     
@@ -904,22 +906,18 @@ def overview():
     if calc_method not in ['incremental', 'equal']:
         calc_method = 'incremental'
     
-    # Always use cache - only recalculate when explicitly requested
+    # Stale-while-revalidate: never recompute inside the request. Serve whatever
+    # is cached (even if it is old) and, when it is more than a day old, refresh
+    # it in a background thread so the page never freezes on load.
     cache_key = f"{current_filter}_{calc_method}"
-    cache_age_days = get_cache_age_days(cache_key)
-    
-    # Try to get cached data
     cache_data = None
-    from_cache = False
-    
+    cache_age_days = None
     if not force_refresh:
-        # Try the specific cache first
-        cache_data = get_cached_overview_data(cache_key)
-        
-        # If not found, try broader view caches (smart filtering)
+        # Serve the specific view if we have it, else a broader cached view.
+        cache_data, cache_age_days = get_overview_cache_any(cache_key)
         if not cache_data:
             cache_data = _try_broader_view_cache(current_filter, calc_method)
-    
+
     if cache_data and not force_refresh:
         # Use cached data
         portfolio_performance = cache_data['portfolio_performance']
@@ -930,6 +928,20 @@ def overview():
         positive_ratio = cache_data['positive_ratio']
         total_with_perf = cache_data.get('total_positions', 0)
         from_cache = True
+        if cache_age_days is None or cache_age_days >= BACKGROUND_REFRESH_AFTER_DAYS:
+            refresh_overview_async(current_app._get_current_object(), current_filter, calc_method)
+    elif not force_refresh:
+        # Nothing cached at all: warm it in the background and render the empty
+        # state instead of blocking the first visitor for minutes.
+        refresh_overview_async(current_app._get_current_object(), current_filter, calc_method)
+        portfolio_performance = {'num_positions': 0}
+        series_all = None
+        series_1y = None
+        sector_stats = {'all_sectors': [], 'top_by_return': [], 'top_by_risk': []}
+        analyst_rankings = {'top_performance': [], 'top_total': [], 'top_board_approved': [], 'top_win_rate': []}
+        positive_ratio = 0
+        total_with_perf = 0
+        from_cache = False
     else:
         # Need to calculate fresh data (only when explicitly requested)
         logger.info("Recalculating overview data (explicit refresh requested)")
@@ -991,6 +1003,7 @@ def overview():
                            total_positions=total_with_perf,
                            club_risk=club_risk,
                            club_alpha=club_alpha,
+                           refreshing=overview_refresh_in_progress(current_filter, calc_method),
                            from_cache=from_cache,
                            cache_status=cache_status,
                            needs_refresh=needs_refresh)

@@ -35,6 +35,11 @@
                 <i class="bi bi-hdd"></i> {{ cache_status.age_days }}d
             </span>
             {% endif %}
+            {% if refreshing %}
+            <span class="badge bg-warning text-dark" title="Refreshing in the background">
+                <i class="bi bi-arrow-repeat"></i> refreshing
+            </span>
+            {% endif %}
             <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin.export_comprehensive') }}" title="Download comprehensive report">
                 <i class="bi bi-download"></i>
             </a>

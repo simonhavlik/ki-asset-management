@@ -9,6 +9,7 @@ Admin can force refresh with a button.
 import os
 import json
 import logging
+import threading
 from datetime import datetime, timedelta
 from typing import Dict, Optional, Any
 
@@ -334,3 +335,88 @@ def get_cache_age_days(filter_type: str) -> Optional[int]:
         return (datetime.utcnow() - cached_at).days
     except Exception:
         return None
+
+
+# =============================================================================
+# Stale-while-revalidate: serve whatever is cached, refresh in the background
+# =============================================================================
+
+_refresh_lock = threading.Lock()
+_refreshing = set()
+
+# Refresh in the background once the cache is older than this many days.
+BACKGROUND_REFRESH_AFTER_DAYS = 1
+
+
+def get_overview_cache_any(filter_type: str):
+    """Return (data, age_days) from the cache regardless of freshness.
+
+    Unlike get_cached_overview_data(), this never returns None just because the
+    entry is old - the caller decides whether to serve it and refresh in the
+    background. Returns (None, None) only when nothing is cached at all.
+    """
+    try:
+        db.session.rollback()
+    except Exception:
+        pass
+
+    if USE_DATABASE_CACHE:
+        try:
+            from ..models import OverviewDataCache
+            db_cache = OverviewDataCache.query.filter_by(filter_type=filter_type).first()
+            if db_cache and db_cache.cached_at:
+                return db_cache.to_dict(), (datetime.utcnow() - db_cache.cached_at).days
+        except Exception as e:
+            logger.warning(f"Error reading database cache for {filter_type}: {e}")
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+
+    cache_path = get_cache_path(filter_type)
+    if not os.path.exists(cache_path):
+        return None, None
+    try:
+        with open(cache_path, 'r') as f:
+            cache_data = json.load(f)
+        cached_at = datetime.fromisoformat(cache_data.get('cached_at', '2000-01-01'))
+        return cache_data.get('data'), (datetime.utcnow() - cached_at).days
+    except Exception as e:
+        logger.warning(f"Error reading file cache for {filter_type}: {e}")
+        return None, None
+
+
+def overview_refresh_in_progress(filter_type: str, calc_method: str = 'incremental') -> bool:
+    with _refresh_lock:
+        return f"{filter_type}_{calc_method}" in _refreshing
+
+
+def refresh_overview_async(app, filter_type: str, calc_method: str = 'incremental') -> bool:
+    """Recompute the overview caches in a daemon thread.
+
+    Never blocks a request: the caller serves whatever is cached and this runs
+    behind the scenes. Guarded so concurrent requests do not spawn duplicates.
+    Returns True if a refresh was started, False if one was already running.
+    """
+    key = f"{filter_type}_{calc_method}"
+    with _refresh_lock:
+        if key in _refreshing:
+            return False
+        _refreshing.add(key)
+
+    def _run():
+        try:
+            with app.app_context():
+                from .unified_calculator import UnifiedDataCalculator
+                data = UnifiedDataCalculator().recalculate_all(force=True)
+                for view_key, view_data in (data or {}).items():
+                    save_overview_cache(view_key, view_data)
+                logger.info(f"Background overview refresh finished ({key})")
+        except Exception as e:
+            logger.warning(f"Background overview refresh failed ({key}): {e}")
+        finally:
+            with _refresh_lock:
+                _refreshing.discard(key)
+
+    threading.Thread(target=_run, name=f"overview-refresh-{key}", daemon=True).start()
+    return True
