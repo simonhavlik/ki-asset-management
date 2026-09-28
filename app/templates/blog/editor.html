@@ -477,6 +477,24 @@
                         </datalist>
                     </div>
                     
+                    <!-- Document type -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Type</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="doc_type" id="docTypeResearch" value="research"
+                                   {% if not post or (post.doc_type or 'research') == 'research' %}checked{% endif %}>
+                            <label class="btn btn-outline-success" for="docTypeResearch">
+                                <i class="bi bi-file-earmark-pdf"></i> Research
+                            </label>
+                            <input type="radio" class="btn-check" name="doc_type" id="docTypePresentation" value="presentation"
+                                   {% if post and post.doc_type == 'presentation' %}checked{% endif %}>
+                            <label class="btn btn-outline-primary" for="docTypePresentation">
+                                <i class="bi bi-easel"></i> Presentation
+                            </label>
+                        </div>
+                        <div class="form-text">Featured items are grouped as <strong>Analyses</strong> (research) or <strong>Presentations</strong>.</div>
+                    </div>
+
                     <!-- Tags -->
                     <div class="mb-3">
                         <label for="tags" class="form-label fw-bold">Tags</label>

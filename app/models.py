@@ -405,6 +405,7 @@ class BlogPost(db.Model):
     # Category/Tags
     category = db.Column(db.String(50), nullable=True)
     tags = db.Column(db.String(255), nullable=True)  # Comma-separated tags
+    doc_type = db.Column(db.String(20), default='research')  # 'research' or 'presentation'
     
     # Relationships
     author = db.relationship('User', backref='blog_posts')

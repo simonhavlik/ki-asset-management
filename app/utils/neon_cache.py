@@ -339,6 +339,7 @@ def _serialize_blog_post(post) -> dict:
         'view_count': post.view_count,
         'category': post.category,
         'tags': post.tags,
+        'doc_type': getattr(post, 'doc_type', None) or 'research',
         'reading_time': post.reading_time,
         'tag_list': post.tag_list,
         'formatted_date': post.formatted_date,

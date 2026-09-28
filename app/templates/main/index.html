@@ -857,12 +857,18 @@
 
             <!-- viewport -->
             <div class="browser-body">
+                {% set research_docs = featured_research | rejectattr('doc_type', 'equalto', 'presentation') | list %}
+                {% set presentation_docs = featured_research | selectattr('doc_type', 'equalto', 'presentation') | list %}
+                {% set first_doc = research_docs[0] if research_docs else (presentation_docs[0] if presentation_docs else featured_research[0]) %}
+                {% set ns = namespace(first=true) %}
                 <aside class="research-picker" role="tablist" aria-label="Featured research reports">
-                    {% for post in featured_research %}
+                    {% if research_docs %}
+                    <div class="research-group" data-i18n="home.analyses">Analyses</div>
+                    {% for post in research_docs %}
                     <button type="button"
-                            class="research-pick{% if loop.first %} active{% endif %}"
+                            class="research-pick{% if ns.first %} active{% endif %}"
                             role="tab"
-                            aria-selected="{{ 'true' if loop.first else 'false' }}"
+                            aria-selected="{{ 'true' if ns.first else 'false' }}"
                             data-pdf-url="{{ post.pdf_url }}"
                             data-article-url="{{ url_for('blog.post', slug=post.slug) }}"
                             data-title="{{ post.title | e }}"
@@ -881,28 +887,59 @@
                             </span>
                         </span>
                     </button>
+                    {% set ns.first = false %}
                     {% endfor %}
+                    {% endif %}
+
+                    {% if presentation_docs %}
+                    <div class="research-group" data-i18n="home.presentations">Presentations</div>
+                    {% for post in presentation_docs %}
+                    <button type="button"
+                            class="research-pick{% if ns.first %} active{% endif %}"
+                            role="tab"
+                            aria-selected="{{ 'true' if ns.first else 'false' }}"
+                            data-pdf-url="{{ post.pdf_url }}"
+                            data-article-url="{{ url_for('blog.post', slug=post.slug) }}"
+                            data-title="{{ post.title | e }}"
+                            data-slug="{{ post.slug }}"
+                            onclick="selectFeaturedResearch(this)">
+                        {% if post.og_image %}
+                        <span class="research-pick-thumb" style="background-image: url('{{ post.og_image }}');"></span>
+                        {% else %}
+                        <span class="research-pick-thumb research-pick-thumb-empty"><i class="bi bi-easel"></i></span>
+                        {% endif %}
+                        <span class="research-pick-body">
+                            <span class="research-pick-title">{{ post.title }}</span>
+                            <span class="research-pick-meta">
+                                {% if post.category %}<span>{{ post.category }}</span>{% endif %}
+                                <span>{{ post.formatted_date }}</span>
+                            </span>
+                        </span>
+                    </button>
+                    {% set ns.first = false %}
+                    {% endfor %}
+                    {% endif %}
                 </aside>
 
                 <div class="research-viewer">
                     <div class="research-viewer-bar">
-                        <span class="research-viewer-title" id="featuredResearchTitle">{{ featured_research[0].title }}</span>
+                        <span class="research-viewer-title" id="featuredResearchTitle">{{ first_doc.title }}</span>
                         <span class="research-viewer-actions">
                             <a id="featuredResearchArticle"
-                               href="{{ url_for('blog.post', slug=featured_research[0].slug) }}"
+                               href="{{ url_for('blog.post', slug=first_doc.slug) }}"
                                class="btn btn-sm btn-outline-light"
                                data-i18n-html="home.read_article">
                                 <i class="bi bi-journal-text"></i> Read Article
                             </a>
                             <a id="featuredResearchOpen"
-                               href="{{ featured_research[0].pdf_url }}"
+                               href="{{ first_doc.pdf_url }}"
                                target="_blank" rel="noopener"
                                class="btn btn-sm btn-light"
                                title="Open PDF in new tab" aria-label="Open PDF in new tab">
                                 <i class="bi bi-box-arrow-up-right"></i>
                             </a>
                             <a id="featuredResearchDownload"
-                               href="{{ featured_research[0].pdf_url }}"
+                               href="{{ first_doc.pdf_url }}"
                                download
                                class="btn btn-sm btn-light"
                                title="Download PDF" aria-label="Download PDF">
@@ -912,8 +949,8 @@
                     </div>
                     <div class="research-viewer-frame">
                         <iframe id="featuredResearchFrame"
-                                src="{{ featured_research[0].pdf_url }}"
-                                title="{{ featured_research[0].title }}"
+                                src="{{ first_doc.pdf_url }}"
+                                title="{{ first_doc.title }}"
                                 loading="lazy"></iframe>
                     </div>
                 </div>

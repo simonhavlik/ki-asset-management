@@ -4,6 +4,25 @@ from .config import config
 from .extensions import db, login_manager, mail, csrf, cache
 from .security import init_security, rate_limit
 
+def _ensure_blog_columns(app):
+    """Add columns to blog_posts that db.create_all() cannot add to an existing table."""
+    try:
+        from sqlalchemy import inspect, text
+        inspector = inspect(db.engine)
+        if 'blog_posts' not in inspector.get_table_names():
+            return
+        columns = {c['name'] for c in inspector.get_columns('blog_posts')}
+        if 'doc_type' not in columns:
+            app.logger.info("Adding blog_posts.doc_type column...")
+            with db.engine.begin() as conn:
+                conn.execute(text(
+                    "ALTER TABLE blog_posts ADD COLUMN doc_type VARCHAR(20) DEFAULT 'research'"
+                ))
+            app.logger.info("blog_posts.doc_type added")
+    except Exception as e:
+        app.logger.warning(f"Could not ensure blog_posts.doc_type: {e}")
+
+
 def _ensure_benchmark_table(app):
     """Ensure benchmark_prices table exists and has seed data."""
     try:
@@ -160,6 +179,8 @@ def create_app(config_name=None):
         
         # Auto-migrate: check if benchmark_prices table exists and has data
         _ensure_benchmark_table(app)
+        # Auto-migrate: add columns create_all() cannot add to an existing table
+        _ensure_blog_columns(app)
         
         # Warm caches for Neon.tech optimization (pre-populate in-memory cache)
         if os.environ.get('NEON_OPTIMIZE', 'true').lower() == 'true':

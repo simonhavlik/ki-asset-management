@@ -2457,3 +2457,19 @@ canvas {
         align-items: flex-start;
     }
 }
+
+/* Group labels in the featured-research picker (Analyses / Presentations) */
+.research-group {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-gray-400);
+    padding: 0.35rem 0.15rem 0.1rem;
+}
+
+.research-group:not(:first-child) {
+    margin-top: 0.5rem;
+    border-top: 1px solid var(--color-gray-100);
+    padding-top: 0.6rem;
+}

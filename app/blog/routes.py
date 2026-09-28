@@ -324,6 +324,9 @@ def new_post():
         category = request.form.get('category', '').strip()
         tags = request.form.get('tags', '').strip()
         content_type = request.form.get('content_type', 'html')
+        doc_type = (request.form.get('doc_type', 'research') or 'research').strip().lower()
+        if doc_type not in ('research', 'presentation'):
+            doc_type = 'research'
         is_public = request.form.get('is_public') == 'on'
         pdf_path = request.form.get('pdf_path', '').strip()
         additional_pdfs_json = request.form.get('additional_pdfs', '').strip()
@@ -369,6 +372,7 @@ def new_post():
             category=category if category else None,
             tags=tags if tags else None,
             content_type=content_type,
+            doc_type=doc_type,
             pdf_path=pdf_path if pdf_path else None,
             additional_pdfs=additional_pdfs,
             is_public=is_public,
@@ -426,6 +430,9 @@ def edit_post(post_id):
         category = request.form.get('category', '').strip()
         tags = request.form.get('tags', '').strip()
         content_type = request.form.get('content_type', 'html')
+        doc_type = (request.form.get('doc_type', 'research') or 'research').strip().lower()
+        if doc_type not in ('research', 'presentation'):
+            doc_type = 'research'
         og_image = request.form.get('og_image', '').strip()
         is_public = request.form.get('is_public') == 'on'
         is_featured = request.form.get('is_featured') == 'on'
@@ -468,6 +475,7 @@ def edit_post(post_id):
         blog_post.category = category if category else None
         blog_post.tags = tags if tags else None
         blog_post.content_type = content_type
+        blog_post.doc_type = doc_type
         blog_post.og_image = og_image if og_image else None
         blog_post.pdf_path = pdf_path if pdf_path else None
         blog_post.additional_pdfs = additional_pdfs
