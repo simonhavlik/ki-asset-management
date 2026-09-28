@@ -160,38 +160,77 @@
             </div>
         </div>
 
-        <!-- Analyst leaderboards -->
+        <!-- Analyst scoring: all time, the current term, the last one, or any past term -->
         <div class="col-xl-5">
             <div class="card h-100">
-                <div class="card-header"><h6 class="mb-0"><i class="bi bi-people"></i> Analyst leaderboards</h6></div>
+                <div class="card-header d-flex justify-content-between align-items-center gap-2">
+                    <h6 class="mb-0"><i class="bi bi-trophy"></i> <span data-i18n="scoring.title">Analyst scoring</span>
+                        {% if scoring.start %}<span class="text-muted small ms-1">{{ scoring.label }}</span>{% endif %}
+                    </h6>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                                data-bs-toggle="dropdown" aria-expanded="false" title="{{ scoring.label }}">
+                            {% if scoring_key == 'all' %}<span data-i18n="scoring.all_time">All time</span>
+                            {% elif scoring_key == 'current' %}<span data-i18n="scoring.current_term">Current term</span>
+                            {% elif scoring_key == 'last' %}<span data-i18n="scoring.last_term">Last term</span>
+                            {% else %}{{ scoring.label }}{% endif %}
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            {% for t in term_choices %}
+                            <li>
+                                <a class="dropdown-item{% if t.key == scoring_key %} active{% endif %}"
+                                   title="{{ t.label }}"
+                                   href="{{ url_for('analyst.overview', filter=current_filter, method=calc_method, term=t.key) }}">
+                                    {% if t.key == 'all' %}<span data-i18n="scoring.all_time">All time</span>
+                                    {% elif t.is_current %}<span data-i18n="scoring.current_term">Current term</span>
+                                    {% elif t.is_last %}<span data-i18n="scoring.last_term">Last term</span>
+                                    {% else %}{{ t.label }}{% endif %}
+                                </a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
                 <div class="card-body">
                     <div class="lead-grid">
                         <div>
-                            <div class="lead-title">Top by performance</div>
-                            {% for a in analyst_rankings.top_performance %}
-                            <div class="lead-row"><span>{{ loop.index }}. {{ a.analyst_name }}</span>
-                                <span class="{{ 'up' if (a.avg_return or 0) >= 0 else 'down' }}">{{ "%.1f"|format(a.avg_return or 0) }}%</span></div>
+                            <div class="lead-title" data-i18n="scoring.most_approved">Most board-approved</div>
+                            {% for a in scoring.most_approved %}
+                            <div class="lead-row"><span>{{ a.rank }}. {{ a.name }}</span><span class="muted">{{ a.value_display }}</span></div>
+                            {% else %}
+                            <div class="lead-row muted" data-i18n="scoring.no_data">No data</div>
                             {% endfor %}
                         </div>
                         <div>
-                            <div class="lead-title">Most analyses</div>
-                            {% for a in analyst_rankings.top_total %}
-                            <div class="lead-row"><span>{{ loop.index }}. {{ a.analyst_name }}</span><span class="muted">{{ a.count }}</span></div>
+                            <div class="lead-title" data-i18n="scoring.most_analyses">Most analyses</div>
+                            {% for a in scoring.most_analyses %}
+                            <div class="lead-row"><span>{{ a.rank }}. {{ a.name }}</span><span class="muted">{{ a.value_display }}</span></div>
+                            {% else %}
+                            <div class="lead-row muted" data-i18n="scoring.no_data">No data</div>
                             {% endfor %}
                         </div>
                         <div>
-                            <div class="lead-title">Most board-approved</div>
-                            {% for a in analyst_rankings.top_board_approved %}
-                            <div class="lead-row"><span>{{ loop.index }}. {{ a.analyst_name }}</span><span class="muted">{{ a.count }}</span></div>
+                            <div class="lead-title" data-i18n="scoring.top_performance">Top by performance</div>
+                            {% for a in scoring.top_performance %}
+                            <div class="lead-row"><span>{{ a.rank }}. {{ a.name }}</span>
+                                <span class="{{ 'up' if a.value >= 0 else 'down' }}">{{ a.value_display }}</span></div>
+                            {% else %}
+                            <div class="lead-row muted" data-i18n="scoring.no_data">No data</div>
                             {% endfor %}
                         </div>
                         <div>
-                            <div class="lead-title">Best win rate (3+)</div>
-                            {% for a in analyst_rankings.top_win_rate %}
-                            <div class="lead-row"><span>{{ loop.index }}. {{ a.analyst_name }}</span><span class="up">{{ "%.0f"|format(a.win_rate or 0) }}%</span></div>
+                            <div class="lead-title" data-i18n="scoring.best_win_rate">Best win rate</div>
+                            {% for a in scoring.best_win_rate %}
+                            <div class="lead-row"><span>{{ a.rank }}. {{ a.name }}</span><span class="up">{{ a.value_display }}</span></div>
+                            {% else %}
+                            <div class="lead-row muted" data-i18n="scoring.no_data">No data</div>
                             {% endfor %}
                         </div>
                     </div>
+                    <p class="text-muted small mb-0 mt-2" data-i18n="scoring.note">
+                        Terms run February–July and August–January, so the summer break is split between them.
+                        Win rate needs 3+ scored analyses all-time; in a term every scored analysis counts.
+                    </p>
                 </div>
             </div>
         </div>

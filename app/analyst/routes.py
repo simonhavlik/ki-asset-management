@@ -1172,6 +1172,13 @@ def overview():
         _b = _num(_pp.get(_key))
         club_alpha[_label] = (_total - _b) if (_total is not None and _b is not None) else None
 
+    # Term scoring (most board approved / most analyses / best performance /
+    # best win rate) for all time, the current term, the last one, or any past
+    # term via ?term=. Cheap aggregate queries, memoised for a few minutes.
+    from ..utils.scoring import term_choices
+    scoring_key = request.args.get('term') or 'current'
+    scoring = _memo_term_scoring(scoring_key)
+
     return render_template('analyst/overview.html',
                            current_filter=current_filter,
                            calc_method=calc_method,
@@ -1187,7 +1194,28 @@ def overview():
                            refreshing=overview_refresh_in_progress(current_filter, calc_method),
                            from_cache=from_cache,
                            cache_status=cache_status,
-                           needs_refresh=needs_refresh)
+                           needs_refresh=needs_refresh,
+                           scoring=scoring,
+                           scoring_key=scoring_key,
+                           term_choices=term_choices())
+
+
+# Term scoring is a handful of aggregate queries over a small table; memoise it so
+# switching term tabs and reloading the overview does not re-run them.
+_TERM_SCORING_CACHE: Dict[str, Any] = {}
+_TERM_SCORING_TTL_SECONDS = 300
+
+
+def _memo_term_scoring(key: str):
+    from datetime import datetime as _dt
+    from ..utils.scoring import term_overview
+    hit = _TERM_SCORING_CACHE.get(key)
+    now = _dt.utcnow()
+    if hit and (now - hit[0]).total_seconds() < _TERM_SCORING_TTL_SECONDS:
+        return hit[1]
+    data = term_overview(key)
+    _TERM_SCORING_CACHE[key] = (now, data)
+    return data
 
 
 def _try_broader_view_cache(current_filter: str, calc_method: str) -> Optional[Dict]:

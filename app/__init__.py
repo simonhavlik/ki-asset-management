@@ -85,7 +85,8 @@ def _ensure_token_index(app):
         if 'password_reset_tokens' not in inspector.get_table_names():
             return
         with db.engine.begin() as conn:
-            conn.execute(text("SET LOCAL lock_timeout = '5s'"))
+            if db.engine.dialect.name == 'postgresql':
+                conn.execute(text("SET LOCAL lock_timeout = '5s'"))
             conn.execute(text(
                 'CREATE INDEX IF NOT EXISTS ix_password_reset_tokens_token_hash '
                 'ON password_reset_tokens (token_hash)'
@@ -107,11 +108,12 @@ def _ensure_dashboard_cache_table(app):
             # Opportunistic housekeeping: drop payloads nobody has asked for in
             # a fortnight so the table cannot grow without bound.
             with db.engine.begin() as conn:
-                conn.execute(text("SET LOCAL lock_timeout = '5s'"))
-                conn.execute(text(
-                    "DELETE FROM analyst_dashboard_cache "
-                    "WHERE cached_at < now() - interval '14 days'"
-                ))
+                if db.engine.dialect.name == 'postgresql':
+                    conn.execute(text("SET LOCAL lock_timeout = '5s'"))
+                    conn.execute(text(
+                        "DELETE FROM analyst_dashboard_cache "
+                        "WHERE cached_at < now() - interval '14 days'"
+                    ))
     except Exception as e:
         app.logger.warning(f"Could not ensure analyst_dashboard_cache: {e}")
 
