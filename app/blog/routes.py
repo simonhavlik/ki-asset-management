@@ -720,6 +720,14 @@ def toggle_featured(post_id):
     blog_post = BlogPost.query.get_or_404(post_id)
     blog_post.is_featured = not blog_post.is_featured
     db.session.commit()
+
+    # Featured posts drive the homepage block, so drop the caches.
+    try:
+        from ..utils.neon_cache import invalidate_blog_cache, invalidate_main_cache
+        invalidate_blog_cache()
+        invalidate_main_cache()
+    except Exception as e:
+        current_app.logger.warning(f"Failed to invalidate caches: {e}")
     
     status = 'featured' if blog_post.is_featured else 'unfeatured'
     flash(f'Post {status} successfully!', 'success')

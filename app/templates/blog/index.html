@@ -29,7 +29,7 @@
 <section class="section research-index">
     <div class="container">
 
-        <!-- Compact header (main-page design language) -->
+        <!-- Masthead -->
         <header class="research-index-head reveal">
             <div class="research-index-heading">
                 <span class="section-label" data-i18n="blogindex.label">Research</span>
@@ -71,31 +71,43 @@
         </div>
         {% endif %}
 
-        <!-- Research reports (PDF) first -->
+        <!-- Reports (PDF) -->
         {% if pdf_posts %}
-        <h2 class="research-index-h2" data-i18n="blogindex.reports">Reports</h2>
-        <div class="research-index-grid reveal">
+        <div class="research-section-head reveal">
+            <h2 class="research-index-h2" data-i18n="blogindex.reports">Reports</h2>
+            <span class="research-count">{{ pdf_posts|length }}</span>
+        </div>
+        <div class="research-list reveal">
             {% for post in pdf_posts %}
-            <article class="research-card">
-                <div class="research-card-top">
-                    <span class="research-card-kind"><i class="bi bi-file-earmark-pdf-fill"></i> PDF</span>
-                    {% if post.category %}<span class="research-card-cat">{{ post.category }}</span>{% endif %}
+            <article class="research-row">
+                <span class="research-row-thumb">
+                    {% if post.og_image %}
+                    <img src="{{ post.og_image }}" alt="" loading="lazy">
+                    {% else %}
+                    <i class="bi bi-file-earmark-pdf"></i>
+                    {% endif %}
+                </span>
+                <div class="research-row-body">
+                    <div class="research-row-meta">
+                        <span class="research-row-kind">PDF</span>
+                        {% if post.category %}<span class="research-row-cat">{{ post.category }}</span>{% endif %}
+                        <span>{{ post.formatted_date }}</span>
+                    </div>
+                    <h3 class="research-row-title">
+                        <a href="{{ url_for('blog.post', slug=post.slug) }}">{{ post.title }}</a>
+                    </h3>
+                    <p class="research-row-excerpt">{{ post.get_excerpt(130) }}</p>
+                    <div class="research-row-foot">
+                        <span><i class="bi bi-person"></i> {{ post.author_name }}</span>
+                    </div>
                 </div>
-                <h3 class="research-card-title">
-                    <a href="{{ url_for('blog.post', slug=post.slug) }}">{{ post.title }}</a>
-                </h3>
-                <p class="research-card-excerpt">{{ post.get_excerpt(140) }}</p>
-                <div class="research-card-meta">
-                    <span><i class="bi bi-person"></i> {{ post.author_name }}</span>
-                    <span><i class="bi bi-calendar3"></i> {{ post.formatted_date }}</span>
-                </div>
-                <div class="research-card-actions">
+                <div class="research-row-actions">
                     <a href="{{ url_for('blog.post', slug=post.slug) }}" class="btn btn-sm btn-primary">
                         <i class="bi bi-journal-text"></i> Read
                     </a>
                     {% if post.pdf_url %}
                     <a href="{{ post.pdf_url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary">
-                        <i class="bi bi-file-earmark-pdf"></i> Open PDF
+                        <i class="bi bi-file-earmark-pdf"></i> PDF
                     </a>
                     {% endif %}
                 </div>
@@ -104,26 +116,38 @@
         </div>
         {% endif %}
 
-        <!-- Written articles -->
+        <!-- Articles -->
         {% if text_posts %}
-        <h2 class="research-index-h2" data-i18n="blogindex.articles">Articles</h2>
-        <div class="research-index-grid reveal">
+        <div class="research-section-head reveal">
+            <h2 class="research-index-h2" data-i18n="blogindex.articles">Articles</h2>
+            <span class="research-count">{{ text_posts|length }}</span>
+        </div>
+        <div class="research-list reveal">
             {% for post in text_posts %}
-            <article class="research-card">
-                <div class="research-card-top">
-                    <span class="research-card-kind is-article"><i class="bi bi-journal-text"></i> <span data-i18n="blogindex.article">Article</span></span>
-                    {% if post.category %}<span class="research-card-cat">{{ post.category }}</span>{% endif %}
+            <article class="research-row">
+                <span class="research-row-thumb is-article">
+                    {% if post.og_image %}
+                    <img src="{{ post.og_image }}" alt="" loading="lazy">
+                    {% else %}
+                    <i class="bi bi-journal-text"></i>
+                    {% endif %}
+                </span>
+                <div class="research-row-body">
+                    <div class="research-row-meta">
+                        <span class="research-row-kind is-article" data-i18n="blogindex.article">Article</span>
+                        {% if post.category %}<span class="research-row-cat">{{ post.category }}</span>{% endif %}
+                        <span>{{ post.formatted_date }}</span>
+                    </div>
+                    <h3 class="research-row-title">
+                        <a href="{{ url_for('blog.post', slug=post.slug) }}">{{ post.title }}</a>
+                    </h3>
+                    <p class="research-row-excerpt">{{ post.get_excerpt(130) }}</p>
+                    <div class="research-row-foot">
+                        <span><i class="bi bi-person"></i> {{ post.author_name }}</span>
+                        <span><i class="bi bi-clock"></i> {{ post.reading_time }} min</span>
+                    </div>
                 </div>
-                <h3 class="research-card-title">
-                    <a href="{{ url_for('blog.post', slug=post.slug) }}">{{ post.title }}</a>
-                </h3>
-                <p class="research-card-excerpt">{{ post.get_excerpt(140) }}</p>
-                <div class="research-card-meta">
-                    <span><i class="bi bi-person"></i> {{ post.author_name }}</span>
-                    <span><i class="bi bi-calendar3"></i> {{ post.formatted_date }}</span>
-                    <span><i class="bi bi-clock"></i> {{ post.reading_time }} min</span>
-                </div>
-                <div class="research-card-actions">
+                <div class="research-row-actions">
                     <a href="{{ url_for('blog.post', slug=post.slug) }}" class="btn btn-sm btn-primary">
                         <i class="bi bi-journal-text"></i> Read
                     </a>
