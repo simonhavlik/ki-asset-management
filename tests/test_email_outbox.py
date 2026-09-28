@@ -236,3 +236,22 @@ def test_check_gmail_api_reports_success(app, monkeypatch):
         ok, detail = es.check_gmail_api()
     assert ok is True
     assert 'access token obtained' in detail
+
+
+def test_outbox_relay_mode_queues_without_attempting_a_send(app, monkeypatch):
+    """MAIL_PROVIDER=outbox must not burn a timeout on a port Render blocks."""
+    import app.email_service as es
+    from app.models import EmailOutbox
+
+    def should_not_be_called(*args, **kwargs):
+        raise AssertionError('no provider may be attempted in outbox relay mode')
+    monkeypatch.setattr(es, '_dispatch', should_not_be_called)
+
+    app.config.update(MAIL_PROVIDER='outbox', GMAIL_REFRESH_TOKEN='', SENDGRID_API_KEY='')
+    with app.app_context():
+        EmailOutbox.query.delete()
+        db.session.commit()
+
+        assert es._provider_chain() == []
+        assert es.send_email('analyst@example.com', 'Reset', 'body') is False
+        assert EmailOutbox.query.count() == 1

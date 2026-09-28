@@ -118,31 +118,59 @@ Cache=yes
 
 ---
 
-## Outbound email (Gmail API over HTTPS)
+## Outbound email
 
-**Render cannot send email over SMTP.** The production log is unambiguous:
+**Nothing can send mail from this web service over SMTP.** Render's free tier
+blocks outbound traffic to ports `25`, `465` and `587` outright (Render
+changelog, 16 Sep 2025; live 26 Sep), which is what the production log shows:
 
 ```
-sendgrid failed: HTTP Error 401: Unauthorized     <- daily quota is 0, plan is dead
-smtp failed: [Errno 101] Network is unreachable   <- Render blocks the SMTP ports
+sendgrid failed: HTTP Error 401: Unauthorized     <- daily quota is 0, plan dead
+smtp failed: [Errno 101] Network is unreachable   <- the SMTP ports are blocked
 ```
 
-SendGrid cannot be revived on the free plan (`GET /v3/user/credits` reports
-`total: 0, remain: 0, is_hard_limit: true`). So mail goes out through the
-**Gmail API**, which is plain HTTPS to `googleapis.com` and therefore allowed.
+Gmail's SMTP only listens on those three ports, so the app password cannot be
+used from Render no matter how it is configured. There are two ways out; they
+compose, and `MAIL_PROVIDER` picks between them.
 
-Because `klubinvestoru.com` is a Google Workspace domain (MX = `aspmx.l.google.com`),
-the OAuth client is **Internal**:
+### Path A — outbox relay on the database host (no open ports)
 
-- no Google verification and no "unverified app" warning
-- **the refresh token does not expire** (an External client left in "Testing"
-  has its refresh tokens revoked after 7 days, which would break mail weekly)
+The app writes every message to the `email_outbox` table; a systemd timer on the
+database host delivers them over Gmail SMTP, because that host *can* reach the
+SMTP ports and already speaks to the same database.
 
-### One-time setup
+```
+Render (app)                       charizard
+  send_email()                       kiam-send-outbox.timer (every 60s)
+    └─ INSERT email_outbox ────────────└─ scripts/send_outbox.py
+         (pending)                          └─ Gmail SMTP -> status='sent'
+```
 
-Create the credentials with `scripts/gmail_oauth_setup.py` — it walks through
-the console, opens the consent screen, and prints the values to paste into
-Render. Then set:
+Set `MAIL_PROVIDER=outbox` in Render so the app queues immediately instead of
+burning a 10s timeout on a port that is blocked. Delivery lands within a minute.
+
+Nothing *listens* on charizard: no open port, no daemon, no new credentials. The
+relay is a oneshot script that runs for about a second a minute and reads the
+queue from localhost PostgreSQL. Install it from a checkout on that host:
+
+```bash
+cp deploy/mail-relay/kiam-mail.env.example /etc/kiam-mail.env
+$EDITOR /etc/kiam-mail.env          # localhost DB URL + Gmail app password
+sudo deploy/mail-relay/install.sh
+journalctl -u kiam-send-outbox -f   # follow deliveries
+```
+
+### Path B — Gmail API over HTTPS (instant delivery)
+
+If instant delivery matters, send straight from Render over HTTPS, which is not
+blocked, using the Gmail API. Because `klubinvestoru.com` is a Workspace domain
+(MX = `aspmx.l.google.com`) the OAuth client is **Internal**: no Google
+verification, and the refresh token does not expire. (An External client left in
+"Testing" has its refresh tokens revoked after 7 days — `flask mail-status
+--check` detects exactly that and says so.)
+
+Create the credentials with `scripts/gmail_oauth_setup.py`, which walks the
+console, opens the consent screen and prints the values to paste into Render:
 
 | Variable | Value |
 | --- | --- |
@@ -150,27 +178,25 @@ Render. Then set:
 | `GMAIL_CLIENT_SECRET` | from the OAuth client |
 | `GMAIL_REFRESH_TOKEN` | printed by the setup script |
 | `GMAIL_SENDER` | `simon.havlik@klubinvestoru.com` |
-| `MAIL_PROVIDER` | `gmail_api` (optional — it is auto-detected first) |
+| `MAIL_PROVIDER` | `gmail_api` (or leave unset to auto-detect it first) |
 
-Provider order is `gmail_api → brevo → resend → sendgrid → smtp`, so adding any
-other key takes effect without further changes.
+Provider order is `gmail_api -> brevo -> resend -> sendgrid -> smtp`.
 
-### Nothing is ever silently dropped
+### Either way, nothing is silently dropped
 
-If every provider fails, `send_email()` parks the message in the `email_outbox`
-table instead of logging and dropping it (which is why reset links used to
-vanish without trace). The in-process scheduler retries the queue every 15
-minutes, and it can be drained on demand:
+If every provider fails, the message is parked in `email_outbox` rather than
+logged and discarded, which is why password-reset links used to vanish without
+trace. The in-process scheduler retries the queue every 15 minutes:
 
 ```bash
 flask mail-status                  # provider config, order, outbox depth
-flask send-outbox --limit 50       # retry now
+flask mail-status --check          # actually mint a Gmail API token
+flask send-outbox --limit 50       # retry now, in-process
 flask send-test-email you@example.com
 ```
 
-Rows are retried at most 5 times, then marked `failed` so a permanently broken
-provider cannot grow the table. This retry lives in the web process — **no
-infrastructure on the database host is involved.**
+Rows are retried at most 5 times and then marked `failed`, so a permanently
+broken provider cannot grow the table.
 
 ## Backups — **important**
 

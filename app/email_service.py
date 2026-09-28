@@ -21,10 +21,16 @@ from flask import current_app
 import requests
 
 def _provider_chain():
-    """Ordered provider names to try: MAIL_PROVIDER if forced, else by config."""
+    """Ordered provider names to try: MAIL_PROVIDER if forced, else by config.
+
+    ``MAIL_PROVIDER=outbox`` returns an empty chain, meaning "do not attempt to
+    send from here at all" - the app queues everything and the relay on the
+    database host delivers it. That avoids burning a 10s SMTP timeout per email
+    on a port Render blocks anyway.
+    """
     provider = (current_app.config.get('MAIL_PROVIDER') or '').lower()
     if provider:
-        return [provider]
+        return [] if provider in ('outbox', 'queue') else [provider]
     attempts = []
     if current_app.config.get('GMAIL_REFRESH_TOKEN'):
         attempts.append('gmail_api')
@@ -68,8 +74,19 @@ def send_email(to, subject, body, html=None):
         bool: True if email was sent successfully, False otherwise (the message
         is then parked in the outbox rather than lost).
     """
+    names = _provider_chain()
+
+    # Relay mode: nothing is attempted here on purpose, the database host drains
+    # the outbox. Queue without pretending to try (and without a 10s timeout).
+    if not names:
+        if _enqueue(to, subject, body, html, None):
+            current_app.logger.info(f'Queued "{subject}" for {to} (outbox relay mode)')
+        else:
+            current_app.logger.error(f'Outbox unavailable - email to {to} was lost')
+        return False
+
     last_error = None
-    for name in _provider_chain():
+    for name in names:
         try:
             return _dispatch(name, to, subject, body, html)
         except Exception as e:
