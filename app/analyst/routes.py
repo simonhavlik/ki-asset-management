@@ -918,22 +918,16 @@ def build_refresh_state():
         and the summary come from
     """
     from ..utils.unified_calculator import get_progress, is_calculation_running
-    from ..models import RecalculationLog
+    from ..utils.full_recalc import running_refresh_state
 
     live = is_calculation_running()
     progress = get_progress().to_dict() if live else {}
 
-    last = RecalculationLog.query.order_by(RecalculationLog.id.desc()).first()
-
-    # A job killed mid-run leaves status='running' forever. Do not report that as
-    # ongoing work (and do not leave it in the log table as if it were).
-    if not live and last is not None and last.status == 'running':
-        started = last.started_at or datetime.utcnow()
-        if datetime.utcnow() - started > timedelta(minutes=REFRESH_INTERRUPTED_AFTER_MINUTES):
-            last.mark_failed('Interrupted: the worker restarted while this refresh was running')
-            last = RecalculationLog.query.order_by(RecalculationLog.id.desc()).first()
-
-    running = bool(live or (last is not None and last.status == 'running'))
+    # One rule for "is a refresh running?", shared with the code that starts one:
+    # a 'running' row older than the interruption window is a corpse from a
+    # restarted worker and is retired rather than reported as progress.
+    stored_running, last = running_refresh_state()
+    running = bool(live or stored_running)
 
     if live:
         pct = int(progress.get('progress_pct') or 0)

@@ -197,3 +197,29 @@ def test_a_second_start_is_refused_while_one_is_running(app, monkeypatch):
         assert 'already' in message2.lower() or 'still running' in message2.lower()
 
         release.set()
+
+
+def test_a_killed_job_does_not_block_the_next_refresh(app):
+    """A 'running' row from a restarted worker is a corpse, not a live job."""
+    from app.utils import full_recalc
+
+    with app.app_context():
+        from app.models import RecalculationLog
+        RecalculationLog.query.delete()
+        db.session.commit()
+
+        # a job that died two hours ago, and a completed run after it
+        dead = RecalculationLog(run_type='manual', status='running',
+                                started_at=datetime.utcnow() - timedelta(hours=2))
+        db.session.add(dead)
+        db.session.commit()
+        done = RecalculationLog(run_type='manual', status='completed',
+                                started_at=datetime.utcnow() - timedelta(minutes=10),
+                                completed_at=datetime.utcnow(), duration_seconds=60)
+        db.session.add(done)
+        db.session.commit()
+
+        already, newest = full_recalc.running_refresh_state()
+        assert already is False, 'a dead job must not block a new refresh'
+        assert newest.id == done.id
+        assert db.session.get(RecalculationLog, dead.id).status == 'failed'

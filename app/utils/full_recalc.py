@@ -10,7 +10,7 @@ why it never runs inside a request: callers start it and poll the progress.
 
 import logging
 import threading
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +24,28 @@ REFRESH_INTERRUPTED_AFTER_MINUTES = 45
 
 _job_lock = threading.Lock()
 _job_thread = None
+
+
+def running_refresh_state():
+    """(is_running, newest_log_row) - the single rule everyone uses.
+
+    Only the *newest* log row decides. Rows still marked 'running' after the
+    interruption window are corpses from a worker that was restarted mid-job, so
+    they are retired here rather than blocking refreshes (or looking like
+    progress) forever. The progress endpoint reports the same thing.
+    """
+    from ..models import RecalculationLog
+
+    cutoff = datetime.utcnow() - timedelta(minutes=REFRESH_INTERRUPTED_AFTER_MINUTES)
+    stale = (RecalculationLog.query
+             .filter(RecalculationLog.status == 'running',
+                     RecalculationLog.started_at < cutoff)
+             .all())
+    for row in stale:
+        row.mark_failed('Interrupted: the worker restarted while this refresh was running')
+
+    newest = RecalculationLog.query.order_by(RecalculationLog.id.desc()).first()
+    return bool(newest is not None and newest.status == 'running'), newest
 
 
 def start_full_recalculation(run_type: str = 'manual'):
@@ -47,19 +69,13 @@ def start_full_recalculation(run_type: str = 'manual'):
         if is_calculation_running():
             return False, 'A recalculation is already in progress'
 
-        # Cross-worker guard: another process (or the same one before a restart)
-        # may be mid-run. A 'running' row older than the interruption window is
-        # a corpse, so it does not block anything.
+        # Cross-worker guard: another process (or this one before a restart) may
+        # be mid-run. Uses the same rule as the progress endpoint, so a corpse
+        # left by a killed worker cannot block refreshes forever.
         try:
-            from ..models import RecalculationLog
-            cutoff = datetime.utcnow() - timedelta(minutes=REFRESH_INTERRUPTED_AFTER_MINUTES)
-            recent = (RecalculationLog.query
-                      .filter(RecalculationLog.status == 'running',
-                              RecalculationLog.started_at >= cutoff)
-                      .order_by(RecalculationLog.id.desc())
-                      .first())
-            if recent is not None:
-                return False, 'A refresh that started a few minutes ago is still running'
+            already, _row = running_refresh_state()
+            if already:
+                return False, 'A refresh started a few minutes ago is still running'
         except Exception as e:
             # A failure here must not block a legitimate refresh.
             logger.warning(f'Could not check for a running refresh: {e}')
