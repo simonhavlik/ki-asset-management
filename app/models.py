@@ -666,3 +666,32 @@ class RecalculationLog(db.Model):
     
     def __repr__(self):
         return f'<RecalculationLog {self.run_type}: {self.status} at {self.started_at}>'
+
+
+class EmailOutbox(db.Model):
+    """Emails no provider could deliver, parked for the relay on the DB host.
+
+    Two independent things break outbound mail in production: Render blocks SMTP
+    outright ([Errno 101]) and the HTTPS API providers can run out of credit.
+    A failed send used to be logged and dropped, so password-reset links simply
+    never arrived. Failed sends now land here and a small systemd timer on the
+    database host drains the queue over Gmail SMTP (see scripts/send_outbox.py).
+    """
+    __tablename__ = 'email_outbox'
+
+    id = db.Column(db.Integer, primary_key=True)
+    recipient = db.Column(db.String(255), nullable=False)
+    subject = db.Column(db.String(255), nullable=False)
+    text_body = db.Column(db.Text)
+    html_body = db.Column(db.Text)
+    # pending -> sent | failed (after MAX_ATTEMPTS)
+    status = db.Column(db.String(16), default='pending', nullable=False, index=True)
+    attempts = db.Column(db.Integer, default=0, nullable=False)
+    last_error = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    sent_at = db.Column(db.DateTime, nullable=True)
+
+    MAX_ATTEMPTS = 5
+
+    def __repr__(self):
+        return f'<EmailOutbox {self.id} to={self.recipient} {self.status} attempts={self.attempts}>'

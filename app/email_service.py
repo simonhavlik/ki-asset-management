@@ -46,6 +46,7 @@ def send_email(to, subject, body, html=None):
             attempts.append('sendgrid')
         attempts.append('smtp')
 
+    last_error = None
     for name in attempts:
         try:
             if name == 'brevo':
@@ -57,10 +58,55 @@ def send_email(to, subject, body, html=None):
             if name == 'smtp':
                 return _send_smtp(to, subject, body, html)
         except Exception as e:
+            last_error = f'{name}: {e}'
             current_app.logger.error(f'{name} failed: {e}')
 
-    current_app.logger.error('No email provider succeeded')
+    # Nothing worked. Park the message instead of dropping it: Render blocks
+    # SMTP and API providers run out of credit, so a dropped send meant a
+    # password-reset link that silently never arrived. The relay on the
+    # database host drains this table over Gmail SMTP.
+    if _enqueue(to, subject, body, html, last_error):
+        current_app.logger.warning(
+            f'No email provider succeeded; queued "{subject}" for {to} in the outbox '
+            f'(last error: {last_error})'
+        )
+    else:
+        current_app.logger.error(
+            f'No email provider succeeded and the outbox is unavailable - email to {to} was lost'
+        )
     return False
+
+
+def _enqueue(to, subject, body, html=None, error=None):
+    """Park an undeliverable email in the outbox. Never raises."""
+    from .extensions import db
+    from .models import EmailOutbox
+    try:
+        db.session.add(EmailOutbox(
+            recipient=to,
+            subject=subject,
+            text_body=body,
+            html_body=html,
+            last_error=(str(error)[:500] if error else None),
+        ))
+        db.session.commit()
+        return True
+    except Exception as e:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        current_app.logger.error(f'Could not queue email to {to}: {e}')
+        return False
+
+
+def outbox_pending_count():
+    """Number of emails waiting for the relay (diagnostics / admin display)."""
+    try:
+        from .models import EmailOutbox
+        return EmailOutbox.query.filter_by(status='pending').count()
+    except Exception:
+        return None
 
 
 def send_email_async(to, subject, body, html=None):

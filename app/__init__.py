@@ -23,6 +23,24 @@ def _ensure_blog_columns(app):
         app.logger.warning(f"Could not ensure blog_posts.doc_type: {e}")
 
 
+def _ensure_email_outbox_table(app):
+    """Create the outbox table on databases that predate it.
+
+    Emails that no provider could deliver are parked here (Render blocks SMTP
+    and API providers can run out of credit) and drained by the relay on the
+    database host. Without the table we would fall back to losing the mail.
+    """
+    try:
+        from sqlalchemy import inspect
+        from .models import EmailOutbox
+        if 'email_outbox' not in inspect(db.engine).get_table_names():
+            app.logger.info("Creating email_outbox table...")
+            EmailOutbox.__table__.create(db.engine)
+            app.logger.info("email_outbox table created")
+    except Exception as e:
+        app.logger.warning(f"Could not ensure email_outbox: {e}")
+
+
 def _ensure_benchmark_table(app):
     """Ensure benchmark_prices table exists and has seed data."""
     try:
@@ -187,6 +205,8 @@ def create_app(config_name=None):
         _ensure_benchmark_table(app)
         # Auto-migrate: add columns create_all() cannot add to an existing table
         _ensure_blog_columns(app)
+        # Auto-migrate: outbox for emails no provider could deliver
+        _ensure_email_outbox_table(app)
         
         # Warm caches for Neon.tech optimization (pre-populate in-memory cache)
         if (os.environ.get('NEON_OPTIMIZE', 'true').lower() == 'true'
@@ -263,7 +283,34 @@ def register_cli(app):
         if ok:
             print(f'OK - test email accepted for {recipient}')
         else:
+            from .email_service import outbox_pending_count
             print('FAILED - no provider accepted the message; see the provider error logged above')
+            pending = outbox_pending_count()
+            if pending:
+                print(f'         queued in the outbox ({pending} pending) - the relay on the '
+                      f'database host will deliver it')
+
+    @app.cli.command('mail-status')
+    def mail_status():
+        """Show the mail configuration and how deep the outbox is.
+
+        Example: flask mail-status
+        """
+        from .email_service import outbox_pending_count
+
+        def show(label, value):
+            print(f'  {label:<20} {value}')
+
+        print('Mail configuration:')
+        show('MAIL_PROVIDER', (app.config.get('MAIL_PROVIDER') or '').strip().lower() or '(auto)')
+        show('BREVO_API_KEY', 'set' if app.config.get('BREVO_API_KEY') else '-')
+        show('RESEND_API_KEY', 'set' if app.config.get('RESEND_API_KEY') else '-')
+        show('SENDGRID_API_KEY', 'set' if app.config.get('SENDGRID_API_KEY') else '-')
+        show('SMTP', f"{app.config.get('MAIL_SERVER')}:{app.config.get('MAIL_PORT')} "
+                     f"user={app.config.get('MAIL_USERNAME')}")
+        show('MAIL_DEFAULT_SENDER', app.config.get('MAIL_DEFAULT_SENDER'))
+        pending = outbox_pending_count()
+        show('outbox pending', pending if pending is not None else 'unavailable')
 
     @app.cli.command('create-admin')
     def create_admin():
