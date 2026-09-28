@@ -962,6 +962,23 @@ def overview():
     # Show cache age info (but never auto-refresh)
     needs_refresh = cache_age_days is not None  # Just informational now
     
+    # Club risk metrics + alpha vs the declared benchmarks
+    _series = series_all if isinstance(series_all, dict) else {}
+    club_risk = _risk_metrics(_series.get('portfolio_series') or [])
+
+    def _num(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+
+    _pp = portfolio_performance if isinstance(portfolio_performance, dict) else {}
+    _total = _num(_pp.get('total_return'))
+    club_alpha = {}
+    for _key, _label in (('benchmark_eems', 'EEMS'), ('benchmark_spy', 'S&P 500'), ('benchmark_ftse', 'FTSE All-World')):
+        _b = _num(_pp.get(_key))
+        club_alpha[_label] = (_total - _b) if (_total is not None and _b is not None) else None
+
     return render_template('analyst/overview.html',
                            current_filter=current_filter,
                            calc_method=calc_method,
@@ -972,6 +989,8 @@ def overview():
                            analyst_rankings=analyst_rankings,
                            positive_ratio=positive_ratio,
                            total_positions=total_with_perf,
+                           club_risk=club_risk,
+                           club_alpha=club_alpha,
                            from_cache=from_cache,
                            cache_status=cache_status,
                            needs_refresh=needs_refresh)
