@@ -119,6 +119,13 @@ def drain_outbox(limit=20):
     from .extensions import db
     from .models import EmailOutbox
 
+    # Relay mode: nothing here can send (Render blocks SMTP by design), the
+    # database host delivers. Touching the rows would burn their attempts and
+    # eventually mark deliverable mail as failed - i.e. throw away a valid
+    # password-reset link. Leave them alone.
+    if not _provider_chain():
+        return 0, 0
+
     rows = (EmailOutbox.query
             .filter_by(status='pending')
             .filter(EmailOutbox.attempts < EmailOutbox.MAX_ATTEMPTS)

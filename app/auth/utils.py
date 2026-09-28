@@ -1,3 +1,4 @@
+import hashlib
 import secrets
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -7,43 +8,116 @@ from flask_mail import Message
 from ..extensions import mail, db
 from ..models import User, PasswordResetToken
 
+_LEGACY_SCAN_LIMIT = 10  # only for tokens minted before the switch to SHA-256
+
+
 def generate_token():
     """Generate a secure random token (URL‑safe)."""
     return secrets.token_urlsafe(32)
+
+
+def hash_token(token: str) -> str:
+    """Hash a reset token for storage and lookup.
+
+    Deliberately NOT a password hash. The old code stored a pbkdf2-SHA256 hash
+    (600 000 iterations) and had to run check_password_hash against *every*
+    outstanding token to find a match, because a salted hash cannot be looked up
+    by value. With 20 live tokens and two validation passes that was ~40 slow
+    hashes per page load: measured at 24-29s on Render's 0.1-CPU free instance,
+    and it got worse with every reset request anyone made.
+
+    A token is 32 bytes of `secrets.token_urlsafe` entropy, so it cannot be
+    brute-forced, and a plain SHA-256 lets us find the row with one indexed
+    equality lookup - instant, and constant however many tokens exist.
+    """
+    return hashlib.sha256(token.strip().encode('utf-8')).hexdigest()
+
 
 def create_password_reset_token(user, token_type='reset', expires_hours=24):
     """Create a token record in the database."""
     token = generate_token()
     expires_at = datetime.utcnow() + timedelta(hours=expires_hours)
-    token_hash = generate_password_hash(token)
     token_record = PasswordResetToken(
         user_id=user.id,
-        token_hash=token_hash,
+        token_hash=hash_token(token),
         token_type=token_type,
         expires_at=expires_at
     )
     db.session.add(token_record)
     db.session.commit()
+    _prune_tokens()
     return token
+
+
+def _prune_tokens():
+    """Drop tokens that can never be used again, so the table stays tiny."""
+    try:
+        PasswordResetToken.query.filter(
+            (PasswordResetToken.used.is_(True))
+            | (PasswordResetToken.expires_at < datetime.utcnow())
+        ).delete(synchronize_session=False)
+        db.session.commit()
+    except Exception as e:  # never let housekeeping break a password reset
+        db.session.rollback()
+        current_app.logger.warning(f'Could not prune password tokens: {e}')
+
 
 def validate_token(token, token_type='reset', consume=True):
     """Validate a token and return the user if valid.
-    
+
     If consume is True (default), the token will be marked as used.
     """
-    # Find all token records of the given type that are unused and not expired
-    token_records = PasswordResetToken.query.filter(
-        PasswordResetToken.token_type == token_type,
-        PasswordResetToken.used == False,
-        PasswordResetToken.expires_at > datetime.utcnow()
-    ).all()
-    for token_record in token_records:
-        # Verify token hash
-        if check_password_hash(token_record.token_hash, token):
-            if consume:
-                token_record.used = True
-                db.session.commit()
-            return token_record.user
+    token = (token or '').strip()
+    if not token:
+        return None
+
+    # Fast path: one indexed lookup, no password hashing at all.
+    token_record = PasswordResetToken.query.filter_by(
+        token_hash=hash_token(token),
+        token_type=token_type,
+        used=False,
+    ).first()
+
+    if token_record is None:
+        token_record = _find_legacy_token(token, token_type)
+
+    if token_record is None:
+        return None
+    if token_record.expires_at and token_record.expires_at < datetime.utcnow():
+        return None
+
+    if consume:
+        token_record.used = True
+        db.session.commit()
+    return token_record.user
+
+
+def _find_legacy_token(token, token_type):
+    """Fallback for links minted before tokens were stored as SHA-256.
+
+    Bounded to the most recent few candidates and re-hashes a match, so this
+    path disappears within 24h (the token lifetime) and can then be deleted.
+    """
+    candidates = (
+        PasswordResetToken.query
+        .filter(
+            PasswordResetToken.token_type == token_type,
+            PasswordResetToken.used.is_(False),
+            PasswordResetToken.expires_at > datetime.utcnow(),
+            PasswordResetToken.token_hash.like('%$%'),  # salted schemes only
+        )
+        .order_by(PasswordResetToken.created_at.desc())
+        .limit(_LEGACY_SCAN_LIMIT)
+        .all()
+    )
+    for record in candidates:
+        if check_password_hash(record.token_hash, token):
+            current_app.logger.warning(
+                'Accepted a legacy password-reset token; re-hashing to SHA-256'
+            )
+            record.token_hash = hash_token(token)
+            db.session.commit()
+            return record
     return None
 
 def send_password_setup_email(user, token):

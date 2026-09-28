@@ -61,6 +61,27 @@ def _ensure_email_outbox_table(app):
         app.logger.warning(f"Could not ensure email_outbox: {e}")
 
 
+def _ensure_token_index(app):
+    """Index password_reset_tokens.token_hash.
+
+    Token validation used to brute-force every outstanding token with a slow
+    password hash; it is now a single equality lookup, which needs this index to
+    stay instant as the table grows.
+    """
+    try:
+        from sqlalchemy import inspect, text
+        inspector = inspect(db.engine)
+        if 'password_reset_tokens' not in inspector.get_table_names():
+            return
+        with db.engine.begin() as conn:
+            conn.execute(text(
+                'CREATE INDEX IF NOT EXISTS ix_password_reset_tokens_token_hash '
+                'ON password_reset_tokens (token_hash)'
+            ))
+    except Exception as e:
+        app.logger.warning(f"Could not ensure token index: {e}")
+
+
 def _ensure_benchmark_table(app):
     """Ensure benchmark_prices table exists and has seed data."""
     try:
@@ -227,6 +248,8 @@ def create_app(config_name=None):
         _ensure_blog_columns(app)
         # Auto-migrate: outbox for emails no provider could deliver
         _ensure_email_outbox_table(app)
+        # Auto-migrate: indexed token lookup (was a slow full-table hash scan)
+        _ensure_token_index(app)
         
         # Warm caches for Neon.tech optimization (pre-populate in-memory cache)
         if (os.environ.get('NEON_OPTIMIZE', 'true').lower() == 'true'
