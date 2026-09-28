@@ -1,0 +1,23 @@
+[Unit]
+Description=Deliver queued KI Asset Management email instantly (LISTEN/NOTIFY)
+Documentation=file:/usr/local/bin/kiam-send-outbox.py
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/kiam-send-outbox.py --listen
+EnvironmentFile=/etc/kiam-mail.env
+User=kiammail
+Group=kiammail
+Restart=always
+RestartSec=10
+# The table has an AFTER INSERT trigger that calls pg_notify(), so this process
+# asleep in select() is woken the moment the app queues a message: instant
+# delivery with no polling, no listening port and no firewall change.
+MemoryMax=48M
+CPUQuota=20%
+Nice=19
+IOSchedulingClass=idle
+StandardOutput=journal
+StandardError=journal

@@ -1,9 +1,9 @@
 [Unit]
-Description=Drain the KI Asset Management email outbox every minute
+Description=Backstop sweep of the KI Asset Management email outbox
 
 [Timer]
 OnBootSec=2min
-OnUnitActiveSec=1min
+OnUnitActiveSec=15min
 AccuracySec=15s
 Persistent=true
 Unit=kiam-send-outbox.service

@@ -24,19 +24,39 @@ def _ensure_blog_columns(app):
 
 
 def _ensure_email_outbox_table(app):
-    """Create the outbox table on databases that predate it.
+    """Create the outbox table (and its NOTIFY trigger) on older databases.
 
-    Emails that no provider could deliver are parked here (Render blocks SMTP
-    and API providers can run out of credit) and drained by the relay on the
-    database host. Without the table we would fall back to losing the mail.
+    Emails that no provider could deliver are parked here and drained by the
+    relay on the database host. Without the table we would fall back to losing
+    the mail, which is exactly what used to happen to password resets.
     """
     try:
-        from sqlalchemy import inspect
+        from sqlalchemy import inspect, text
         from .models import EmailOutbox
         if 'email_outbox' not in inspect(db.engine).get_table_names():
             app.logger.info("Creating email_outbox table...")
             EmailOutbox.__table__.create(db.engine)
             app.logger.info("email_outbox table created")
+
+        # PostgreSQL only: wake the listener on the database host the moment a
+        # message is queued, so delivery is instant instead of polled. Kept out
+        # of the SQLite path used by tests and run-local.sh.
+        if db.engine.dialect.name == 'postgresql':
+            with db.engine.begin() as conn:
+                conn.execute(text(
+                    "CREATE OR REPLACE FUNCTION notify_email_outbox() RETURNS trigger AS $$ "
+                    "BEGIN "
+                    "PERFORM pg_notify('email_outbox', CAST(NEW.id AS text)); "
+                    "RETURN NEW; "
+                    "END; $$ LANGUAGE plpgsql"
+                ))
+                conn.execute(text(
+                    "DROP TRIGGER IF EXISTS email_outbox_notify ON email_outbox"
+                ))
+                conn.execute(text(
+                    "CREATE TRIGGER email_outbox_notify AFTER INSERT ON email_outbox "
+                    "FOR EACH ROW EXECUTE FUNCTION notify_email_outbox()"
+                ))
     except Exception as e:
         app.logger.warning(f"Could not ensure email_outbox: {e}")
 

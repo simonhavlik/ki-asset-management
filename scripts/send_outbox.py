@@ -16,9 +16,16 @@ loading the whole application.
 Usage
 -----
     send_outbox.py                 # one pass, up to 20 messages
+    send_outbox.py --listen        # stay resident, deliver the instant a row lands
     send_outbox.py --limit 50      # larger pass
     send_outbox.py --dry-run       # show what would be sent
     send_outbox.py --status        # just report queue depth
+
+--listen is the instant path: the table carries an AFTER INSERT trigger that
+calls pg_notify(), so this process is woken the moment the app queues a message
+and delivers it within milliseconds - no polling, no open port, no firewall
+change. A five-minute backstop drain covers a missed notification (notifications
+are not durable across a reconnect).
 
 Configuration
 -------------
@@ -194,11 +201,67 @@ def queue_depth(conn) -> tuple[int, int]:
     return pending, failed
 
 
+def listen(conn, limit: int, backstop_seconds: int = 300) -> int:
+    """Deliver as soon as a row is inserted, via LISTEN/NOTIFY.
+
+    Blocks indefinitely; systemd restarts it if it ever dies. The backstop drain
+    matters because PostgreSQL does not replay notifications missed while this
+    process was disconnected.
+    """
+    import select
+
+    with conn.cursor() as cur:
+        cur.execute('LISTEN email_outbox')
+    conn.commit()
+    log('listening for email_outbox notifications (instant delivery)')
+
+    while True:
+        ready, _, _ = select.select([conn], [], [], backstop_seconds)
+        triggered = False
+        if ready:
+            conn.poll()
+            while conn.notifies:
+                conn.notifies.pop()
+                triggered = True
+
+        if not triggered:
+            # Nothing was announced for a whole interval: sweep for anything the
+            # notifications could not have told us about (e.g. a reconnect gap).
+            pending, _ = queue_depth(conn)
+            if not pending:
+                continue
+            log(f'backstop sweep found {pending} pending message(s)')
+
+        try:
+            deliver_pending(conn, limit)
+        except Exception as e:
+            log(f'ERROR while delivering: {e}')
+
+
+def deliver_pending(conn, limit: int) -> tuple[int, int]:
+    """Send every currently claimable message. Returns (sent, failed)."""
+    sent = errors = 0
+    start = time.time()
+    for row_id, recipient, subject, text_body, html_body, attempts in claim_next(conn, limit):
+        try:
+            smtp_send(recipient, subject, text_body, html_body)
+            mark_sent(conn, row_id)
+            sent += 1
+            log(f'sent #{row_id} to {recipient}: {subject} ({time.time() - start:.1f}s after pickup)')
+        except Exception as e:
+            errors += 1
+            mark_failed(conn, row_id, str(e), attempts)
+            log(f'FAILED #{row_id} to {recipient} (attempt {attempts}/{MAX_ATTEMPTS}): {e}')
+    return sent, errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description='Deliver queued emails over SMTP')
     parser.add_argument('--limit', type=int, default=20)
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--status', action='store_true')
+    parser.add_argument('--listen', action='store_true',
+                        help='stay resident and deliver on NOTIFY (instant)')
     args = parser.parse_args()
 
     load_env()
@@ -214,6 +277,13 @@ def main() -> int:
             log(f'queue: {pending} pending, {failed} failed')
             return 0
 
+        if args.listen:
+            try:
+                listen(conn, args.limit)
+            except KeyboardInterrupt:
+                log('stopping')
+            return 0
+
         if args.dry_run:
             for row in claim_next(conn, args.limit):
                 log(f'would send #{row[0]} to {row[1]}: {row[2]}')
@@ -225,19 +295,8 @@ def main() -> int:
             log('nothing to send')
             return 0
 
-        sent = errors = 0
         start = time.time()
-        for row_id, recipient, subject, text_body, html_body, attempts in claim_next(conn, args.limit):
-            try:
-                smtp_send(recipient, subject, text_body, html_body)
-                mark_sent(conn, row_id)
-                sent += 1
-                log(f'sent #{row_id} to {recipient}: {subject}')
-            except Exception as e:
-                errors += 1
-                mark_failed(conn, row_id, str(e), attempts)
-                log(f'FAILED #{row_id} to {recipient} (attempt {attempts}/{MAX_ATTEMPTS}): {e}')
-
+        sent, errors = deliver_pending(conn, args.limit)
         deleted = prune(conn)
         log(f'done in {time.time() - start:.1f}s: {sent} sent, {errors} failed'
             + (f', {deleted} old rows pruned' if deleted else ''))

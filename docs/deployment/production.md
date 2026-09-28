@@ -135,23 +135,29 @@ compose, and `MAIL_PROVIDER` picks between them.
 
 ### Path A — outbox relay on the database host (no open ports)
 
-The app writes every message to the `email_outbox` table; a systemd timer on the
-database host delivers them over Gmail SMTP, because that host *can* reach the
-SMTP ports and already speaks to the same database.
+The app writes every message to the `email_outbox` table; a small systemd
+service on the database host delivers them over Gmail SMTP, because that host
+*can* reach the SMTP ports and already speaks to the same database.
+
+Delivery is **instant**, not polled: the table carries an `AFTER INSERT` trigger
+that calls `pg_notify('email_outbox', …)`, so the resident listener (asleep in
+`select()`, ~20 MB, `MemoryMax=48M`) wakes the moment a row is written and sends
+within milliseconds. A 15-minute timer is installed purely as a backstop, since
+PostgreSQL does not replay notifications missed while nobody was listening.
 
 ```
-Render (app)                       charizard
-  send_email()                       kiam-send-outbox.timer (every 60s)
-    └─ INSERT email_outbox ────────────└─ scripts/send_outbox.py
-         (pending)                          └─ Gmail SMTP -> status='sent'
+Render (app)                          charizard
+  send_email()                          kiam-send-outbox-listener.service
+    └─ INSERT email_outbox ──NOTIFY───────└─ scripts/send_outbox.py --listen
+         (pending, instant)                   └─ Gmail SMTP -> status='sent'
 ```
 
-Set `MAIL_PROVIDER=outbox` in Render so the app queues immediately instead of
-burning a 10s timeout on a port that is blocked. Delivery lands within a minute.
+`MAIL_PROVIDER=outbox` is set in Render so the app queues immediately instead of
+burning a 10s timeout against a port that is blocked.
 
-Nothing *listens* on charizard: no open port, no daemon, no new credentials. The
-relay is a oneshot script that runs for about a second a minute and reads the
-queue from localhost PostgreSQL. Install it from a checkout on that host:
+Nothing *listens* on charizard: no open port, no inbound firewall change, no new
+credentials — the process only makes outbound connections and reads the queue
+from localhost PostgreSQL. Install it from a checkout on that host:
 
 ```bash
 cp deploy/mail-relay/kiam-mail.env.example /etc/kiam-mail.env

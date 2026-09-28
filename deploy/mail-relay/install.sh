@@ -45,6 +45,7 @@ install -m 0755 "$SCRIPT_SRC" "$SCRIPT_DST"
 chown root:kiammail "$ENV_FILE"
 chmod 0640 "$ENV_FILE"
 
+install -m 0644 "$(dirname "${BASH_SOURCE[0]}")/kiam-send-outbox-listener.service" "$UNIT_DIR/"
 install -m 0644 "$(dirname "${BASH_SOURCE[0]}")/kiam-send-outbox.service" "$UNIT_DIR/"
 install -m 0644 "$(dirname "${BASH_SOURCE[0]}")/kiam-send-outbox.timer" "$UNIT_DIR/"
 
@@ -55,11 +56,15 @@ if ! python3 -c 'import psycopg2' 2>/dev/null; then
 fi
 
 systemctl daemon-reload
+# Instant delivery: the listener is woken by the table's pg_notify() trigger.
+systemctl enable --now kiam-send-outbox-listener.service
+# Backstop in case a notification is ever missed (PostgreSQL does not replay
+# notifications across a reconnect that happened when nothing was listening).
 systemctl enable --now kiam-send-outbox.timer
 
 echo
 echo "installed. queue depth:"
 sudo -u kiammail "$SCRIPT_DST" --status || true
 echo
-echo "watch it with:  journalctl -u kiam-send-outbox -f"
+echo "watch it with:  journalctl -u kiam-send-outbox-listener -f"
 echo "run it now with: systemctl start kiam-send-outbox.service"
