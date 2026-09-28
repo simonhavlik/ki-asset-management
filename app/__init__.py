@@ -183,7 +183,8 @@ def create_app(config_name=None):
         _ensure_blog_columns(app)
         
         # Warm caches for Neon.tech optimization (pre-populate in-memory cache)
-        if os.environ.get('NEON_OPTIMIZE', 'true').lower() == 'true':
+        if (os.environ.get('NEON_OPTIMIZE', 'true').lower() == 'true'
+                and os.environ.get('KI_SKIP_WARM') != '1'):
             try:
                 from .utils.neon_cache import warm_public_caches
                 warm_public_caches()

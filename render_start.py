@@ -126,7 +126,11 @@ def main():
     print("\n" + "=" * 60)
     print("KI ASSET MANAGEMENT - STARTING UP")
     print("=" * 60)
-    
+
+    # Schema init does not need the (expensive) public cache warming - gunicorn
+    # warms once, in the process that actually serves traffic.
+    os.environ['KI_SKIP_WARM'] = '1'
+
     # Initialize database
     init_database()
     
@@ -167,8 +171,16 @@ def main():
         'app:create_app()'
     ]
     
-    # Run Gunicorn
-    sys.exit(subprocess.call(cmd))
+    # Replace this process with gunicorn instead of forking it. On the 512 MB
+    # free instance, keeping the parent's copy of the app (pandas, matplotlib,
+    # SQLAlchemy) alive next to gunicorn's own is what pushes the instance over
+    # the memory limit and causes restarts. execv frees it.
+    os.environ.pop('KI_SKIP_WARM', None)  # let gunicorn warm the caches once
+    try:
+        os.execvp(cmd[0], cmd)
+    except Exception as e:
+        print(f"execv failed ({e}); falling back to subprocess")
+        sys.exit(subprocess.call(cmd))
 
 if __name__ == '__main__':
     main()

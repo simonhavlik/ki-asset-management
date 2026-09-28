@@ -1059,18 +1059,21 @@ def upload_pdf_api():
         import os
         import io
         
-        # Read file content into memory for database storage
-        file_content = file.read()
-
-        # Also write a copy to disk: the editor's path-based actions
-        # (generate-from-pdfs, hidden pdf_path field) need a real file path.
+        # Stream straight to disk; only read the bytes back for real PDFs (which
+        # are stored in the DB). Avoids holding a whole presentation in memory.
         uploads_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'blog_pdfs')
         os.makedirs(uploads_dir, exist_ok=True)
-        safe_name = secure_filename(file.filename) or 'upload.pdf'
+        safe_name = secure_filename(file.filename) or 'upload'
         stored_name = f"{os.urandom(4).hex()}_{safe_name}"
-        with open(os.path.join(uploads_dir, stored_name), 'wb') as fh:
-            fh.write(file_content)
+        disk_path = os.path.join(uploads_dir, stored_name)
+        file.stream.seek(0)
+        file.save(disk_path)
         relative_path = f"uploads/blog_pdfs/{stored_name}"
+
+        file_content = None
+        if is_pdf:
+            with open(disk_path, 'rb') as fh:
+                file_content = fh.read()
         
         # Initialize return data
         suggested_title = None
