@@ -24,6 +24,7 @@ from ..security import rate_limit, InputValidator, sanitize_input
 from . import blog_bp
 from ..utils.blog_ai_utils import (
     generate_seo_from_content,
+    detect_language,
     search_unsplash_images,
     get_featured_images_for_article,
     parse_document_file,
@@ -836,18 +837,23 @@ def generate_seo_api():
         return jsonify({'error': 'Title and content are required'}), 400
     
     try:
-        # Generate SEO data using DeepSeek
-        seo_data = generate_seo_from_content(title, content)
+        # Match the language the analyst actually wrote in (Czech vs English).
+        lang = detect_language(f"{title} {content}")
+
+        # Generate SEO data using DeepSeek in that language
+        seo_data = generate_seo_from_content(title, content, languages=[lang])
+        picked = (seo_data.get('languages') or {}).get(lang, {})
         
         # Search for featured images (up to 30 images for user to choose)
         images = get_featured_images_for_article(title, content, category, count=30)
         
         result = {
             'success': True,
-            'meta_description': seo_data.get('meta_description', ''),
-            'meta_keywords': seo_data.get('meta_keywords', ''),
-            'excerpt': seo_data.get('excerpt', ''),
-            'suggested_tags': seo_data.get('suggested_tags', '')
+            'language': lang,
+            'meta_description': picked.get('meta_description', ''),
+            'meta_keywords': picked.get('meta_keywords', ''),
+            'excerpt': picked.get('excerpt', ''),
+            'suggested_tags': picked.get('suggested_tags', '')
         }
         
         if images:
@@ -1308,7 +1314,11 @@ If you cannot determine the ticker, use your best guess based on the company nam
         combined_text = '\n\n'.join([p['text'][:2000] for p in pdf_info])
         
         # Generate PROPER SEO data using AI
-        seo_prompt = f"""Based on this stock research document, create SEO-optimized metadata.
+        doc_lang = detect_language(combined_text)
+        lang_name = 'Czech' if doc_lang == 'cs' else 'English'
+        seo_prompt = f"""Based on this stock research document, create SEO-optimized metadata in {lang_name}.
+
+Write every field in {lang_name}.
 
 Document content:
 {combined_text[:4000]}
@@ -1336,7 +1346,7 @@ META_KEYWORDS: [your keywords]
 SUGGESTED_TAGS: [your tags]"""
 
         seo_messages = [
-            {"role": "system", "content": "You are an SEO expert specializing in financial content. Create compelling, accurate SEO metadata for stock research reports."},
+            {"role": "system", "content": f"You are an SEO expert specializing in financial content. Create compelling, accurate SEO metadata for stock research reports. Always answer in {lang_name}."},
             {"role": "user", "content": seo_prompt}
         ]
         

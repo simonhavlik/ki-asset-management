@@ -17,6 +17,32 @@ from flask import current_app
 logger = logging.getLogger(__name__)
 
 
+_CZECH_CHARS = set('ěščřžýáíéúůďťňóĚŠČŘŽÝÁÍÉÚŮĎŤŇÓ')
+_CZECH_STOPWORDS = {
+    'a', 'se', 'je', 'na', 'v', 've', 'že', 'to', 'není', 'jsou', 'ale', 'pro',
+    'jako', 'které', 'který', 'která', 'rok', 'akcie', 'trh', 'společnost',
+    'analýza', 'jsme', 'bude', 'může', 'podle', 'tak', 'už', 'jen', 'jeho',
+}
+
+
+def detect_language(text: str) -> str:
+    """Return 'cs' when the text looks Czech, otherwise 'en'.
+
+    Used so AI-generated SEO follows the language the analyst actually wrote in.
+    Czech diacritics are a strong signal; a stop-word ratio catches short,
+    accent-light samples.
+    """
+    if not text:
+        return 'en'
+    sample = re.sub(r'<[^>]+>', ' ', text)[:4000]
+    if sum(1 for ch in sample if ch in _CZECH_CHARS) >= 5:
+        return 'cs'
+    words = re.findall(r"[^\W\d_]+", sample.lower())
+    if words and sum(1 for w in words if w in _CZECH_STOPWORDS) / len(words) > 0.05:
+        return 'cs'
+    return 'en'
+
+
 # =============================================================================
 # DeepSeek API Functions
 # =============================================================================
