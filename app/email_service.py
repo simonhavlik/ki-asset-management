@@ -14,6 +14,7 @@ To use SendGrid:
 """
 
 import logging
+import threading
 from flask import current_app
 
 def send_email(to, subject, body, html=None):
@@ -60,6 +61,25 @@ def send_email(to, subject, body, html=None):
 
     current_app.logger.error('No email provider succeeded')
     return False
+
+
+def send_email_async(to, subject, body, html=None):
+    """Fire-and-forget send, so a slow or dead provider never blocks a request.
+
+    Used by the auth flows: the pages show a generic "we sent you a link"
+    message anyway, so there is nothing useful to wait for.
+    """
+    app = current_app._get_current_object()
+
+    def _run():
+        with app.app_context():
+            try:
+                send_email(to, subject, body, html)
+            except Exception as e:
+                app.logger.error(f'Background email to {to} failed: {e}')
+
+    threading.Thread(target=_run, daemon=True, name='send-email').start()
+    return True
 
 
 def _sender():
@@ -142,17 +162,50 @@ def _send_sendgrid(to, subject, body, html=None):
 
 
 def _send_smtp(to, subject, body, html=None):
-    """Send email using SMTP (Flask-Mail)."""
-    from flask_mail import Message
-    from .extensions import mail
-    
-    msg = Message(
-        subject=subject,
-        recipients=[to],
-        body=body,
-        html=html
-    )
-    mail.send(msg)
+    """Send over SMTP with a hard socket timeout.
+
+    Flask-Mail 0.9.1 has no timeout setting, so a blocked SMTP port (Render's
+    free tier blocks 25/465/587) used to hang the request for minutes. Talk to
+    smtplib directly with an explicit timeout instead.
+    """
+    import smtplib
+    from email.message import EmailMessage
+
+    cfg = current_app.config
+    host = cfg.get('MAIL_SERVER')
+    port = int(cfg.get('MAIL_PORT') or 587)
+    user = cfg.get('MAIL_USERNAME')
+    password = cfg.get('MAIL_PASSWORD')
+    sender = _sender() or user
+    timeout = int(cfg.get('MAIL_TIMEOUT') or 10)
+
+    if not (host and sender):
+        raise ValueError('MAIL_SERVER and MAIL_DEFAULT_SENDER must be set')
+
+    msg = EmailMessage()
+    msg['Subject'] = subject
+    msg['From'] = sender
+    msg['To'] = to
+    msg.set_content(body or '')
+    if html:
+        msg.add_alternative(html, subtype='html')
+
+    if cfg.get('MAIL_USE_TLS', True):
+        server = smtplib.SMTP(host, port, timeout=timeout)
+        server.ehlo()
+        server.starttls()
+    else:
+        server = smtplib.SMTP_SSL(host, port, timeout=timeout)
+    try:
+        if user and password:
+            server.login(user, password)
+        server.send_message(msg)
+    finally:
+        try:
+            server.quit()
+        except Exception:
+            pass
+
     current_app.logger.info(f'Email sent to {to} via SMTP')
     return True
 
@@ -204,7 +257,7 @@ def _terminal_email(kicker, title, intro, url, cta, note):
 </html>'''
 
 
-def send_password_setup_email(user, token):
+def send_password_setup_email(user, token, background=False):
     """Send the account-setup (activation) email."""
     from flask import url_for
 
@@ -235,10 +288,11 @@ The Analyst Performance Tracker Team
         note='This link expires in 24 hours. If you did not expect this invitation, '
              'you can safely ignore this email.',
     )
-    return send_email(user.email, subject, body, html)
+    sender = send_email_async if background else send_email
+    return sender(user.email, subject, body, html)
 
 
-def send_password_reset_email(user, token):
+def send_password_reset_email(user, token, background=False):
     """Send the password-reset email."""
     from flask import url_for
 
@@ -269,4 +323,5 @@ The Analyst Performance Tracker Team
         note='This link expires in 24 hours. If you did not request this, you can '
              'safely ignore this email.',
     )
-    return send_email(user.email, subject, body, html)
+    sender = send_email_async if background else send_email
+    return sender(user.email, subject, body, html)

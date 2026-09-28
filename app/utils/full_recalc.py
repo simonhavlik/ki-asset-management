@@ -64,6 +64,18 @@ def _run_full_recalculation(run_type: str):
                     stats['errors_count'] += 1
                     logger.warning(f'Benchmark {ticker} refresh failed: {e}')
 
+            # Drop the caches FIRST. invalidate_cache() deletes the overview
+            # rows outright, so invalidating *after* saving would wipe the data
+            # that was just computed (that is what left the overview empty and
+            # stuck on "refreshing").
+            try:
+                invalidate_all_public_cache()
+                invalidate_board_cache()
+                invalidate_overview()
+            except Exception as e:
+                stats['errors_count'] += 1
+                logger.error(f'Cache invalidation failed: {e}')
+
             try:
                 all_views = recalculate_all_unified(force=True) or {}
                 for cache_key, view_data in all_views.items():
@@ -73,15 +85,12 @@ def _run_full_recalculation(run_type: str):
                 stats['errors_count'] += 1
                 logger.error(f'Unified recalculation failed: {e}')
 
-            # Public caches + overview, then the per-analyst dashboards.
+            # Warm the public caches, then the per-analyst dashboards.
             try:
-                invalidate_all_public_cache()
-                invalidate_board_cache()
-                invalidate_overview()
                 warm_public_caches()
             except Exception as e:
                 stats['errors_count'] += 1
-                logger.error(f'Cache refresh failed: {e}')
+                logger.error(f'Cache warming failed: {e}')
 
             _warm_dashboards(stats)
 

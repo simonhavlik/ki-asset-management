@@ -123,6 +123,12 @@ def create_app(config_name=None):
     app = Flask(__name__)
     app.config.from_object(config[config_name])
 
+    # Trust exactly one proxy hop (Render terminates TLS in front of us).
+    # Without this, request.remote_addr is the proxy's 127.0.0.1 for everyone,
+    # which broke rate-limit keying and recorded bogus IPs in the activity log.
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
     # Configure logging before anything else so that extension/app init and
     # every module-level logger (app.utils.*, app.admin.*) is actually visible.
     from .logging_config import configure_logging, get_logger

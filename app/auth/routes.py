@@ -67,7 +67,7 @@ def register():
             else:
                 # Inactive account, resend password‑setup email
                 token = create_password_reset_token(existing_user, token_type='registration')
-                send_password_setup_email(existing_user, token)
+                send_password_setup_email(existing_user, token, background=True)
                 flash('An activation code has been sent to your email.', 'success')
                 log_activity(existing_user, 'registration_resent')
                 return redirect(url_for('auth.login'))
@@ -84,7 +84,7 @@ def register():
         db.session.add(new_user)
         db.session.commit()
         token = create_password_reset_token(new_user, token_type='registration')
-        send_password_setup_email(new_user, token)
+        send_password_setup_email(new_user, token, background=True)
         flash('An activation code has been sent to your email. Please check your inbox.', 'success')
         log_activity(new_user, 'registration_requested')
         return redirect(url_for('auth.login'))
@@ -101,7 +101,7 @@ def forgot_password():
         user = User.query.filter_by(email=normalized_email).first()
         if user and user.is_active:
             token = create_password_reset_token(user, token_type='reset')
-            send_password_reset_email(user, token)
+            send_password_reset_email(user, token, background=True)
             flash('If an account exists with that email, you will receive a password‑reset link shortly.', 'info')
             log_activity(user, 'password_reset_requested')
         else:

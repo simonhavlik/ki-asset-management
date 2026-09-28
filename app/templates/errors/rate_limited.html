@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Too many requests – KI Asset Management{% endblock %}
+
+{% block body_class %}auth-page{% endblock %}
+
+{% block content %}
+<div class="auth-wrap">
+    <div class="auth-card">
+        <div class="auth-chrome">
+            <span class="auth-dots"><i></i><i></i><i></i></span>
+            <span class="auth-chrome-title">KI ASSET MANAGEMENT</span>
+        </div>
+        <div class="auth-accent"></div>
+
+        <div class="auth-body">
+            <h1 class="auth-title"><i class="bi bi-hourglass-split"></i> Too many requests</h1>
+
+            <p class="auth-hint mb-3">
+                You have made too many requests in a short period. Please wait about
+                {{ wait_minutes }} minute{{ '' if wait_minutes == 1 else 's' }} and try again.
+            </p>
+
+            <div class="auth-note">
+                This limit protects the server from abuse. If you were resetting a
+                password, the previous link is still valid – check your inbox first.
+            </div>
+
+            <div class="auth-actions">
+                <a href="{{ url_for('auth.login') }}" class="btn btn-success w-100">
+                    <i class="bi bi-box-arrow-in-right"></i> Back to sign in
+                </a>
+                <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary w-100 mt-2">
+                    <i class="bi bi-house"></i> Home
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

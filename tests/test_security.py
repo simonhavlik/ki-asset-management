@@ -271,3 +271,50 @@ class TestSessionSecurity:
         
         # CSRF might be disabled in testing but should be configured
         assert 'WTF_CSRF_ENABLED' in app.config
+
+
+class TestRateLimitKeying:
+    """Behind a proxy the limiter must key on the real client, not 127.0.0.1.
+
+    Regression: request.remote_addr is Render's proxy for every visitor, so all
+    users shared a single global quota and a few logins locked out the site.
+    """
+
+    def _app(self):
+        from app import create_app
+        from app.security import rate_limit
+        app = create_app()
+        app.config['WTF_CSRF_ENABLED'] = False
+
+        @app.route('/_rl_probe')
+        @rate_limit(limit=1, window=60)
+        def _rl_probe():
+            return 'ok'
+        return app
+
+    def test_clients_do_not_share_a_quota(self):
+        c = self._app().test_client()
+        r1 = c.get('/_rl_probe', headers={'X-Forwarded-For': '203.0.113.10'})
+        r2 = c.get('/_rl_probe', headers={'X-Forwarded-For': '203.0.113.11'})
+        assert r1.status_code == 200
+        assert r2.status_code == 200, 'second client inherited the first client quota'
+        # the same client, however, is now out of budget
+        r3 = c.get('/_rl_probe', headers={'X-Forwarded-For': '203.0.113.10'})
+        assert r3.status_code == 429
+        assert r3.headers['Retry-After']
+
+    def test_limited_response_is_a_page_for_browsers(self):
+        c = self._app().test_client()
+        c.get('/_rl_probe', headers={'X-Forwarded-For': '203.0.113.99'})
+        r = c.get('/_rl_probe', headers={'X-Forwarded-For': '203.0.113.99'})
+        assert r.status_code == 429
+        assert b'Too many requests' in r.data
+
+    def test_proxyfix_sets_real_remote_addr(self):
+        c = self._app().test_client()
+        c.get('/_rl_probe', headers={'X-Forwarded-For': '203.0.113.77'})
+        with self._app().test_request_context(
+            '/', headers={'X-Forwarded-For': '203.0.113.77, 10.0.0.1'}
+        ):
+            from app.security import client_ip
+            assert client_ip() == '203.0.113.77'

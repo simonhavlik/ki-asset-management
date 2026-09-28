@@ -12,7 +12,7 @@ import re
 import html
 from functools import wraps
 from datetime import datetime, timedelta
-from flask import request, g, session, current_app, make_response
+from flask import request, g, session, current_app, make_response, jsonify, render_template
 from werkzeug.exceptions import TooManyRequests
 
 
@@ -137,6 +137,26 @@ class RateLimiter:
 rate_limiter = RateLimiter()
 
 
+def client_ip():
+    """Return the real client IP, honouring the proxy headers.
+
+    In production the app sits behind Render's proxy, so ``request.remote_addr``
+    is always 127.0.0.1 and using it as the rate-limit key gave *every* visitor
+    one shared global quota (a handful of logins locked the whole site out for
+    everyone). Render/Cloudflare put the origin address first in
+    X-Forwarded-For.
+    """
+    forwarded = request.headers.get('X-Forwarded-For', '')
+    if forwarded:
+        first = forwarded.split(',')[0].strip()
+        if first:
+            return first
+    real_ip = request.headers.get('X-Real-IP', '').strip()
+    if real_ip:
+        return real_ip
+    return request.remote_addr or 'unknown'
+
+
 def rate_limit(limit=5, window=900, key_func=None):
     """
     Decorator to apply rate limiting to a route.
@@ -152,13 +172,27 @@ def rate_limit(limit=5, window=900, key_func=None):
             if key_func:
                 key = key_func()
             else:
-                key = f"{request.remote_addr}:{request.endpoint}"
+                key = f"{client_ip()}:{request.endpoint}"
             
             allowed, remaining, reset_time = rate_limiter.is_allowed(key, limit, window)
             
             if not allowed:
-                response = make_response('Rate limit exceeded. Please try again later.', 429)
-                response.headers['Retry-After'] = int((reset_time - datetime.utcnow()).total_seconds())
+                wait_s = max(1, int((reset_time - datetime.utcnow()).total_seconds()))
+                wait_m = max(1, (wait_s + 59) // 60)
+                if request.accept_mimetypes.accept_html and not request.is_json:
+                    response = make_response(render_template(
+                        'errors/rate_limited.html',
+                        wait_minutes=wait_m,
+                    ), 429)
+                else:
+                    response = make_response(
+                        jsonify({
+                            'error': 'rate_limited',
+                            'message': 'Too many requests. Please try again later.',
+                            'retry_after': wait_s,
+                        }), 429
+                    )
+                response.headers['Retry-After'] = wait_s
                 response.headers['X-RateLimit-Limit'] = str(limit)
                 response.headers['X-RateLimit-Remaining'] = '0'
                 response.headers['X-RateLimit-Reset'] = reset_time.isoformat()

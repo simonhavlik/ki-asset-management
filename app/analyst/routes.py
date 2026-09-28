@@ -1082,131 +1082,138 @@ def analyses():
 # SSE Progress Endpoint for Real-time Recalculation
 # =============================================================================
 
-@analyst_bp.route('/recalculate-progress')
-@login_required
-def recalculate_progress():
-    """
-    SSE endpoint for real-time recalculation progress updates.
-    Streams progress data as server-sent events.
-    """
-    from ..utils.unified_calculator import get_progress
-    import json
-    import time
-    
-    def generate():
-        last_status = None
-        last_logs_count = 0
-        idle_count = 0
-        
-        while True:
-            progress = get_progress()
-            current_status = progress.status
-            current_logs = progress.logs
-            
-            # Always send first update to establish connection
-            # Then only send if something changed
-            should_send = (last_status is None or 
-                          current_status != last_status or 
-                          len(current_logs) != last_logs_count)
-            
-            if should_send:
-                data = progress.to_dict()
-                yield f"data: {json.dumps(data)}\n\n"
-                
-                last_status = current_status
-                last_logs_count = len(current_logs)
-                idle_count = 0
-                
-                # If completed or error, stop streaming after a few more seconds
-                if current_status in ['completed', 'error']:
-                    # Keep connection open a bit longer to ensure client gets final state
-                    time.sleep(2)
-                    yield f"data: {json.dumps(progress.to_dict())}\n\n"
-                    break
-            else:
-                # Send heartbeat every 10 seconds to keep connection alive
-                idle_count += 1
-                if idle_count >= 20:  # 20 * 0.5s = 10 seconds
-                    yield f"data: {json.dumps(progress.to_dict())}\n\n"
-                    idle_count = 0
-            
-            time.sleep(0.5)  # Poll every 500ms
-    
-    return current_app.response_class(
-        generate(),
-        mimetype='text/event-stream',
-        headers={
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-            'X-Accel-Buffering': 'no'  # Disable nginx buffering
-        }
-    )
-
-
-@analyst_bp.route('/recalculate-all', methods=['POST'])
-@login_required
-def recalculate_all():
-    """
-    Trigger full recalculation of all overview data.
-    Returns immediately and continues calculation in background.
-    """
-    logger.info(f"Recalculate-all called by user: {current_user.email} (admin: {current_user.is_admin})")
-    
-    if not current_user.is_admin:
-        logger.warning(f"Unauthorized recalculation attempt by {current_user.email}")
-        return jsonify({'error': 'Unauthorized - Admin access required'}), 403
-    
-    from ..utils.unified_calculator import recalculate_all_unified, reset_progress, get_progress, is_calculation_running
-    from ..utils.overview_cache import save_overview_cache, invalidate_cache
-    import threading
-    
-    # Check if already running
-    if is_calculation_running():
-        logger.warning("Recalculation already in progress")
-        return jsonify({'error': 'Recalculation already in progress'}), 409
-    
-    # Capture the app in the closure
-    app = current_app._get_current_object()
-    
-    def run_recalculation():
-        """Run recalculation in background thread."""
-        logger.info("Background recalculation thread started")
-        try:
-            with app.app_context():
-                all_views_data = recalculate_all_unified(force=True)
-                
-                # Save all views to cache (keys already include method from calculator)
-                for cache_key, view_data in all_views_data.items():
-                    save_overview_cache(cache_key, view_data)
-                
-                logger.info("Background recalculation completed successfully")
-        except Exception as e:
-            logger.exception("Error during background recalculation")
-            progress = get_progress()
-            progress.update_status("error")
-            progress.log(f"ERROR: {str(e)}")
-    
-    try:
-        # Reset progress and start recalculation in background
-        reset_progress()
-        progress = get_progress()
-        progress.log("Recalculation endpoint called - starting background thread...")
-        
-        # Start recalculation in background thread
-        thread = threading.Thread(target=run_recalculation, name="RecalculationThread")
-        thread.daemon = True
-        thread.start()
-        
-        logger.info("Recalculation background thread started successfully")
-        
-        return jsonify({
-            'success': True,
-            'message': 'Recalculation started in background'
-        })
-        
-    except Exception as e:
-        logger.exception("Error starting recalculation")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+# ---------------------------------------------------------------------------
+# LEGACY per-analyst recalculation (superseded by the shared refresh
+# widget: POST /analyst/refresh-data + /analyst/refresh-progress, which
+# drives the same progress as the admin Update panel).
+# Nothing references these endpoints any more; kept commented in case
+# the standalone behaviour is wanted again. Uncomment to restore.
+# ---------------------------------------------------------------------------
+# @analyst_bp.route('/recalculate-progress')
+# @login_required
+# def recalculate_progress():
+#     """
+#     SSE endpoint for real-time recalculation progress updates.
+#     Streams progress data as server-sent events.
+#     """
+#     from ..utils.unified_calculator import get_progress
+#     import json
+#     import time
+#
+#     def generate():
+#         last_status = None
+#         last_logs_count = 0
+#         idle_count = 0
+#
+#         while True:
+#             progress = get_progress()
+#             current_status = progress.status
+#             current_logs = progress.logs
+#
+#             # Always send first update to establish connection
+#             # Then only send if something changed
+#             should_send = (last_status is None or 
+#                           current_status != last_status or 
+#                           len(current_logs) != last_logs_count)
+#
+#             if should_send:
+#                 data = progress.to_dict()
+#                 yield f"data: {json.dumps(data)}\n\n"
+#
+#                 last_status = current_status
+#                 last_logs_count = len(current_logs)
+#                 idle_count = 0
+#
+#                 # If completed or error, stop streaming after a few more seconds
+#                 if current_status in ['completed', 'error']:
+#                     # Keep connection open a bit longer to ensure client gets final state
+#                     time.sleep(2)
+#                     yield f"data: {json.dumps(progress.to_dict())}\n\n"
+#                     break
+#             else:
+#                 # Send heartbeat every 10 seconds to keep connection alive
+#                 idle_count += 1
+#                 if idle_count >= 20:  # 20 * 0.5s = 10 seconds
+#                     yield f"data: {json.dumps(progress.to_dict())}\n\n"
+#                     idle_count = 0
+#
+#             time.sleep(0.5)  # Poll every 500ms
+#
+#     return current_app.response_class(
+#         generate(),
+#         mimetype='text/event-stream',
+#         headers={
+#             'Cache-Control': 'no-cache',
+#             'Connection': 'keep-alive',
+#             'X-Accel-Buffering': 'no'  # Disable nginx buffering
+#         }
+#     )
+#
+#
+# @analyst_bp.route('/recalculate-all', methods=['POST'])
+# @login_required
+# def recalculate_all():
+#     """
+#     Trigger full recalculation of all overview data.
+#     Returns immediately and continues calculation in background.
+#     """
+#     logger.info(f"Recalculate-all called by user: {current_user.email} (admin: {current_user.is_admin})")
+#
+#     if not current_user.is_admin:
+#         logger.warning(f"Unauthorized recalculation attempt by {current_user.email}")
+#         return jsonify({'error': 'Unauthorized - Admin access required'}), 403
+#
+#     from ..utils.unified_calculator import recalculate_all_unified, reset_progress, get_progress, is_calculation_running
+#     from ..utils.overview_cache import save_overview_cache, invalidate_cache
+#     import threading
+#
+#     # Check if already running
+#     if is_calculation_running():
+#         logger.warning("Recalculation already in progress")
+#         return jsonify({'error': 'Recalculation already in progress'}), 409
+#
+#     # Capture the app in the closure
+#     app = current_app._get_current_object()
+#
+#     def run_recalculation():
+#         """Run recalculation in background thread."""
+#         logger.info("Background recalculation thread started")
+#         try:
+#             with app.app_context():
+#                 all_views_data = recalculate_all_unified(force=True)
+#
+#                 # Save all views to cache (keys already include method from calculator)
+#                 for cache_key, view_data in all_views_data.items():
+#                     save_overview_cache(cache_key, view_data)
+#
+#                 logger.info("Background recalculation completed successfully")
+#         except Exception as e:
+#             logger.exception("Error during background recalculation")
+#             progress = get_progress()
+#             progress.update_status("error")
+#             progress.log(f"ERROR: {str(e)}")
+#
+#     try:
+#         # Reset progress and start recalculation in background
+#         reset_progress()
+#         progress = get_progress()
+#         progress.log("Recalculation endpoint called - starting background thread...")
+#
+#         # Start recalculation in background thread
+#         thread = threading.Thread(target=run_recalculation, name="RecalculationThread")
+#         thread.daemon = True
+#         thread.start()
+#
+#         logger.info("Recalculation background thread started successfully")
+#
+#         return jsonify({
+#             'success': True,
+#             'message': 'Recalculation started in background'
+#         })
+#
+#     except Exception as e:
+#         logger.exception("Error starting recalculation")
+#         return jsonify({
+#             'success': False,
+#             'error': str(e)
+#         }), 500

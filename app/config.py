@@ -56,6 +56,27 @@ def get_database_url():
     return f'sqlite:///{db_path}'
 
 
+def _engine_options(uri: str) -> dict:
+    """Connection-pool tuning, but only for a real client/server database.
+
+    SQLite (tests, run-local.sh) rejects pool_size/max_overflow and raises with
+    the StaticPool it uses for in-memory databases. Applying the PostgreSQL
+    options unconditionally meant ``create_app()`` blew up whenever a test
+    module was run on its own.
+    """
+    if not uri or uri.startswith('sqlite'):
+        return {'pool_pre_ping': True}
+    # PostgreSQL: keep 5 connections ready, allow 10 more under load, recycle
+    # hourly to reduce connection churn.
+    return {
+        'pool_size': 5,
+        'max_overflow': 10,
+        'pool_recycle': 3600,
+        'pool_pre_ping': True,
+        'pool_timeout': 30,
+    }
+
+
 class Config:
     """Base configuration shared across all environments."""
     
@@ -65,16 +86,7 @@ class Config:
     # Database configuration
     SQLALCHEMY_DATABASE_URI = get_database_url()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    # Optimized for PostgreSQL on neon.tech (reduces network transfer)
-    # pool_size: keep 5 connections ready, max_overflow: allow 10 extra under load
-    # pool_recycle: 1 hour (reduces connection churn)
-    SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_size': 5,
-        'max_overflow': 10,
-        'pool_recycle': 3600,  # Recycle connections after 1 hour (was 5 min)
-        'pool_pre_ping': True,  # Verify connections before using
-        'pool_timeout': 30,  # Wait up to 30 seconds for connection
-    }
+    SQLALCHEMY_ENGINE_OPTIONS = _engine_options(SQLALCHEMY_DATABASE_URI)
     
     # Email configuration
     # Option 1: SendGrid API (RECOMMENDED for Render - SMTP is blocked on free tier)
