@@ -1,63 +1,70 @@
 {% extends "base.html" %}
 
-{% block title %}Register – Analyst Performance Tracker{% endblock %}
+{% block title %}Register – KI Asset Management{% endblock %}
 
 {% block body_class %}auth-page{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center mt-5">
-    <div class="col-md-8 col-lg-6 col-xl-5">
-        <div class="card shadow">
-            <div class="card-header bg-primary text-white">
-                <h4 class="mb-0" data-i18n-html="authreg.create_account"><i class="bi bi-person-plus"></i> Create Account</h4>
+<div class="auth-wrap">
+    <div class="auth-card">
+        <div class="auth-chrome">
+            <span class="auth-dots"><i></i><i></i><i></i></span>
+            <span class="auth-chrome-title">KI ASSET MANAGEMENT</span>
+        </div>
+        <div class="auth-accent"></div>
+
+        <div class="auth-body">
+            <h1 class="auth-title" data-i18n-html="authreg.create_account">
+                <i class="bi bi-person-plus"></i> Create Account
+            </h1>
+
+            <form method="POST" action="{{ url_for('auth.register') }}">
+                {{ form.csrf_token }}
+
+                <div class="auth-field">
+                    {{ form.email.label(class="auth-label") }}
+                    {{ form.email(class="form-control", placeholder="you@klubinvestoru.com") }}
+                    <div class="auth-hint">Only emails ending with @klubinvestoru.com are allowed.</div>
+                    {% if form.email.errors %}
+                    <div class="auth-error">{{ form.email.errors[0] }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="auth-field">
+                    {{ form.full_name.label(class="auth-label") }}
+                    {{ form.full_name(class="form-control", placeholder="Optional") }}
+                </div>
+
+                <div class="auth-field">
+                    {{ form.password.label(class="auth-label") }}
+                    {{ form.password(class="form-control", placeholder="At least 12 characters") }}
+                    {% if form.password.errors %}
+                    <div class="auth-error">{{ form.password.errors[0] }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="auth-field">
+                    {{ form.confirm_password.label(class="auth-label") }}
+                    {{ form.confirm_password(class="form-control", placeholder="Repeat your password") }}
+                    {% if form.confirm_password.errors %}
+                    <div class="auth-error">{{ form.confirm_password.errors[0] }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="d-grid mt-3">
+                    {{ form.submit(class="btn auth-submit") }}
+                </div>
+            </form>
+
+            <hr class="auth-sep">
+
+            <div class="auth-links">
+                <a href="{{ url_for('auth.login') }}">Already have an account? Sign in</a>
             </div>
-            <div class="card-body">
-                <form method="POST" action="{{ url_for('auth.register') }}">
-                    {{ form.csrf_token }}
-                    <div class="mb-3">
-                        {{ form.email.label(class="form-label") }}
-                        {{ form.email(class="form-control", placeholder="you@klubinvestoru.com") }}
-                        <small class="form-text text-muted">Only emails ending with @klubinvestoru.com are allowed.</small>
-                        {% if form.email.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ form.email.errors[0] }}
-                            </div>
-                        {% endif %}
-                    </div>
-                    <div class="mb-3">
-                        {{ form.full_name.label(class="form-label") }}
-                        {{ form.full_name(class="form-control", placeholder="Optional") }}
-                    </div>
-                    <div class="mb-3">
-                        {{ form.password.label(class="form-label") }}
-                        {{ form.password(class="form-control", placeholder="At least 12 characters") }}
-                        {% if form.password.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ form.password.errors[0] }}
-                            </div>
-                        {% endif %}
-                    </div>
-                    <div class="mb-3">
-                        {{ form.confirm_password.label(class="form-label") }}
-                        {{ form.confirm_password(class="form-control", placeholder="Repeat your password") }}
-                        {% if form.confirm_password.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ form.confirm_password.errors[0] }}
-                            </div>
-                        {% endif %}
-                    </div>
-                    <div class="d-grid">
-                        {{ form.submit(class="btn btn-primary") }}
-                    </div>
-                </form>
-                <hr class="my-4">
-                <div class="text-center">
-                    <a href="{{ url_for('auth.login') }}">Already have an account? Sign in</a>
-                </div>
-                <div class="alert alert-info mt-4" data-i18n-html="authreg.after_registration_you_will_receive_an_email_wit">
-                    <i class="bi bi-info-circle"></i>
-                    After registration, you will receive an email with an activation code. Enter that code on the activation page to complete your registration.
-                </div>
+
+            <div class="auth-note" data-i18n-html="authreg.after_registration_you_will_receive_an_email_wit">
+                <i class="bi bi-info-circle"></i>
+                After registration, you will receive an email with an activation code. Enter that code on the activation page to complete your registration.
             </div>
         </div>
     </div>

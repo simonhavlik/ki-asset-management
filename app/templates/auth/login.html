@@ -1,55 +1,58 @@
 {% extends "base.html" %}
 
-{% block title %}Login – Analyst Performance Tracker{% endblock %}
+{% block title %}Sign in – KI Asset Management{% endblock %}
 
 {% block body_class %}auth-page{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center mt-5">
-    <div class="col-md-8 col-lg-6 col-xl-5">
-        <div class="card shadow">
-            <div class="card-header bg-primary text-white">
-                <h4 class="mb-0" data-i18n-html="authlogin.sign_in"><i class="bi bi-box-arrow-in-right"></i> Sign In</h4>
-            </div>
-            <div class="card-body">
-                <form method="POST" action="{{ url_for('auth.login') }}">
-                    {{ form.csrf_token }}
-                    <div class="mb-3">
-                        {{ form.email.label(class="form-label") }}
-                        {{ form.email(class="form-control", placeholder="you@klubinvestoru.com") }}
-                        {% if form.email.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ form.email.errors[0] }}
-                            </div>
-                        {% endif %}
-                    </div>
-                    <div class="mb-3">
-                        {{ form.password.label(class="form-label") }}
-                        {{ form.password(class="form-control", placeholder="Enter your password") }}
-                        {% if form.password.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ form.password.errors[0] }}
-                            </div>
-                        {% endif %}
-                    </div>
-                    <div class="mb-3 form-check">
-                        {{ form.remember(class="form-check-input") }}
-                        {{ form.remember.label(class="form-check-label") }}
-                    </div>
-                    <div class="d-grid">
-                        {{ form.submit(class="btn btn-primary") }}
-                    </div>
-                </form>
-                <hr class="my-4">
-                <div class="text-center">
-                    <a href="{{ url_for('auth.forgot_password') }}">Forgot your password?</a>
+<div class="auth-wrap">
+    <div class="auth-card">
+        <div class="auth-chrome">
+            <span class="auth-dots"><i></i><i></i><i></i></span>
+            <span class="auth-chrome-title">KI ASSET MANAGEMENT</span>
+        </div>
+        <div class="auth-accent"></div>
+
+        <div class="auth-body">
+            <h1 class="auth-title" data-i18n-html="authlogin.sign_in">
+                <i class="bi bi-box-arrow-in-right"></i> Sign In
+            </h1>
+
+            <form method="POST" action="{{ url_for('auth.login') }}">
+                {{ form.csrf_token }}
+
+                <div class="auth-field">
+                    {{ form.email.label(class="auth-label") }}
+                    {{ form.email(class="form-control", placeholder="you@klubinvestoru.com") }}
+                    {% if form.email.errors %}
+                    <div class="auth-error">{{ form.email.errors[0] }}</div>
+                    {% endif %}
                 </div>
-                <div class="text-center mt-2">
-                    <a href="{{ url_for('auth.register') }}">Need an account? Register</a>
+
+                <div class="auth-field">
+                    {{ form.password.label(class="auth-label") }}
+                    {{ form.password(class="form-control", placeholder="Enter your password") }}
+                    {% if form.password.errors %}
+                    <div class="auth-error">{{ form.password.errors[0] }}</div>
+                    {% endif %}
                 </div>
-                <div class="text-center mt-2">
-                    <a href="{{ url_for('auth.activate') }}">Activate your account</a>
+
+                <div class="form-check auth-remember">
+                    {{ form.remember(class="form-check-input") }}
+                    {{ form.remember.label(class="form-check-label") }}
                 </div>
+
+                <div class="d-grid mt-3">
+                    {{ form.submit(class="btn auth-submit") }}
+                </div>
+            </form>
+
+            <hr class="auth-sep">
+
+            <div class="auth-links">
+                <a href="{{ url_for('auth.forgot_password') }}">Forgot your password?</a>
+                <a href="{{ url_for('auth.register') }}">Need an account? Register</a>
+                <a href="{{ url_for('auth.activate') }}">Activate your account</a>
             </div>
         </div>
     </div>
