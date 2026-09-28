@@ -35,6 +35,8 @@
     var TEXTS = {
     "en": {
         "nav.about": "About",
+        "nav.jump_to": "Jump to",
+        "nav.back_to_top": "<i class=\"bi bi-chevron-up\"></i> Back to top",
         "nav.strategy": "Strategy",
         "nav.team": "Team",
         "nav.dashboard": "<i class=\"bi bi-speedometer2\"></i> Dashboard",
@@ -574,6 +576,8 @@
     },
     "cs": {
         "nav.about": "O nás",
+        "nav.jump_to": "Přejít na",
+        "nav.back_to_top": "<i class=\"bi bi-chevron-up\"></i> Zpět nahoru",
         "nav.strategy": "Strategie",
         "nav.team": "Náš tým",
         "nav.dashboard": "<i class=\"bi bi-speedometer2\"></i> Přehled",

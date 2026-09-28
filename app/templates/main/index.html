@@ -1001,10 +1001,88 @@
         </div>
     </div>
 </section>
+
+<!-- Section navigation (bottom-right, expandable) -->
+{% set secnav_items = [
+    ('home', 'Home', 'house'),
+    ('about', 'About', 'building'),
+    ('process', 'Process', 'diagram-3'),
+    ('strategy', 'Strategy', 'signpost-split'),
+    ('risk', 'Risk', 'shield-check'),
+    ('universe', 'Universe', 'globe2'),
+    ('platform', 'Platform', 'grid-1x2'),
+    ('team', 'Team', 'people'),
+    ('research', 'Research', 'file-earmark-text'),
+    ('join', 'Join', 'person-plus')
+] %}
+<div class="secnav" id="secnav" data-active="home">
+    <div class="secnav-panel" id="secnavPanel" role="menu" aria-label="Jump to section">
+        <div class="secnav-head" data-i18n="nav.jump_to">Jump to</div>
+        <div class="secnav-list">
+            {% for sid, label, icon in secnav_items %}
+            <button type="button" class="secnav-item" data-target="{{ sid }}" role="menuitem">
+                <span class="secnav-ico"><i class="bi bi-{{ icon }}"></i></span>
+                <span class="secnav-label">{{ label }}</span>
+                <span class="secnav-dot"></span>
+            </button>
+            {% endfor %}
+        </div>
+        <button type="button" class="secnav-top" data-target="home" data-i18n-html="nav.back_to_top">
+            <i class="bi bi-chevron-up"></i> Back to top
+        </button>
+    </div>
+
+    <button type="button" class="secnav-toggle" id="secnavToggle" aria-label="Section menu" aria-expanded="false" aria-controls="secnavPanel">
+        <i class="bi bi-list"></i>
+    </button>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+// Section navigation (bottom-right): expandable jump-to menu + back to top.
+(function () {
+    var nav = document.getElementById('secnav');
+    if (!nav) return;
+    var panel = document.getElementById('secnavPanel');
+    var toggle = document.getElementById('secnavToggle');
+    var items = Array.prototype.slice.call(nav.querySelectorAll('.secnav-item'));
+    var expanded = false;
+
+    function setExpanded(v) {
+        expanded = v;
+        nav.classList.toggle('is-expanded', v);
+        toggle.setAttribute('aria-expanded', v ? 'true' : 'false');
+    }
+    function goTo(id) {
+        var el = document.getElementById(id);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setExpanded(false);
+    }
+
+    toggle.addEventListener('click', function () { setExpanded(!expanded); });
+    nav.addEventListener('mouseenter', function () { if (window.matchMedia('(hover: hover)').matches) setExpanded(true); });
+    nav.addEventListener('mouseleave', function () { if (window.matchMedia('(hover: hover)').matches) setExpanded(false); });
+    items.forEach(function (b) { b.addEventListener('click', function () { goTo(b.dataset.target); }); });
+    nav.querySelector('.secnav-top').addEventListener('click', function () { window.scrollTo({ top: 0, behavior: 'smooth' }); setExpanded(false); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setExpanded(false); });
+
+    function onScroll() { nav.classList.toggle('is-visible', window.scrollY > window.innerHeight * 0.5); }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+
+    if ('IntersectionObserver' in window) {
+        var io = new IntersectionObserver(function (entries) {
+            entries.forEach(function (e) {
+                if (!e.isIntersecting) return;
+                nav.dataset.active = e.target.id;
+                items.forEach(function (b) { b.classList.toggle('is-active', b.dataset.target === e.target.id); });
+            });
+        }, { threshold: 0.2, rootMargin: '-15% 0px -55% 0px' });
+        items.forEach(function (b) { var el = document.getElementById(b.dataset.target); if (el) io.observe(el); });
+    }
+})();
+
 // Scroll reveal animation
 function reveal() {
     const reveals = document.querySelectorAll('.reveal');
