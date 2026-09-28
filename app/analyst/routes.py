@@ -780,13 +780,21 @@ def _json_object_hook(d):
     return d
 
 
-def _load_dashboard_from_db(user_id, generation):
-    """Persisted dashboard payload for this user, if it matches the generation."""
+def _load_dashboard_from_db(user_id, generation=None):
+    """Persisted dashboard payload for this user.
+
+    Deliberately served even when its generation is older than the current one.
+    Keying the *read* on the generation meant every refresh that did not finish
+    its warming pass (a deploy, Render's idle spin-down, a crash) left every row
+    stale - and then every analyst paid the full ~19s recomputation on login.
+    Stale-but-instant beats fresh-and-7-seconds: the data refresh warms these
+    rows, and a missing row is the only thing that triggers a computation.
+    """
     import json
     from ..models import AnalystDashboardCache
     try:
         row = AnalystDashboardCache.query.filter_by(user_id=user_id).first()
-        if row and row.generation == generation:
+        if row:
             return json.loads(row.payload, object_hook=_json_object_hook)
     except Exception as e:
         logger.warning(f'Dashboard DB cache read failed for user {user_id}: {e}')

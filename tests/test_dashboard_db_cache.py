@@ -56,13 +56,19 @@ def test_payload_round_trips_through_the_database(app):
         assert loaded['ratio'] == 1.25
 
 
-def test_stale_generation_is_ignored(app):
+def test_an_older_generation_is_still_served(app):
+    """A refresh that died mid-warm must not cost anyone 19 seconds.
+
+    Rows are only ever recomputed when one is missing: a stale payload is served
+    instantly and replaced by the next warming pass.
+    """
     from app.analyst.routes import _load_dashboard_from_db, _store_dashboard_in_db
     with app.app_context():
         user = _user(app)
         _store_dashboard_in_db(user.id, 'gen-old', {'total_analyses': 1})
         assert _load_dashboard_from_db(user.id, 'gen-old') is not None
-        assert _load_dashboard_from_db(user.id, 'gen-new') is None
+        assert _load_dashboard_from_db(user.id, 'gen-new') is not None, \
+            'an older generation must still be served rather than recomputed'
 
 
 def test_second_read_does_not_recompute(app, monkeypatch):
@@ -70,7 +76,10 @@ def test_second_read_does_not_recompute(app, monkeypatch):
     from app.analyst import routes as ar
 
     with app.app_context():
+        from app.models import AnalystDashboardCache
         user = _user(app)
+        AnalystDashboardCache.query.filter_by(user_id=user.id).delete()
+        db.session.commit()
         calls = {'n': 0}
 
         def fake_compute(user_id):
