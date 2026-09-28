@@ -1314,15 +1314,17 @@ def refresh_all_caches():
     from ..utils.overview_cache import invalidate_cache as invalidate_overview_cache
     
     try:
-        # Clear all caches including overview
+        # Do NOT clear the overview rows here. This endpoint has no way to
+        # recompute them (that is the Refresh data job), so deleting them only
+        # blanked the overview until some background refresh happened to finish.
         invalidate_all_public_cache()
         invalidate_board_cache()
-        invalidate_overview_cache()  # Clear all overview caches
-        
+
         # Warm caches
         warmed = warm_public_caches()
-        
-        flash(f'All caches cleared (including overview). Caches warmed: {", ".join(warmed)}. Go to Overview and refresh each view.', 'success')
+
+        flash(f'Public caches cleared and warmed: {", ".join(warmed)}. Overview data is '
+              'untouched - use Refresh data to recompute it.', 'success')
     except Exception as e:
         flash(f'Cache refresh failed: {str(e)}', 'danger')
     

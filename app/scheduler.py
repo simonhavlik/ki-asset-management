@@ -37,7 +37,7 @@ def refresh_all_cached_data(run_type='scheduled'):
         run_type: Type of run ('scheduled', 'manual', 'automated')
     """
     from .models import RecalculationLog
-    from .utils.overview_cache import invalidate_cache
+    from .utils.overview_cache import save_overview_cache
     from .utils.presentation_export import get_growth_timeline, get_sector_analysis
     from .utils.export_helper import generate_comprehensive_export
     from .utils.neon_cache import warm_public_caches, invalidate_all_public_cache
@@ -97,14 +97,22 @@ def refresh_all_cached_data(run_type='scheduled'):
         # Step 3: Unified recalculation
         logger.info("Running unified recalculation...")
         try:
-            recalculate_all_unified(force=True)
+            all_views = recalculate_all_unified(force=True) or {}
+            # SAVE the results. This job used to recompute everything and then
+            # throw the data away, before deleting the overview cache outright -
+            # so every scheduled run left the overview page blank until some
+            # other code path happened to repopulate it. Saving is the caller's
+            # job: recalculate_all_unified() only computes.
+            for cache_key, view_data in all_views.items():
+                save_overview_cache(cache_key, view_data)
+            logger.info(f"Saved {len(all_views)} overview view(s) to cache")
         except Exception as e:
             stats['errors_count'] += 1
             logger.error(f"Unified recalculation error: {e}")
         
-        # Step 4: Invalidate caches
+        # Step 4: Invalidate the derived caches only. NEVER the overview rows:
+        # those hold the page's data and were just written above.
         logger.info("Invalidating caches...")
-        invalidate_cache()
         invalidate_all_public_cache()
         
         # Step 5: Warm caches

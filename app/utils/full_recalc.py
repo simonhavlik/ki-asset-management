@@ -42,7 +42,7 @@ def _run_full_recalculation(run_type: str):
         from ..models import RecalculationLog
         from .neon_cache import (invalidate_all_public_cache, invalidate_board_cache,
                                  warm_public_caches)
-        from .overview_cache import invalidate_cache as invalidate_overview, save_overview_cache
+        from .overview_cache import save_overview_cache
         from .yahooquery_helper import fetch_benchmark_prices
         from .unified_calculator import recalculate_all_unified
 
@@ -64,18 +64,15 @@ def _run_full_recalculation(run_type: str):
                     stats['errors_count'] += 1
                     logger.warning(f'Benchmark {ticker} refresh failed: {e}')
 
-            # Drop the caches FIRST. invalidate_cache() deletes the overview
-            # rows outright, so invalidating *after* saving would wipe the data
-            # that was just computed (that is what left the overview empty and
-            # stuck on "refreshing").
-            try:
-                invalidate_all_public_cache()
-                invalidate_board_cache()
-                invalidate_overview()
-            except Exception as e:
-                stats['errors_count'] += 1
-                logger.error(f'Cache invalidation failed: {e}')
-
+            # Compute FIRST, destroy nothing until the new data is safely saved.
+            #
+            # The refresh used to invalidate the caches up front, then recompute.
+            # The recompute takes minutes (76 companies and benchmarks over the
+            # network) and runs in a thread inside a free 0.1-CPU instance that
+            # sleeps when idle and restarts on every deploy - so it was routinely
+            # killed before saving. The caches had already been emptied, leaving
+            # the overview blank and stuck on "refreshing" with no way back. A
+            # refresh that dies must now leave the previous data in place.
             try:
                 all_views = recalculate_all_unified(force=True) or {}
                 for cache_key, view_data in all_views.items():
@@ -84,6 +81,15 @@ def _run_full_recalculation(run_type: str):
             except Exception as e:
                 stats['errors_count'] += 1
                 logger.error(f'Unified recalculation failed: {e}')
+
+            # Only now drop the derived caches. NOT the overview rows: those were
+            # just refreshed above and invalidate_cache() deletes them.
+            try:
+                invalidate_all_public_cache()
+                invalidate_board_cache()
+            except Exception as e:
+                stats['errors_count'] += 1
+                logger.error(f'Cache invalidation failed: {e}')
 
             # Warm the public caches, then the per-analyst dashboards.
             try:
