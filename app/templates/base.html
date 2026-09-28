@@ -142,13 +142,6 @@
                 </ul>
                 
                 <ul class="navbar-nav align-items-center">
-                    {% if current_user.is_authenticated %}
-                    <li class="nav-item me-2">
-                        {# Global refresh widget: available on every page, and it shows
-                           the running progress or the last result wherever you are. #}
-                        {% include 'analyst/_refresh_modal.html' %}
-                    </li>
-                    {% endif %}
                     <!-- Language Toggle -->
                     <li class="nav-item me-2">
                         <button class="btn btn-sm btn-outline-secondary" onclick="window.LANG.toggle()" title="Switch language">
@@ -394,5 +387,10 @@
         }
     })();
     </script>
+
+    {# Modals render here, at the top level of the document: inside the fixed
+       navbar (or any other positioned/clipped box) they are cut off - which is
+       how the refresh panel once ended up as a dimmed page with no dialog. #}
+    {% block modals %}{% endblock %}
 </body>
 </html>

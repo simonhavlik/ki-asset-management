@@ -101,9 +101,10 @@ def test_interrupted_run_is_not_reported_as_progress_forever(app):
         assert db.session.get(RecalculationLog, row_id).status == 'failed'
 
 
-def test_widget_is_available_on_every_page_when_logged_in(app, client):
-    """The control lives in the navbar, so it exists on every page - but only
-    for signed-in users."""
+def test_widget_lives_on_the_analyst_pages_and_the_modal_is_unclipped(app, client):
+    """The button belongs on the analyst/admin pages, not in every navbar - and
+    the modal must render outside the fixed navbar, or it shows as a dimmed page
+    with no dialog."""
     from app.models import User
 
     password = 'Widget-Test-2026!'
@@ -112,26 +113,29 @@ def test_widget_is_available_on_every_page_when_logged_in(app, client):
         if not user:
             user = User(email='widget@klubinvestoru.com', full_name='Widget',
                         is_active=True, email_verified=True)
-            user.set_password(password)
             db.session.add(user)
-            db.session.commit()
-        else:
-            user.set_password(password)
-            db.session.commit()
+        user.set_password(password)
+        db.session.commit()
 
     anon = client.get('/')
-    assert b'refreshModal' not in anon.data, 'anonymous visitors must not see the control'
+    assert b'refreshDataBtn' not in anon.data, 'anonymous visitors must not see the control'
 
-    # log in through the real route (the app hardens sessions in init_security,
-    # so hand-written session cookies are not honoured)
     r = client.post('/auth/login', data={'email': 'widget@klubinvestoru.com', 'password': password})
     assert r.status_code in (302, 303), 'login failed, cannot test the widget'
 
-    for path in ('/', '/blog/', '/analyst/'):
-        page = client.get(path)
-        assert page.status_code == 200, f'{path} -> {page.status_code}'
-        assert b'refreshDataBtn' in page.data, f'no refresh control on {path}'
-        assert b'refreshModal' in page.data
+    # not resurrected in the navbar on unrelated pages
+    blog = client.get('/blog/')
+    assert blog.status_code == 200
+    assert b'refreshDataBtn' not in blog.data, 'the refresh button does not belong in the navbar'
+
+    page = client.get('/analyst/performance')
+    assert page.status_code == 200
+    html = page.data.decode()
+    assert 'refreshDataBtn' in html, 'the button is missing from the performance page'
+    assert 'refreshModal' in html, 'the modal markup is missing'
+    # the modal has to come after the page chrome, not inside the fixed navbar
+    assert html.index('refreshModal') > html.index('<footer'), \
+        'the modal renders before the footer, so it can be clipped'
 
 
 def test_progress_endpoint_requires_login(client):

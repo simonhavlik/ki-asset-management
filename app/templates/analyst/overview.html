@@ -35,6 +35,7 @@
                 <i class="bi bi-hdd"></i> {{ cache_status.age_days }}d
             </span>
             {% endif %}
+            {% include 'analyst/_refresh_button.html' %}
             {% if refreshing %}
             <span class="badge bg-warning text-dark" title="Refreshing in the background">
                 <i class="bi bi-arrow-repeat"></i> refreshing
@@ -322,3 +323,5 @@ buildChart('inceptionChart', portfolioData.seriesAll);
 buildChart('oneyearChart', portfolioData.series1y);
 </script>
 {% endblock %}
+
+{% block modals %}{% include 'analyst/_refresh_modal.html' %}{% endblock %}

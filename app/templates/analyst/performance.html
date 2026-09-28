@@ -20,6 +20,7 @@
                 <a href="{{ url_for('main.methodology') }}#returns" class="btn btn-sm btn-outline-secondary"
                    title="What is annualization?"><i class="bi bi-info-circle"></i></a>
             </form>
+            {% include 'analyst/_refresh_button.html' %}
             <a href="{{ url_for('analyst.dashboard') }}" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-arrow-left"></i> Dashboard
             </a>
@@ -113,3 +114,5 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 {% endblock %}
+
+{% block modals %}{% include 'analyst/_refresh_modal.html' %}{% endblock %}

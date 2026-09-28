@@ -1,20 +1,7 @@
-{# Global data-refresh widget: start button + progress/result modal.
-   Included once, from base.html, so it is available on every page for logged-in
-   users: pressing it anywhere shows either the live progress of a running
-   refresh or the result of the last one (interrupted, failed or finished).
-
-   Progress is short-polled (analyst.refresh_progress) rather than SSE, so a
-   refresh never holds a gunicorn thread for the 5-10 minutes it runs. The state
-   comes from the database (RecalculationLog rows), which is why it is still
-   correct after navigating away, changing pages or restarting the worker. #}
-<span class="refresh-widget">
-    <button type="button" class="btn btn-sm btn-outline-secondary" id="refreshDataBtn"
-            data-i18n-html="analyst.refresh_data">
-        <i class="bi bi-arrow-repeat"></i> Refresh data
-    </button>
-    <span class="refresh-state" id="refreshState" aria-live="polite"></span>
-</span>
-
+{# Global refresh control: the modal half of the widget - included once, at the end of <body>
+   A modal inside the fixed navbar is clipped by it (and does not exist at all
+   when the navbar is collapsed), which showed as a dimmed page with no panel.
+   The markup is included from base.html at the end of <body> instead. #}
 <div class="modal fade" id="refreshModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content term-modal">
