@@ -13,58 +13,73 @@ To use SendGrid:
 4. Set MAIL_DEFAULT_SENDER to your verified sender email
 """
 
+import base64
 import logging
 import threading
+import time
 from flask import current_app
+import requests
+
+def _provider_chain():
+    """Ordered provider names to try: MAIL_PROVIDER if forced, else by config."""
+    provider = (current_app.config.get('MAIL_PROVIDER') or '').lower()
+    if provider:
+        return [provider]
+    attempts = []
+    if current_app.config.get('GMAIL_REFRESH_TOKEN'):
+        attempts.append('gmail_api')
+    if current_app.config.get('BREVO_API_KEY'):
+        attempts.append('brevo')
+    if current_app.config.get('RESEND_API_KEY'):
+        attempts.append('resend')
+    if current_app.config.get('SENDGRID_API_KEY'):
+        attempts.append('sendgrid')
+    # SMTP last: local development only, Render blocks the ports.
+    attempts.append('smtp')
+    return attempts
+
+
+def _dispatch(name, to, subject, body, html):
+    """Send through one named provider. Raises if that provider fails."""
+    if name == 'gmail_api':
+        return _send_gmail_api(to, subject, body, html)
+    if name == 'brevo':
+        return _send_brevo(to, subject, body, html)
+    if name == 'resend':
+        return _send_resend(to, subject, body, html)
+    if name == 'sendgrid':
+        return _send_sendgrid(to, subject, body, html)
+    if name == 'smtp':
+        return _send_smtp(to, subject, body, html)
+    raise ValueError(f'unknown mail provider {name!r}')
+
 
 def send_email(to, subject, body, html=None):
     """
-    Send an email using SendGrid API (preferred) or SMTP fallback.
-    
+    Send an email, trying every configured provider in order.
+
     Args:
         to: Recipient email address
         subject: Email subject
         body: Plain text body
         html: HTML body (optional)
-    
-    Returns:
-        bool: True if email was sent successfully, False otherwise
-    """
-    # Provider order: MAIL_PROVIDER if forced, else Brevo / Resend / SendGrid
-    # by whichever key is configured, with SMTP last (local dev - Render
-    # blocks SMTP, so an HTTPS API is required in production).
-    provider = (current_app.config.get('MAIL_PROVIDER') or '').lower()
-    if provider:
-        attempts = [provider]
-    else:
-        attempts = []
-        if current_app.config.get('BREVO_API_KEY'):
-            attempts.append('brevo')
-        if current_app.config.get('RESEND_API_KEY'):
-            attempts.append('resend')
-        if current_app.config.get('SENDGRID_API_KEY'):
-            attempts.append('sendgrid')
-        attempts.append('smtp')
 
+    Returns:
+        bool: True if email was sent successfully, False otherwise (the message
+        is then parked in the outbox rather than lost).
+    """
     last_error = None
-    for name in attempts:
+    for name in _provider_chain():
         try:
-            if name == 'brevo':
-                return _send_brevo(to, subject, body, html)
-            if name == 'resend':
-                return _send_resend(to, subject, body, html)
-            if name == 'sendgrid':
-                return _send_sendgrid(to, subject, body, html)
-            if name == 'smtp':
-                return _send_smtp(to, subject, body, html)
+            return _dispatch(name, to, subject, body, html)
         except Exception as e:
             last_error = f'{name}: {e}'
             current_app.logger.error(f'{name} failed: {e}')
 
     # Nothing worked. Park the message instead of dropping it: Render blocks
     # SMTP and API providers run out of credit, so a dropped send meant a
-    # password-reset link that silently never arrived. The relay on the
-    # database host drains this table over Gmail SMTP.
+    # password-reset link that silently never arrived. drain_outbox() retries
+    # these in-process, and `flask send-outbox` does it on demand.
     if _enqueue(to, subject, body, html, last_error):
         current_app.logger.warning(
             f'No email provider succeeded; queued "{subject}" for {to} in the outbox '
@@ -75,6 +90,123 @@ def send_email(to, subject, body, html=None):
             f'No email provider succeeded and the outbox is unavailable - email to {to} was lost'
         )
     return False
+
+
+def drain_outbox(limit=20):
+    """Retry emails parked in the outbox. Returns (sent, failed).
+
+    Deliberately does NOT re-enqueue on failure - it updates the row in place,
+    so a permanently broken provider cannot grow the table without bound.
+    """
+    from datetime import datetime
+    from .extensions import db
+    from .models import EmailOutbox
+
+    rows = (EmailOutbox.query
+            .filter_by(status='pending')
+            .filter(EmailOutbox.attempts < EmailOutbox.MAX_ATTEMPTS)
+            .order_by(EmailOutbox.created_at)
+            .limit(limit)
+            .all())
+
+    sent = failed = 0
+    for row in rows:
+        row.attempts += 1
+        last_error = None
+        delivered = False
+        for name in _provider_chain():
+            try:
+                _dispatch(name, row.recipient, row.subject, row.text_body, row.html_body)
+                delivered = True
+                break
+            except Exception as e:
+                last_error = f'{name}: {e}'
+        if delivered:
+            row.status = 'sent'
+            row.sent_at = datetime.utcnow()
+            row.last_error = None
+            sent += 1
+        else:
+            row.last_error = (str(last_error) or 'no provider configured')[:500]
+            if row.attempts >= EmailOutbox.MAX_ATTEMPTS:
+                row.status = 'failed'
+            failed += 1
+        db.session.commit()
+
+    return sent, failed
+
+
+_gmail_token = {'value': None, 'expires_at': 0.0}
+
+
+def _gmail_access_token():
+    """Mint (and cache) a Gmail API access token from the stored refresh token."""
+    now = time.time()
+    if _gmail_token['value'] and _gmail_token['expires_at'] > now + 60:
+        return _gmail_token['value']
+
+    client_id = current_app.config.get('GMAIL_CLIENT_ID')
+    client_secret = current_app.config.get('GMAIL_CLIENT_SECRET')
+    refresh_token = current_app.config.get('GMAIL_REFRESH_TOKEN')
+    if not (client_id and client_secret and refresh_token):
+        raise RuntimeError('GMAIL_CLIENT_ID / GMAIL_CLIENT_SECRET / GMAIL_REFRESH_TOKEN '
+                           'are not all configured')
+
+    resp = requests.post(
+        'https://oauth2.googleapis.com/token',
+        data={
+            'client_id': client_id,
+            'client_secret': client_secret,
+            'refresh_token': refresh_token,
+            'grant_type': 'refresh_token',
+        },
+        timeout=10,
+    )
+    if resp.status_code != 200:
+        raise RuntimeError(f'token endpoint returned {resp.status_code}: {resp.text[:200]}')
+    payload = resp.json()
+    if 'access_token' not in payload:
+        raise RuntimeError(f'token endpoint returned no access_token: {str(payload)[:200]}')
+
+    _gmail_token['value'] = payload['access_token']
+    _gmail_token['expires_at'] = now + int(payload.get('expires_in', 3600))
+    return _gmail_token['value']
+
+
+def _send_gmail_api(to, subject, body, html=None):
+    """Send through the Gmail API over HTTPS.
+
+    Render blocks outbound SMTP ([Errno 101] Network is unreachable), so HTTPS to
+    googleapis.com is the only way to use the club's Gmail account directly. Auth
+    is a one-time OAuth consent (scripts/gmail_oauth_setup.py); because
+    klubinvestoru.com is a Workspace domain the client is "Internal", which needs
+    no Google verification and issues a refresh token that does not expire.
+    """
+    from email.message import EmailMessage
+
+    sender = current_app.config.get('GMAIL_SENDER') or _sender()
+    if not sender:
+        raise RuntimeError('GMAIL_SENDER/MAIL_DEFAULT_SENDER must be set')
+
+    msg = EmailMessage()
+    msg['To'] = to
+    msg['From'] = sender
+    msg['Subject'] = subject
+    msg.set_content(body or '')
+    if html:
+        msg.add_alternative(html, subtype='html')
+
+    resp = requests.post(
+        'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
+        headers={'Authorization': f'Bearer {_gmail_access_token()}'},
+        json={'raw': base64.urlsafe_b64encode(msg.as_bytes()).decode('ascii')},
+        timeout=15,
+    )
+    if resp.status_code >= 300:
+        raise RuntimeError(f'gmail api returned {resp.status_code}: {resp.text[:200]}')
+
+    current_app.logger.info(f'Email sent to {to} via Gmail API')
+    return True
 
 
 def _enqueue(to, subject, body, html=None, error=None):

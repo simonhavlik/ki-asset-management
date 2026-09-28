@@ -303,6 +303,8 @@ def register_cli(app):
 
         print('Mail configuration:')
         show('MAIL_PROVIDER', (app.config.get('MAIL_PROVIDER') or '').strip().lower() or '(auto)')
+        show('GMAIL_CLIENT_ID', 'set' if app.config.get('GMAIL_CLIENT_ID') else '-')
+        show('GMAIL_REFRESH_TOKEN', 'set' if app.config.get('GMAIL_REFRESH_TOKEN') else '-')
         show('BREVO_API_KEY', 'set' if app.config.get('BREVO_API_KEY') else '-')
         show('RESEND_API_KEY', 'set' if app.config.get('RESEND_API_KEY') else '-')
         show('SENDGRID_API_KEY', 'set' if app.config.get('SENDGRID_API_KEY') else '-')
@@ -311,6 +313,21 @@ def register_cli(app):
         show('MAIL_DEFAULT_SENDER', app.config.get('MAIL_DEFAULT_SENDER'))
         pending = outbox_pending_count()
         show('outbox pending', pending if pending is not None else 'unavailable')
+        from .email_service import _provider_chain
+        show('provider order', ' -> '.join(_provider_chain()))
+
+    @app.cli.command('send-outbox')
+    @click.option('--limit', default=20, help='Maximum number of messages to retry.')
+    def send_outbox(limit):
+        """Retry emails parked in the outbox (sends that failed earlier).
+
+        Example: flask send-outbox --limit 50
+        """
+        from .email_service import drain_outbox
+        sent, failed = drain_outbox(limit=limit)
+        print(f'{sent} sent, {failed} still failing')
+        if failed and not sent:
+            print('check the provider error logged above and run `flask mail-status`')
 
     @app.cli.command('create-admin')
     def create_admin():

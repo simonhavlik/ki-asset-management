@@ -9,6 +9,7 @@ import logging
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 logger = logging.getLogger(__name__)
 
@@ -141,38 +142,65 @@ def refresh_all_cached_data(run_type='scheduled'):
         log_entry.mark_failed(str(e))
 
 
+def retry_queued_emails():
+    """Retry emails parked in the outbox by earlier failed sends.
+
+    This is what makes a mail provider outage non-lossy: a password reset that
+    nobody could deliver is retried here instead of vanishing. Provider
+    selection is the same chain send_email() uses (see app/email_service.py).
+    """
+    try:
+        from .email_service import drain_outbox
+        sent, failed = drain_outbox(limit=20)
+        if sent or failed:
+            logger.info(f"Email outbox retry: {sent} sent, {failed} still failing")
+    except Exception as e:
+        logger.warning(f"Email outbox retry failed: {e}")
+
+
 def init_scheduler(app):
     """Initialize and start the background scheduler."""
     with app.app_context():
-        settings = get_scheduler_settings()
-        
-        if not settings['enabled']:
-            logger.info("Automated recalculation is disabled in settings")
-            return
-        
-        # Remove existing job if present
-        if scheduler.get_job('automated_recalc'):
-            scheduler.remove_job('automated_recalc')
-        
-        # Add new job based on settings
-        day_map = {
-            'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3, 
-            'fri': 4, 'sat': 5, 'sun': 6
-        }
-        
-        day_of_week = day_map.get(settings['day_of_week'], 4)  # Default to Friday
-        
+        # Always scheduled, and never gated on the recalculation setting: this
+        # is the safety net for undeliverable mail.
         scheduler.add_job(
-            func=refresh_all_cached_data,
-            trigger=CronTrigger(day_of_week=day_of_week, hour=settings['hour'], minute=settings['minute']),
-            id='automated_recalc',
-            name='Automated Data Refresh',
-            replace_existing=True
+            func=retry_queued_emails,
+            trigger=IntervalTrigger(minutes=15),
+            id='email_outbox_retry',
+            name='Email outbox retry',
+            replace_existing=True,
         )
-        
-        scheduler.start()
-        logger.info(f"Background scheduler started - automated recalculation scheduled for "
-                   f"{settings['day_of_week']} at {settings['hour']:02d}:{settings['minute']:02d}")
+
+        settings = get_scheduler_settings()
+
+        if settings['enabled']:
+            # Remove existing job if present
+            if scheduler.get_job('automated_recalc'):
+                scheduler.remove_job('automated_recalc')
+
+            day_map = {
+                'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3,
+                'fri': 4, 'sat': 5, 'sun': 6
+            }
+
+            day_of_week = day_map.get(settings['day_of_week'], 4)  # Default to Friday
+
+            scheduler.add_job(
+                func=refresh_all_cached_data,
+                trigger=CronTrigger(day_of_week=day_of_week, hour=settings['hour'], minute=settings['minute']),
+                id='automated_recalc',
+                name='Automated Data Refresh',
+                replace_existing=True
+            )
+
+            logger.info(f"Automated recalculation scheduled for "
+                       f"{settings['day_of_week']} at {settings['hour']:02d}:{settings['minute']:02d}")
+        else:
+            logger.info("Automated recalculation is disabled in settings")
+
+        if not scheduler.running:
+            scheduler.start()
+            logger.info("Background scheduler started")
 
 
 def shutdown_scheduler():

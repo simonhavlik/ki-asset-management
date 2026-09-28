@@ -118,56 +118,59 @@ Cache=yes
 
 ---
 
-## Outbound email (outbox relay on the database host)
+## Outbound email (Gmail API over HTTPS)
 
-**Render cannot send email.** Two independent limits apply, confirmed in the
-production log:
-
-- outbound SMTP is blocked outright — `smtp failed: [Errno 101] Network is unreachable`
-- the HTTPS API providers run out of credit — SendGrid answers `401 Maximum credits exceeded`
-
-A failed send used to be logged and dropped, which is why password-reset links
-silently never arrived. Now `send_email()` parks anything no provider accepted in
-the `email_outbox` table, and a timer on the database host delivers it, because
-that host *can* reach SMTP and already holds the database the two share.
+**Render cannot send email over SMTP.** The production log is unambiguous:
 
 ```
-Render (app)
-  └─ send_email() → brevo / resend / sendgrid / smtp ─ all fail
-       └─ INSERT email_outbox (pending)
-                 │  (same PostgreSQL instance)
-charizard ───────┘
-  └─ kiam-send-outbox.timer (every 60s)
-       └─ /usr/local/bin/kiam-send-outbox.py → Gmail SMTP → status='sent'
+sendgrid failed: HTTP Error 401: Unauthorized     <- daily quota is 0, plan is dead
+smtp failed: [Errno 101] Network is unreachable   <- Render blocks the SMTP ports
 ```
 
-Install (on charizard, from a checkout of this repo):
+SendGrid cannot be revived on the free plan (`GET /v3/user/credits` reports
+`total: 0, remain: 0, is_hard_limit: true`). So mail goes out through the
+**Gmail API**, which is plain HTTPS to `googleapis.com` and therefore allowed.
+
+Because `klubinvestoru.com` is a Google Workspace domain (MX = `aspmx.l.google.com`),
+the OAuth client is **Internal**:
+
+- no Google verification and no "unverified app" warning
+- **the refresh token does not expire** (an External client left in "Testing"
+  has its refresh tokens revoked after 7 days, which would break mail weekly)
+
+### One-time setup
+
+Create the credentials with `scripts/gmail_oauth_setup.py` — it walks through
+the console, opens the consent screen, and prints the values to paste into
+Render. Then set:
+
+| Variable | Value |
+| --- | --- |
+| `GMAIL_CLIENT_ID` | from the OAuth client (Desktop app) |
+| `GMAIL_CLIENT_SECRET` | from the OAuth client |
+| `GMAIL_REFRESH_TOKEN` | printed by the setup script |
+| `GMAIL_SENDER` | `simon.havlik@klubinvestoru.com` |
+| `MAIL_PROVIDER` | `gmail_api` (optional — it is auto-detected first) |
+
+Provider order is `gmail_api → brevo → resend → sendgrid → smtp`, so adding any
+other key takes effect without further changes.
+
+### Nothing is ever silently dropped
+
+If every provider fails, `send_email()` parks the message in the `email_outbox`
+table instead of logging and dropping it (which is why reset links used to
+vanish without trace). The in-process scheduler retries the queue every 15
+minutes, and it can be drained on demand:
 
 ```bash
-cp deploy/mail-relay/kiam-mail.env.example /etc/kiam-mail.env
-$EDITOR /etc/kiam-mail.env          # localhost DB URL + Gmail app password
-sudo deploy/mail-relay/install.sh
+flask mail-status                  # provider config, order, outbox depth
+flask send-outbox --limit 50       # retry now
+flask send-test-email you@example.com
 ```
 
-Operate it:
-
-```bash
-journalctl -u kiam-send-outbox -f            # follow deliveries
-systemctl start kiam-send-outbox.service     # deliver immediately
-sudo -u kiammail /usr/local/bin/kiam-send-outbox.py --status
-flask mail-status                            # provider config + queue depth
-```
-
-The relay claims rows with `UPDATE ... WHERE status='pending' RETURNING`, so two
-overlapping runs can never deliver a message twice. It gives up after 5 attempts
-and prunes delivered rows after 30 days.
-
-**Adding a real provider is still preferable** (instant delivery, no dependency
-on charizard): set `BREVO_API_KEY` in Render and it is used before the fallback.
-Brevo verifies a single sender address, so no DNS work is needed. The outbox
-stays useful either way — it is what makes a provider outage non-lossy.
-
----
+Rows are retried at most 5 times, then marked `failed` so a permanently broken
+provider cannot grow the table. This retry lives in the web process — **no
+infrastructure on the database host is involved.**
 
 ## Backups — **important**
 

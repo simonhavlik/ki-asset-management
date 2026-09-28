@@ -107,6 +107,16 @@ class Config:
     MAIL_PROVIDER = os.environ.get('MAIL_PROVIDER', '').strip().lower()
     RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
     BREVO_API_KEY = os.environ.get('BREVO_API_KEY', '')
+
+    # Gmail API (HTTPS). Render blocks SMTP outright, so this is the way to send
+    # as the club's own Gmail account. klubinvestoru.com is a Workspace domain,
+    # so the OAuth client is "Internal": Google verification is not required and
+    # the refresh token does not expire. See scripts/gmail_oauth_setup.py.
+    GMAIL_CLIENT_ID = os.environ.get('GMAIL_CLIENT_ID', '')
+    GMAIL_CLIENT_SECRET = os.environ.get('GMAIL_CLIENT_SECRET', '')
+    GMAIL_REFRESH_TOKEN = os.environ.get('GMAIL_REFRESH_TOKEN', '')
+    # Must be the authenticated account itself (or a verified "send as" alias).
+    GMAIL_SENDER = os.environ.get('GMAIL_SENDER', '')
     MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', MAIL_USERNAME)

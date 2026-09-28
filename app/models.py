@@ -669,13 +669,13 @@ class RecalculationLog(db.Model):
 
 
 class EmailOutbox(db.Model):
-    """Emails no provider could deliver, parked for the relay on the DB host.
+    """Emails no provider could deliver, retried from inside the app.
 
     Two independent things break outbound mail in production: Render blocks SMTP
-    outright ([Errno 101]) and the HTTPS API providers can run out of credit.
-    A failed send used to be logged and dropped, so password-reset links simply
-    never arrived. Failed sends now land here and a small systemd timer on the
-    database host drains the queue over Gmail SMTP (see scripts/send_outbox.py).
+    outright ([Errno 101]) and an API provider can run out of credit or quota. A
+    failed send used to be logged and dropped, so password-reset links simply
+    never arrived. Failed sends now land here and are retried by the scheduler
+    (or on demand with ``flask send-outbox``) instead of being lost.
     """
     __tablename__ = 'email_outbox'
 
