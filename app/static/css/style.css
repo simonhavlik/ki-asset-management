@@ -188,13 +188,18 @@ body {
 }
 
 main {
-    flex: 1 0 auto;
+    /* No flex-grow here on purpose. If main grows, the leftover viewport height
+       is added *inside* main - below the last section - and the white body
+       shows through as a band between that section and the footer (the "weird
+       white strip" under the Join block). The footer absorbs that space
+       instead, and it is dark. */
     padding-top: 88px;
 }
 
 .footer {
-    flex-shrink: 0;
-    margin-top: auto;
+    /* Absorbs any leftover height, so the sticky-footer behaviour is kept
+       without ever exposing the white body above it. */
+    flex: 1 0 auto;
 }
 
 /* -----------------------------------------------------------------
