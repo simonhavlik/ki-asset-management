@@ -157,13 +157,60 @@ def _send_smtp(to, subject, body, html=None):
     return True
 
 
+_MAIL_FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+_MAIL_MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace"
+
+
+def _terminal_email(kicker, title, intro, url, cta, note):
+    """Compact terminal-styled transactional email (dark ink + green accent).
+
+    Table layout and inline styles only, so it renders in Gmail / Apple Mail /
+    Outlook. Callers always pass a plain-text body too, so nothing depends on
+    the HTML surviving.
+    """
+    return f'''<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f5f7f9;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f7f9;padding:28px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#0f1419;border:1px solid #1a2028;border-radius:16px;overflow:hidden;">
+        <tr><td style="padding:12px 16px;background:#141a21;border-bottom:1px solid #1a2028;">
+          <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#ff5f57;"></span>
+          <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#febc2e;margin-left:5px;"></span>
+          <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#28c840;margin-left:5px;"></span>
+          <span style="font-family:{_MAIL_MONO};font-size:11px;letter-spacing:.14em;color:#c5cdd4;font-weight:700;margin-left:12px;vertical-align:middle;">KI ASSET MANAGEMENT</span>
+        </td></tr>
+        <tr><td style="height:3px;background:#2cce7e;"></td></tr>
+        <tr><td style="padding:28px 26px 8px 26px;">
+          <div style="font-family:{_MAIL_MONO};font-size:11px;letter-spacing:.16em;color:#6b7682;font-weight:700;text-transform:uppercase;">{kicker}</div>
+          <h1 style="margin:10px 0 12px 0;font-family:{_MAIL_FONT};font-size:21px;line-height:1.3;color:#e6ebef;font-weight:700;">{title}</h1>
+          <p style="margin:0 0 22px 0;font-family:{_MAIL_FONT};font-size:15px;line-height:1.65;color:#9aa5b1;">{intro}</p>
+          <table role="presentation" cellspacing="0" cellpadding="0"><tr><td style="border-radius:10px;background:#2cce7e;">
+            <a href="{url}" style="display:inline-block;padding:13px 26px;font-family:{_MAIL_MONO};font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#0f1419;text-decoration:none;">{cta}</a>
+          </td></tr></table>
+          <p style="margin:22px 0 6px 0;font-family:{_MAIL_MONO};font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#6b7682;">or paste this link</p>
+          <div style="font-family:{_MAIL_MONO};font-size:12px;line-height:1.5;color:#9aa5b1;background:#141a21;border:1px solid #1a2028;border-radius:8px;padding:10px 12px;word-break:break-all;">{url}</div>
+          <p style="margin:18px 0 0 0;font-family:{_MAIL_MONO};font-size:11px;line-height:1.6;color:#6b7682;">{note}</p>
+        </td></tr>
+        <tr><td style="padding:18px 26px 24px 26px;border-top:1px solid #1a2028;">
+          <p style="margin:0;font-family:{_MAIL_FONT};font-size:12px;color:#6b7682;">Analyst Performance Tracker &middot; Klub Investorů</p>
+        </td></tr>
+      </table>
+      <div style="max-width:560px;margin:14px auto 0;font-family:{_MAIL_FONT};font-size:11px;color:#9aa5b1;text-align:center;">This is an automated message.</div>
+    </td></tr>
+  </table>
+</body>
+</html>'''
+
+
 def send_password_setup_email(user, token):
-    """Send email with activation code and clickable link."""
+    """Send the account-setup (activation) email."""
     from flask import url_for
-    
+
     subject = 'Set up your password for Analyst Performance Tracker'
     setup_url = url_for('auth.set_password', token=token, _external=True)
-    
+
     body = f'''Hello,
 
 You have been invited to set up your account at Analyst Performance Tracker.
@@ -177,64 +224,27 @@ If you did not expect this invitation, please ignore this email.
 Best regards,
 The Analyst Performance Tracker Team
 '''
-    
-    html = f'''<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{subject}</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f6f9f6; color: #333;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
-        <tr>
-            <td style="text-align: center; padding: 30px 0;">
-                <div style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 20px 30px; border-radius: 16px; margin-bottom: 20px;">
-                    <span style="font-size: 32px;">📊</span>
-                </div>
-                <h1 style="margin: 0; color: #065f46; font-size: 28px; font-weight: 700;">Analyst Performance Tracker</h1>
-            </td>
-        </tr>
-        <tr>
-            <td style="background: #ffffff; border-radius: 16px; padding: 40px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
-                <h2 style="margin: 0 0 20px 0; color: #1f2937; font-size: 24px;">Welcome! 👋</h2>
-                <p style="margin: 0 0 24px 0; color: #4b5563; font-size: 16px; line-height: 1.6;">
-                    You have been invited to set up your account. Click the button below to create your password and get started.
-                </p>
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                    <tr>
-                        <td style="text-align: center; padding: 20px 0;">
-                            <a href="{setup_url}" style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 12px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);">
-                                Set Password →
-                            </a>
-                        </td>
-                    </tr>
-                </table>
-                <p style="margin: 24px 0 0 0; color: #9ca3af; font-size: 14px; text-align: center;">
-                    This link will expire in 24 hours.
-                </p>
-            </td>
-        </tr>
-        <tr>
-            <td style="text-align: center; padding: 30px 0; color: #9ca3af; font-size: 14px;">
-                <p style="margin: 0;">Analyst Performance Tracker</p>
-                <p style="margin: 8px 0 0 0; color: #d1d5db;">If you didn't expect this email, you can safely ignore it.</p>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>'''
-    
+
+    html = _terminal_email(
+        kicker='Account setup',
+        title='Create your password',
+        intro='You have been invited to set up your account at Analyst Performance '
+              'Tracker. Choose a password to get started.',
+        url=setup_url,
+        cta='Set password',
+        note='This link expires in 24 hours. If you did not expect this invitation, '
+             'you can safely ignore this email.',
+    )
     return send_email(user.email, subject, body, html)
 
 
 def send_password_reset_email(user, token):
-    """Send password‑reset email."""
+    """Send the password-reset email."""
     from flask import url_for
-    
+
     subject = 'Reset your password for Analyst Performance Tracker'
     reset_url = url_for('auth.reset_password', token=token, _external=True)
-    
+
     body = f'''Hello,
 
 You have requested to reset your password for Analyst Performance Tracker.
@@ -248,54 +258,15 @@ If you did not request this, please ignore this email.
 Best regards,
 The Analyst Performance Tracker Team
 '''
-    
-    html = f'''<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{subject}</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f6f9f6; color: #333;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
-        <tr>
-            <td style="text-align: center; padding: 30px 0;">
-                <div style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 20px 30px; border-radius: 16px; margin-bottom: 20px;">
-                    <span style="font-size: 32px;">📊</span>
-                </div>
-                <h1 style="margin: 0; color: #065f46; font-size: 28px; font-weight: 700;">Analyst Performance Tracker</h1>
-            </td>
-        </tr>
-        <tr>
-            <td style="background: #ffffff; border-radius: 16px; padding: 40px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
-                <h2 style="margin: 0 0 20px 0; color: #1f2937; font-size: 24px;">Reset Password 🔐</h2>
-                <p style="margin: 0 0 24px 0; color: #4b5563; font-size: 16px; line-height: 1.6;">
-                    You requested to reset your password. Click the button below to choose a new password.
-                </p>
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                    <tr>
-                        <td style="text-align: center; padding: 20px 0;">
-                            <a href="{reset_url}" style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 12px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);">
-                                Reset Password →
-                            </a>
-                        </td>
-                    </tr>
-                </table>
-                <p style="margin: 24px 0 0 0; color: #9ca3af; font-size: 14px; text-align: center;">
-                    This link will expire in 24 hours.
-                </p>
-                <p style="margin: 16px 0 0 0; color: #9ca3af; font-size: 14px; text-align: center;">
-                    If you didn't request this, you can safely ignore this email.
-                </p>
-            </td>
-        </tr>
-        <tr>
-            <td style="text-align: center; padding: 30px 0; color: #9ca3af; font-size: 14px;">
-                <p style="margin: 0;">Analyst Performance Tracker</p>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>'''
-    
+
+    html = _terminal_email(
+        kicker='Password reset',
+        title='Reset your password',
+        intro='You requested a password reset for Analyst Performance Tracker. '
+              'Choose a new password below.',
+        url=reset_url,
+        cta='Reset password',
+        note='This link expires in 24 hours. If you did not request this, you can '
+             'safely ignore this email.',
+    )
     return send_email(user.email, subject, body, html)
