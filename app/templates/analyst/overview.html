@@ -195,24 +195,8 @@
                 <div class="card-body">
                     <div class="lead-grid cols-3">
                         <div>
-                            <div class="lead-title" data-i18n="scoring.board_approved">Board-approved analyses</div>
-                            {% for a in scoring.board_approved %}
-                            <div class="lead-row"><span>{{ a.rank }}. {{ a.name }}</span><span class="muted">{{ a.value_display }}</span></div>
-                            {% else %}
-                            <div class="lead-row muted" data-i18n="scoring.no_data">No data</div>
-                            {% endfor %}
-                        </div>
-                        <div>
                             <div class="lead-title" data-i18n="scoring.board_approved_companies">Board-approved companies</div>
                             {% for a in scoring.board_approved_companies %}
-                            <div class="lead-row"><span>{{ a.rank }}. {{ a.name }}</span><span class="muted">{{ a.value_display }}</span></div>
-                            {% else %}
-                            <div class="lead-row muted" data-i18n="scoring.no_data">No data</div>
-                            {% endfor %}
-                        </div>
-                        <div>
-                            <div class="lead-title" data-i18n="scoring.analyst_approved">Analyst-approved analyses</div>
-                            {% for a in scoring.most_approved %}
                             <div class="lead-row"><span>{{ a.rank }}. {{ a.name }}</span><span class="muted">{{ a.value_display }}</span></div>
                             {% else %}
                             <div class="lead-row muted" data-i18n="scoring.no_data">No data</div>

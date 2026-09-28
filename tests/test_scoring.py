@@ -365,3 +365,25 @@ def test_a_tied_board_vote_is_not_approval(app):
         db.session.commit()
         boards = scoring.leaderboards(*scoring.term_bounds(date(2026, 2, 1)))
     assert boards['board_approved'] == [], 'a tie is not approval'
+
+
+def test_the_panel_shows_one_table_per_metric(app):
+    """No metric twice: approval is measured in companies, once each.
+
+    There were duplicate pairs (board-approved analyses *and* companies,
+    analyst-approved analyses *and* companies) showing the same thing.
+    """
+    import pathlib
+    import re
+
+    html = (pathlib.Path(app.root_path) / 'templates' / 'analyst' / 'overview.html').read_text(encoding='utf-8')
+    titles = re.findall(r'class="lead-title"[^>]*data-i18n="([^"]+)"', html)
+    assert titles == [
+        'scoring.board_approved_companies',
+        'scoring.analyst_approved_companies',
+        'scoring.purchased_companies',
+        'scoring.most_analyses',
+        'scoring.top_performance',
+        'scoring.best_win_rate',
+    ], titles
+    assert len(set(titles)) == len(titles), 'a metric is shown twice'
