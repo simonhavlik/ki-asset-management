@@ -2473,3 +2473,81 @@ canvas {
     border-top: 1px solid var(--color-gray-100);
     padding-top: 0.6rem;
 }
+
+/* -----------------------------------------------------------------
+   PDF research article - compact header + side meta panel
+   Keeps the PDF at the top of the viewport; the (small) cover image and
+   the labels sit beside the PDF instead of above it.
+   ----------------------------------------------------------------- */
+.blog-post-header.blog-post-header--compact {
+    padding: 2rem 0 1.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.blog-post-header.blog-post-header--compact .blog-post-title {
+    font-size: 1.6rem;
+    margin-bottom: 0;
+}
+
+.pdf-post-aside {
+    position: sticky;
+    top: 90px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    padding: 1rem;
+    background: var(--color-white);
+    border: 1px solid var(--color-gray-200);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-md);
+}
+
+.pdf-post-aside-img {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    border-radius: var(--radius-lg);
+}
+
+.pdf-post-aside-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+    color: var(--color-gray-500);
+}
+
+.pdf-post-aside-meta i {
+    color: var(--primary-green);
+    margin-right: 0.35rem;
+}
+
+.pdf-post-aside-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.pdf-post-aside-disclaimer {
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--color-gray-500);
+    border-top: 1px solid var(--color-gray-200);
+    padding-top: 0.75rem;
+}
+
+.pdf-post-aside-disclaimer strong {
+    display: block;
+    color: var(--color-gray-700);
+    margin-bottom: 0.25rem;
+}
+
+@media (max-width: 991.98px) {
+    .pdf-post-aside {
+        position: static;
+    }
+
+    .pdf-post-aside-img {
+        height: 160px;
+    }
+}

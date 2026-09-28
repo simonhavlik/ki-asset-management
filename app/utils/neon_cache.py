@@ -100,6 +100,39 @@ def get_cache_key(prefix: str, *args, **kwargs) -> str:
     return ':'.join(key_parts)
 
 
+def _cache_generation(namespace: str) -> str:
+    """A per-namespace version string mixed into cache keys.
+
+    Flask-Caching can only delete exact keys, but cached keys usually carry
+    arguments (page, limit, ...), so deleting a bare prefix silently misses
+    them. Bumping the generation makes every previous key unreachable instead.
+    """
+    cache = get_cache()
+    if not cache:
+        return '0'
+    key = f'{namespace}:version'
+    try:
+        version = cache.get(key)
+        if version is None:
+            version = '1'
+            cache.set(key, version, timeout=STATIC_DATA_TIMEOUT)
+        return str(version)
+    except Exception:
+        return '0'
+
+
+def _bump_cache_generation(namespace: str) -> None:
+    """Invalidate every cached key in a namespace by changing its version."""
+    cache = get_cache()
+    if not cache:
+        return
+    try:
+        cache.set(f'{namespace}:version', str(datetime.utcnow().timestamp()),
+                  timeout=STATIC_DATA_TIMEOUT)
+    except Exception:
+        pass
+
+
 def cached(prefix: str, timeout: Optional[int] = None, unless: Optional[Callable] = None):
     """
     Decorator to cache function results.
@@ -461,7 +494,7 @@ def get_cached_blog_index(page: int = 1, category: str = '', tag: str = '',
                           force_refresh: bool = False) -> dict:
     """Get cached blog index data. Returns dict with SimpleBlogPost objects."""
     cache = get_cache()
-    cache_key = get_cache_key(KEY_PREFIX['blog_index'], page, category, tag)
+    cache_key = get_cache_key(KEY_PREFIX['blog_index'], _cache_generation('blog'), page, category, tag)
     
     if not force_refresh and cache and NEON_OPTIMIZE:
         try:
@@ -781,7 +814,7 @@ class SimpleIdea:
 def get_cached_wall_ideas(page: int = 1, per_page: int = 12, force_refresh: bool = False):
     """Get cached ideas wall data. Returns dict with SimpleIdea objects."""
     cache = get_cache()
-    cache_key = get_cache_key(KEY_PREFIX['wall_page'], page, per_page)
+    cache_key = get_cache_key(KEY_PREFIX['wall_page'], _cache_generation('wall'), page, per_page)
     
     if not force_refresh and cache and NEON_OPTIMIZE:
         try:
@@ -928,6 +961,8 @@ def invalidate_main_cache():
 
 def invalidate_blog_cache():
     """Invalidate all blog-related caches."""
+    # Bump the generation so paged/filtered index keys are all invalidated.
+    _bump_cache_generation('blog')
     keys = [
         KEY_PREFIX['main_blog_posts'],
         KEY_PREFIX['main_featured_research'],
@@ -948,13 +983,12 @@ def invalidate_blog_cache():
 
 def invalidate_wall_cache():
     """Invalidate wall/ideas caches."""
-    keys = [
-        KEY_PREFIX['wall_ideas'],
-        KEY_PREFIX['wall_page'],
-    ]
+    # The page cache key carries page/per_page args, so deleting the bare
+    # prefix misses it. Bump the generation instead.
+    _bump_cache_generation('wall')
     cache = get_cache()
     if cache:
-        for key in keys:
+        for key in (KEY_PREFIX['wall_ideas'],):
             try:
                 cache.delete(key)
             except Exception:
