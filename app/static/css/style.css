@@ -3310,3 +3310,73 @@ canvas {
 @media (max-width: 1199.98px) {
     .secrail { display: none; }
 }
+
+/* -----------------------------------------------------------------
+   Refresh-data widget (live progress modal)
+   ----------------------------------------------------------------- */
+.term-modal {
+    background: #0f1419;
+    border: 1px solid #1a2028;
+    color: #e6ebef;
+}
+
+.term-modal .modal-header,
+.term-modal .modal-footer {
+    border-color: #1a2028;
+}
+
+.term-modal .modal-title {
+    font-size: 0.95rem;
+    color: #e6ebef;
+}
+
+.term-modal .btn-close {
+    filter: invert(1) grayscale(1) brightness(2);
+}
+
+.term-progress {
+    height: 10px;
+    border-radius: 999px;
+    background: #1a2028;
+    overflow: hidden;
+}
+
+.term-progress-fill {
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, #147a4a, #2cce7e);
+    transition: width 0.4s ease;
+}
+
+.term-progress-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 0.6rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.74rem;
+    color: #9aa5b1;
+}
+
+.term-log {
+    margin: 1rem 0 0;
+    padding: 0.75rem 0.9rem;
+    height: 190px;
+    overflow-y: auto;
+    background: #141a21;
+    border: 1px solid #1a2028;
+    border-radius: 8px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.72rem;
+    line-height: 1.55;
+    color: #9aa5b1;
+    white-space: pre-wrap;
+}
+
+.term-modal .term-footnote { color: #6b7682; }
+
+.term-modal .btn-secondary {
+    background: #1a2028;
+    border-color: #232b34;
+    color: #e6ebef;
+}

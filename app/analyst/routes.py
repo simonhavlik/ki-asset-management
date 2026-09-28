@@ -9,6 +9,7 @@ from ..extensions import db
 from ..models import Analysis, PerformanceCalculation, Company, StockPrice, analysis_analysts, User, ActivityLog, CsvUpload, Vote, PortfolioPurchase, BenchmarkPrice
 from ..utils.performance import PerformanceCalculator, get_vote_counts_for_analyses
 from ..utils.sector_helper import get_company_sector, get_sector_distribution
+from ..security import rate_limit
 
 analyst_bp = Blueprint('analyst', __name__, template_folder='../templates/analyst')
 logger = logging.getLogger(__name__)
@@ -692,78 +693,36 @@ def get_analyst_rankings():
     }
 
 
-@analyst_bp.route('/')
-@login_required
-def dashboard():
-    """Analyst dashboard with personal statistics."""
-    # If admin, include admin dashboard data
-    if current_user.is_admin:
-        from ..models import User, ActivityLog, CsvUpload, Company
-        
-        # Gather admin stats
-        total_users = User.query.count()
-        active_users = User.query.filter_by(is_active=True).count()
-        admin_users = User.query.filter_by(is_admin=True).count()
-        
-        total_analyses = Analysis.query.count()
-        approved_analyses_count = Analysis.query.filter_by(status='On Watchlist').count()
-        
-        total_companies = Company.query.count()
-        csv_uploads = CsvUpload.query.count()
-        
-        # Recent activity
-        recent_activity = ActivityLog.query.order_by(ActivityLog.timestamp.desc()).limit(10).all()
-        
-        admin_stats = {
-            'total_users': total_users,
-            'active_users': active_users,
-            'admin_users': admin_users,
-            'total_analyses': total_analyses,
-            'approved_analyses': approved_analyses_count,
-            'total_companies': total_companies,
-            'csv_uploads': csv_uploads
-        }
-    else:
-        admin_stats = None
-        recent_activity = None
-    
+def _compute_dashboard_data(user_id):
+    """Everything the dashboard needs except the (cheap) recent-analyses query."""
+    from ..models import User as _User, Company as _Company
+
     calculator = PerformanceCalculator()
-    
-    # Count analyses where user is analyst (role 'analyst')
     my_analyses = db.session.query(Analysis).join(
         analysis_analysts, Analysis.id == analysis_analysts.c.analysis_id
     ).filter(
-        analysis_analysts.c.user_id == current_user.id,
+        analysis_analysts.c.user_id == user_id,
         analysis_analysts.c.role == 'analyst'
     ).all()
-    
     approved = [a for a in my_analyses if a.status == 'On Watchlist']
-    
-    # Calculate performance
-    perf = calculator.get_analyst_performance(current_user.id)
-    
-    # Get all analysts performance for comparison
+
+    perf = calculator.get_analyst_performance(user_id)
     all_perfs = calculator.get_all_analysts_performance()
-    
-    # Calculate team average and find best analyst
+
     returns = [p['avg_return'] for p in all_perfs if p['avg_return'] is not None]
     team_avg_return = sum(returns) / len(returns) if returns else 0
     best_analyst_return = max(returns) if returns else 0
-    
-    # Find user's rank
+
     analyst_rank = 1
     total_analysts = len(all_perfs)
     for i, p in enumerate(all_perfs, 1):
-        if p['analyst_id'] == current_user.id:
+        if p['analyst_id'] == user_id:
             analyst_rank = i
             break
-    
-    # Closest comparison index + portfolio/benchmark series (shared with /performance)
+
     term = build_performance_terminal(my_analyses, approved)
-    primary_index = term['primary_index']
-    performance_chart = term['performance_chart']
-    risk_metrics = term['risk_metrics']
     benchmark_comparison = term['benchmark_comparison']
+    primary_index = term['primary_index']
 
     comparison_data = {
         'team_avg': team_avg_return,
@@ -771,47 +730,120 @@ def dashboard():
         'primary_diff': benchmark_comparison['primary_diff'],
         'primary_label': primary_index['label'],
     }
-    
-    # Generate AI insights
-    ai_insights = generate_ai_insights(perf, comparison_data)
-    
-    # Calculate stock impacts
-    stock_impacts = calculate_stock_impacts(current_user.id)
-    
-    # Recent analyses
+
+    return {
+        'total_analyses': len(my_analyses),
+        'approved_analyses': len(approved),
+        'performance': perf,
+        'team_avg_return': team_avg_return,
+        'best_analyst_return': best_analyst_return,
+        'analyst_rank': analyst_rank,
+        'total_analysts': total_analysts,
+        'benchmark_comparison': benchmark_comparison,
+        'primary_index': primary_index,
+        'performance_chart': term['performance_chart'],
+        'risk_metrics': term['risk_metrics'],
+        'ai_insights': generate_ai_insights(perf, comparison_data),
+        'stock_impacts': calculate_stock_impacts(user_id),
+        'club': {
+            'members': _User.query.filter_by(is_active=True).count(),
+            'analyses': Analysis.query.count(),
+            'approved': Analysis.query.filter_by(status='On Watchlist').count(),
+            'companies': _Company.query.count(),
+        },
+    }
+
+
+def get_dashboard_data(user_id, force=False):
+    """Dashboard payload for a user, cached and invalidated by the data refresh.
+
+    This is the difference between a ~15s dashboard (pandas portfolio series +
+    every analyst's performance) and an instant one. The full refresh bumps the
+    'dash' generation and re-warms every analyst via full_recalc._warm_dashboards.
+    """
+    from ..utils.neon_cache import get_cache, get_cache_key, _cache_generation, PUBLIC_DATA_TIMEOUT
+
+    cache = get_cache()
+    key = None
+    if cache:
+        try:
+            key = get_cache_key('dashboard', _cache_generation('dash'), user_id)
+            if not force:
+                hit = cache.get(key)
+                if hit is not None:
+                    return hit
+        except Exception:
+            key = None
+
+    data = _compute_dashboard_data(user_id)
+
+    if cache and key:
+        try:
+            cache.set(key, data, timeout=PUBLIC_DATA_TIMEOUT)
+        except Exception as e:
+            logger.warning(f'Could not cache dashboard for {user_id}: {e}')
+    return data
+
+
+@analyst_bp.route('/')
+@login_required
+def dashboard():
+    """Analyst dashboard with personal statistics (cached, instant on open)."""
+    data = get_dashboard_data(current_user.id)
+
+    # Admin extras (admin only, cheap - not cached)
+    admin_stats = None
+    recent_activity = None
+    if current_user.is_admin:
+        admin_stats = {
+            'total_users': User.query.count(),
+            'active_users': User.query.filter_by(is_active=True).count(),
+            'admin_users': User.query.filter_by(is_admin=True).count(),
+            'total_analyses': Analysis.query.count(),
+            'approved_analyses': Analysis.query.filter_by(status='On Watchlist').count(),
+            'total_companies': Company.query.count(),
+            'csv_uploads': CsvUpload.query.count(),
+        }
+        recent_activity = ActivityLog.query.order_by(ActivityLog.timestamp.desc()).limit(10).all()
+
+    # Recent analyses (cheap one query; the template uses the ORM objects)
     recent = db.session.query(Analysis).join(
         analysis_analysts, Analysis.id == analysis_analysts.c.analysis_id
     ).filter(
         analysis_analysts.c.user_id == current_user.id
     ).order_by(desc(Analysis.analysis_date)).limit(10).all()
-    
-    # Compact club context for the dashboard
-    from ..models import User as _User, Company as _Company
-    club = {
-        'members': _User.query.filter_by(is_active=True).count(),
-        'analyses': Analysis.query.count(),
-        'approved': Analysis.query.filter_by(status='On Watchlist').count(),
-        'companies': _Company.query.count(),
-    }
 
     return render_template('analyst/dashboard.html',
-                           total_analyses=len(my_analyses),
-                           approved_analyses=len(approved),
-                           performance=perf,
                            recent_analyses=recent,
-                           team_avg_return=team_avg_return,
-                           best_analyst_return=best_analyst_return,
-                           analyst_rank=analyst_rank,
-                           total_analysts=total_analysts,
-                           benchmark_comparison=benchmark_comparison,
-                           primary_index=primary_index,
-                           performance_chart=performance_chart,
-                           risk_metrics=risk_metrics,
-                           ai_insights=ai_insights,
-                           stock_impacts=stock_impacts,
                            admin_stats=admin_stats,
                            recent_activity=recent_activity,
-                           club=club)
+                           **data)
+
+
+@analyst_bp.route('/refresh-data', methods=['POST'])
+@login_required
+@rate_limit(limit=4, window=3600)
+def refresh_data():
+    """Start a full data refresh (prices + performance + all caches + dashboards).
+
+    Runs in a background thread; progress is polled from /analyst/refresh-progress
+    so any analyst can trigger it without their request blocking.
+    """
+    from ..utils.full_recalc import start_full_recalculation
+    started, message = start_full_recalculation(run_type='manual')
+    return jsonify({'started': started, 'message': message}), (202 if started else 409)
+
+
+@analyst_bp.route('/refresh-progress')
+@login_required
+def refresh_progress():
+    """Short-polled progress for the refresh widget.
+
+    Deliberately not SSE: a long-lived stream would hold one of the few gunicorn
+    threads for the whole 5-10 minute job.
+    """
+    from ..utils.unified_calculator import get_progress
+    return jsonify(get_progress().to_dict())
 
 
 @analyst_bp.route('/performance')

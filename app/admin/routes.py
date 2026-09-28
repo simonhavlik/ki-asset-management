@@ -1990,83 +1990,15 @@ def download_notion_csv():
 @admin_bp.route('/unified-update/full-recalc', methods=['POST'])
 @admin_required
 def full_recalculation():
+    """Full system recalculation: prices, performance, all caches, dashboards.
+
+    Delegates to utils.full_recalc so the admin Update panel and the analyst
+    "Refresh data" buttons run exactly the same job with the same live progress.
     """
-    Perform a full system recalculation.
-    This recalculates prices, performance, benchmarks, and invalidates all caches.
-    Uses unified_calculator for progress tracking.
-    """
-    from .. import create_app
-    from ..utils.unified_calculator import recalculate_all_unified, is_calculation_running
-    from datetime import date, timedelta
-    import threading
+    from ..utils.full_recalc import start_full_recalculation
 
-    if is_calculation_running():
-        return jsonify({'error': 'A recalculation is already in progress'}), 400
-
-    def run_full_recalc():
-        app = create_app()
-        with app.app_context():
-            try:
-                from ..extensions import db as db_local
-                from ..models import RecalculationLog
-                from ..utils.neon_cache import invalidate_all_public_cache as inv_pub, invalidate_board_cache as inv_board, warm_public_caches as warm_pub
-                from ..utils.overview_cache import invalidate_cache as inv_overview, save_overview_cache
-                from ..utils.yahooquery_helper import fetch_benchmark_prices as fetch_bp
-                from ..utils.unified_calculator import recalculate_all_unified as recalc_unified
-
-                log_entry = RecalculationLog(run_type='manual')
-                db_local.session.add(log_entry)
-                db_local.session.commit()
-
-                stats = {
-                    'analyses_processed': 0,
-                    'prices_updated': 0,
-                    'calculations_updated': 0,
-                    'errors_count': 0
-                }
-
-                tickers = ['SPY', 'VT', 'EEMS']
-                end_date = date.today()
-                start_date = end_date - timedelta(days=1825)
-
-                for ticker in tickers:
-                    try:
-                        df = fetch_bp(ticker, start_date, end_date)
-                        if not df.empty:
-                            stats['prices_updated'] += len(df)
-                    except Exception as e:
-                        stats['errors_count'] += 1
-
-                try:
-                    all_views_data = recalc_unified(force=True)
-                    for cache_key, view_data in all_views_data.items():
-                        save_overview_cache(cache_key, view_data)
-                except Exception as e:
-                    stats['errors_count'] += 1
-
-                inv_pub()
-                inv_board()
-                inv_overview()
-                warm_pub()
-
-                log_entry.mark_completed(stats)
-
-            except Exception as e:
-                try:
-                    from ..models import RecalculationLog
-                    log_entry = RecalculationLog(run_type='manual')
-                    db_local.session.add(log_entry)
-                    db_local.session.commit()
-                    log_entry.mark_failed(str(e))
-                except:
-                    pass
-
-    thread = threading.Thread(target=run_full_recalc, daemon=True)
-    thread.start()
-
-    return jsonify({'status': 'started', 'message': 'Full recalculation started'})
-
-    return jsonify({'status': 'started', 'message': 'Full recalculation started in background'})
+    started, message = start_full_recalculation(run_type='manual')
+    return jsonify({'status': 'started' if started else 'busy', 'message': message}), (202 if started else 409)
 
 
 @admin_bp.route('/unified-update/recalculate-progress')

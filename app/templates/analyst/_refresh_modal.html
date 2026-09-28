@@ -1,0 +1,87 @@
+{# Refresh-data widget: button + live progress modal. Include on any analyst page.
+   Progress is short-polled (see analyst.refresh_progress) rather than SSE, so it
+   never holds a gunicorn thread for the 5-10 minute job. #}
+<button type="button" class="btn btn-sm btn-outline-secondary" id="refreshDataBtn" data-i18n-html="analyst.refresh_data">
+    <i class="bi bi-arrow-repeat"></i> Refresh data
+</button>
+
+<div class="modal fade" id="refreshModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content term-modal">
+            <div class="modal-header">
+                <h5 class="modal-title" data-i18n-html="analyst.refresh_title"><i class="bi bi-arrow-repeat"></i> Refreshing data</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="term-progress"><div class="term-progress-fill" id="refreshBar"></div></div>
+                <div class="term-progress-meta">
+                    <span id="refreshStatus" data-i18n="analyst.refresh_starting">Starting…</span>
+                    <span id="refreshPct">0%</span>
+                </div>
+                <pre class="term-log" id="refreshLog"></pre>
+                <p class="term-footnote" data-i18n="analyst.refresh_note">
+                    Refreshes prices, performance, benchmarks, caches and every analyst dashboard. This can take 5–10 minutes — you can leave this window open.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="analyst.close">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    function init() {
+    var btn = document.getElementById('refreshDataBtn');
+    var modalEl = document.getElementById('refreshModal');
+    if (!btn || !modalEl || typeof bootstrap === 'undefined') return;
+
+    var modal = new bootstrap.Modal(modalEl);
+    var bar = document.getElementById('refreshBar');
+    var pct = document.getElementById('refreshPct');
+    var statusEl = document.getElementById('refreshStatus');
+    var logEl = document.getElementById('refreshLog');
+    var timer = null;
+
+    function render(d) {
+        var p = d.progress_pct || 0;
+        bar.style.width = p + '%';
+        pct.textContent = p + '%';
+        if (d.message || d.status) statusEl.textContent = d.message || d.status;
+        if (d.logs) {
+            logEl.textContent = d.logs.slice(-14).join('\n');
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        if (d.status === 'completed' || d.status === 'error') {
+            stop();
+            if (d.status === 'completed') setTimeout(function () { location.reload(); }, 900);
+        }
+    }
+    function poll() {
+        fetch('{{ url_for("analyst.refresh_progress") }}', { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(render)
+            .catch(function () {});
+    }
+    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+
+    btn.addEventListener('click', function () {
+        modal.show();
+        fetch('{{ url_for("analyst.refresh_data") }}', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || '' }
+        }).then(function (r) { return r.json().catch(function () { return {}; }); })
+          .then(function (d) { if (d && d.message) statusEl.textContent = d.message; })
+          .catch(function () { statusEl.textContent = 'Could not start the refresh.'; });
+        if (!timer) { poll(); timer = setInterval(poll, 1500); }
+    });
+    modalEl.addEventListener('hidden.bs.modal', stop);
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
+</script>

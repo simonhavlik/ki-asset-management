@@ -65,6 +65,7 @@ KEY_PREFIX = {
     'main_sectors': 'main:sectors',
     'main_blog_posts': 'main:blog_posts',
     'main_featured_research': 'main:featured_research',
+    'dashboard': 'dashboard',
     'blog_index': 'blog:index',
     'blog_post': 'blog:post',
     'blog_categories': 'blog:categories',
@@ -998,11 +999,18 @@ def invalidate_wall_cache():
     logger.info("Wall cache invalidated")
 
 
+def invalidate_dashboard_cache():
+    """Invalidate the cached per-analyst dashboard payloads."""
+    _bump_cache_generation('dash')
+    logger.info("Dashboard cache invalidated")
+
+
 def invalidate_all_public_cache():
     """Invalidate all public-facing caches."""
     invalidate_main_cache()
     invalidate_blog_cache()
     invalidate_wall_cache()
+    invalidate_dashboard_cache()
     logger.info("All public caches invalidated")
 
 
