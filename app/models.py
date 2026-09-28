@@ -695,3 +695,29 @@ class EmailOutbox(db.Model):
 
     def __repr__(self):
         return f'<EmailOutbox {self.id} to={self.recipient} {self.status} attempts={self.attempts}>'
+
+
+class AnalystDashboardCache(db.Model):
+    """Database-backed copy of one analyst's dashboard payload.
+
+    The dashboard only existed in the process cache (SimpleCache), which is wiped
+    by every deploy *and* every Render idle spin-down - so the first login after
+    either paid the full ~19s recomputation (pandas series, every analyst's
+    performance, AI insights). The overview page never had this problem because
+    it is stored in the database; this gives the dashboard the same property.
+
+    Rows are keyed by the 'dash' cache generation, so a data refresh invalidates
+    them without deleting anything: a stale row simply does not match and is
+    recomputed (and overwritten) on the next visit.
+    """
+    __tablename__ = 'analyst_dashboard_cache'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'),
+                        unique=True, nullable=False, index=True)
+    generation = db.Column(db.String(64), nullable=False)
+    payload = db.Column(db.Text, nullable=False)
+    cached_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return f'<AnalystDashboardCache user={self.user_id} gen={self.generation}>'

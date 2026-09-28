@@ -94,6 +94,28 @@ def _ensure_token_index(app):
         app.logger.warning(f"Could not ensure token index: {e}")
 
 
+def _ensure_dashboard_cache_table(app):
+    """Create the analyst dashboard cache table on databases that predate it."""
+    try:
+        from sqlalchemy import inspect, text
+        from .models import AnalystDashboardCache
+        if 'analyst_dashboard_cache' not in inspect(db.engine).get_table_names():
+            app.logger.info("Creating analyst_dashboard_cache table...")
+            AnalystDashboardCache.__table__.create(db.engine)
+            app.logger.info("analyst_dashboard_cache table created")
+        else:
+            # Opportunistic housekeeping: drop payloads nobody has asked for in
+            # a fortnight so the table cannot grow without bound.
+            with db.engine.begin() as conn:
+                conn.execute(text("SET LOCAL lock_timeout = '5s'"))
+                conn.execute(text(
+                    "DELETE FROM analyst_dashboard_cache "
+                    "WHERE cached_at < now() - interval '14 days'"
+                ))
+    except Exception as e:
+        app.logger.warning(f"Could not ensure analyst_dashboard_cache: {e}")
+
+
 def _ensure_benchmark_table(app):
     """Ensure benchmark_prices table exists and has seed data."""
     try:
@@ -262,6 +284,8 @@ def create_app(config_name=None):
         _ensure_email_outbox_table(app)
         # Auto-migrate: indexed token lookup (was a slow full-table hash scan)
         _ensure_token_index(app)
+        # Auto-migrate: dashboard payloads that survive restarts
+        _ensure_dashboard_cache_table(app)
         
         # Warm caches for Neon.tech optimization (pre-populate in-memory cache)
         if (os.environ.get('NEON_OPTIMIZE', 'true').lower() == 'true'

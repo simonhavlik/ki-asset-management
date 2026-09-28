@@ -754,20 +754,91 @@ def _compute_dashboard_data(user_id):
     }
 
 
-def get_dashboard_data(user_id, force=False):
-    """Dashboard payload for a user, cached and invalidated by the data refresh.
+def _json_default(o):
+    """Encode the few non-JSON types in the dashboard payload losslessly.
 
-    This is the difference between a ~15s dashboard (pandas portfolio series +
-    every analyst's performance) and an instant one. The full refresh bumps the
-    'dash' generation and re-warms every analyst via full_recalc._warm_dashboards.
+    Marked dicts rather than plain strings so dates come back as dates: the
+    templates format some of them (strftime), and a str would break that.
+    """
+    from datetime import date, datetime
+    from decimal import Decimal
+    if isinstance(o, datetime):
+        return {'__dt__': o.isoformat()}
+    if isinstance(o, date):
+        return {'__date__': o.isoformat()}
+    if isinstance(o, Decimal):
+        return float(o)
+    raise TypeError(f'not JSON serializable: {type(o).__name__}')
+
+
+def _json_object_hook(d):
+    from datetime import date, datetime
+    if '__dt__' in d:
+        return datetime.fromisoformat(d['__dt__'])
+    if '__date__' in d:
+        return date.fromisoformat(d['__date__'])
+    return d
+
+
+def _load_dashboard_from_db(user_id, generation):
+    """Persisted dashboard payload for this user, if it matches the generation."""
+    import json
+    from ..models import AnalystDashboardCache
+    try:
+        row = AnalystDashboardCache.query.filter_by(user_id=user_id).first()
+        if row and row.generation == generation:
+            return json.loads(row.payload, object_hook=_json_object_hook)
+    except Exception as e:
+        logger.warning(f'Dashboard DB cache read failed for user {user_id}: {e}')
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+    return None
+
+
+def _store_dashboard_in_db(user_id, generation, data):
+    """Persist the payload so a restart does not cost the user ~19s."""
+    import json
+    from ..models import AnalystDashboardCache
+    try:
+        payload = json.dumps(data, default=_json_default)
+    except Exception as e:
+        logger.warning(f'Dashboard payload for user {user_id} not serializable: {e}')
+        return
+    try:
+        row = AnalystDashboardCache.query.filter_by(user_id=user_id).first()
+        if row is None:
+            row = AnalystDashboardCache(user_id=user_id, generation=generation, payload=payload)
+            db.session.add(row)
+        row.generation = generation
+        row.payload = payload
+        row.cached_at = datetime.utcnow()
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f'Dashboard DB cache write failed for user {user_id}: {e}')
+
+
+def get_dashboard_data(user_id, force=False):
+    """Dashboard payload for a user, cached in the database (and memory).
+
+    Two layers on purpose:
+      L1  in-process cache  - avoids a ~30ms database round trip per page load
+      L2  analyst_dashboard_cache table - survives deploys and Render's idle
+          spin-down, which is what makes the first login after either instant
+          instead of a ~19s recomputation
+    Both are keyed by the 'dash' generation, so a data refresh invalidates them
+    without deleting anything (full_recalc._warm_dashboards re-fills them).
     """
     from ..utils.neon_cache import get_cache, get_cache_key, _cache_generation, PUBLIC_DATA_TIMEOUT
 
+    generation = _cache_generation('dash')
     cache = get_cache()
     key = None
     if cache:
         try:
-            key = get_cache_key('dashboard', _cache_generation('dash'), user_id)
+            key = get_cache_key('dashboard', generation, user_id)
             if not force:
                 hit = cache.get(key)
                 if hit is not None:
@@ -775,7 +846,18 @@ def get_dashboard_data(user_id, force=False):
         except Exception:
             key = None
 
+    if not force:
+        stored = _load_dashboard_from_db(user_id, generation)
+        if stored is not None:
+            if cache and key:
+                try:
+                    cache.set(key, stored, timeout=PUBLIC_DATA_TIMEOUT)
+                except Exception:
+                    pass
+            return stored
+
     data = _compute_dashboard_data(user_id)
+    _store_dashboard_in_db(user_id, generation, data)
 
     if cache and key:
         try:
