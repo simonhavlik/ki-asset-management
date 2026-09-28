@@ -91,6 +91,68 @@ def _risk_metrics(values):
     }
 
 
+def build_performance_terminal(my_analyses, approved):
+    """Shared terminal payload for the dashboard and the performance page.
+
+    Returns the coverage-based primary index, the portfolio/benchmark series,
+    risk metrics and the benchmark comparison. Transparent by design: the
+    primary index follows a fixed coverage rule and the others stay visible.
+    """
+    primary_index = get_coverage_benchmark(my_analyses)
+
+    performance_chart = None
+    risk_metrics = None
+    chart_returns = {}
+    approved_ids = [a.id for a in approved]
+    if approved_ids:
+        try:
+            series = get_portfolio_series_for_analyses(approved_ids)
+            if series and series.get('dates'):
+                import pandas as pd
+                dates = pd.to_datetime(series['dates'])
+                primary_series = _get_benchmark_series_from_cache(dates, primary_index['ticker'])
+                port = series.get('portfolio_series') or []
+                performance_chart = {
+                    'dates': series['dates'],
+                    'portfolio': port,
+                    'primary': primary_series,
+                    'primary_label': primary_index['label'],
+                    'spy': series.get('spy_series'),
+                    'eems': series.get('eems_series'),
+                }
+                risk_metrics = _risk_metrics(port)
+
+                def _last(seq):
+                    return seq[-1] if seq else None
+
+                chart_returns = {
+                    'portfolio': _last(port),
+                    'primary': _last(primary_series),
+                    'spy': _last(series.get('spy_series')),
+                }
+        except Exception as e:
+            logger.warning(f"Could not build performance chart: {e}")
+
+    def _diff(a, b):
+        return (a - b) if (a is not None and b is not None) else None
+
+    benchmark_comparison = {
+        'primary_ticker': primary_index['ticker'],
+        'primary_label': primary_index['label'],
+        'primary_return': chart_returns.get('primary'),
+        'portfolio_return': chart_returns.get('portfolio'),
+        'primary_diff': _diff(chart_returns.get('portfolio'), chart_returns.get('primary')),
+        'spy_diff': _diff(chart_returns.get('portfolio'), chart_returns.get('spy')),
+        'vt_diff': None,
+    }
+    return {
+        'primary_index': primary_index,
+        'performance_chart': performance_chart,
+        'risk_metrics': risk_metrics,
+        'benchmark_comparison': benchmark_comparison,
+    }
+
+
 def generate_ai_insights(performance, comparison_data):
     """Generate AI-powered insights based on performance data."""
     insights = []
@@ -696,55 +758,12 @@ def dashboard():
             analyst_rank = i
             break
     
-    # Closest comparison index for this analyst's coverage (China -> CSI 300),
-    # plus the real return series from the cached benchmark prices.
-    primary_index = get_coverage_benchmark(my_analyses)
-
-    performance_chart = None
-    risk_metrics = None
-    chart_returns = {}
-    approved_ids = [a.id for a in approved]
-    if approved_ids:
-        try:
-            series = get_portfolio_series_for_analyses(approved_ids)
-            if series and series.get('dates'):
-                import pandas as pd
-                dates = pd.to_datetime(series['dates'])
-                primary_series = _get_benchmark_series_from_cache(dates, primary_index['ticker'])
-                port = series.get('portfolio_series') or []
-                performance_chart = {
-                    'dates': series['dates'],
-                    'portfolio': port,
-                    'primary': primary_series,
-                    'primary_label': primary_index['label'],
-                    'spy': series.get('spy_series'),
-                    'eems': series.get('eems_series'),
-                }
-                risk_metrics = _risk_metrics(port)
-
-                def _last(seq):
-                    return seq[-1] if seq else None
-
-                chart_returns = {
-                    'portfolio': _last(port),
-                    'primary': _last(primary_series),
-                    'spy': _last(series.get('spy_series')),
-                }
-        except Exception as e:
-            logger.warning(f"Could not build performance chart: {e}")
-
-    def _diff(a, b):
-        return (a - b) if (a is not None and b is not None) else None
-
-    benchmark_comparison = {
-        'primary_ticker': primary_index['ticker'],
-        'primary_label': primary_index['label'],
-        'primary_return': chart_returns.get('primary'),
-        'portfolio_return': chart_returns.get('portfolio'),
-        'primary_diff': _diff(chart_returns.get('portfolio'), chart_returns.get('primary')),
-        'spy_diff': _diff(chart_returns.get('portfolio'), chart_returns.get('spy')),
-        'vt_diff': None,
-    }
+    # Closest comparison index + portfolio/benchmark series (shared with /performance)
+    term = build_performance_terminal(my_analyses, approved)
+    primary_index = term['primary_index']
+    performance_chart = term['performance_chart']
+    risk_metrics = term['risk_metrics']
+    benchmark_comparison = term['benchmark_comparison']
 
     comparison_data = {
         'team_avg': team_avg_return,
@@ -766,6 +785,15 @@ def dashboard():
         analysis_analysts.c.user_id == current_user.id
     ).order_by(desc(Analysis.analysis_date)).limit(10).all()
     
+    # Compact club context for the dashboard
+    from ..models import User as _User, Company as _Company
+    club = {
+        'members': _User.query.filter_by(is_active=True).count(),
+        'analyses': Analysis.query.count(),
+        'approved': Analysis.query.filter_by(status='On Watchlist').count(),
+        'companies': _Company.query.count(),
+    }
+
     return render_template('analyst/dashboard.html',
                            total_analyses=len(my_analyses),
                            approved_analyses=len(approved),
@@ -782,7 +810,8 @@ def dashboard():
                            ai_insights=ai_insights,
                            stock_impacts=stock_impacts,
                            admin_stats=admin_stats,
-                           recent_activity=recent_activity)
+                           recent_activity=recent_activity,
+                           club=club)
 
 
 @analyst_bp.route('/performance')
@@ -820,10 +849,33 @@ def performance():
             'annualized_return': annualized_return
         })
     
+    # Terminal data (closest index, portfolio vs benchmark, risk metrics) -
+    # the same panel as the dashboard, so both pages share one design.
+    my_analyses_all = db.session.query(Analysis).join(
+        analysis_analysts, Analysis.id == analysis_analysts.c.analysis_id
+    ).filter(
+        analysis_analysts.c.user_id == current_user.id,
+        analysis_analysts.c.role == 'analyst'
+    ).all()
+    term = build_performance_terminal(my_analyses_all, analyses)
+
+    all_perfs = calculator.get_all_analysts_performance()
+    analyst_rank, total_analysts = 1, len(all_perfs)
+    for i, p in enumerate(all_perfs, 1):
+        if p['analyst_id'] == current_user.id:
+            analyst_rank = i
+            break
+
     return render_template('analyst/performance.html',
                            performance=perf,
                            analysis_data=analysis_data,
-                           annualized=annualized)
+                           annualized=annualized,
+                           primary_index=term['primary_index'],
+                           performance_chart=term['performance_chart'],
+                           risk_metrics=term['risk_metrics'],
+                           benchmark_comparison=term['benchmark_comparison'],
+                           analyst_rank=analyst_rank,
+                           total_analysts=total_analysts)
 
 
 @analyst_bp.route('/overview')

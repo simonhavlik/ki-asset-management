@@ -2746,3 +2746,138 @@ canvas {
     margin: 0 auto 1.25rem;
     font-size: 0.9rem;
 }
+
+/* -----------------------------------------------------------------
+   Analyst pages - shared compact layout (dashboard + performance)
+   ----------------------------------------------------------------- */
+.analyst-page {
+    padding-top: 6.5rem;
+    padding-bottom: 3rem;
+}
+
+.analyst-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.analyst-title {
+    font-size: clamp(1.4rem, 2.5vw, 1.9rem);
+    font-weight: 700;
+    color: var(--color-gray-900);
+    margin: 0.25rem 0 0;
+}
+
+.term-footnote {
+    margin-top: 1rem;
+    font-size: 0.78rem;
+    color: var(--color-gray-400);
+}
+
+.stat-strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--color-gray-200);
+    border: 1px solid var(--color-gray-200);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.stat-cell {
+    background: var(--color-white);
+    padding: 0.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.stat-cell-label {
+    font-size: 0.64rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-gray-400);
+    font-weight: 600;
+}
+
+.stat-cell-value {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--color-gray-900);
+}
+
+.stat-cell-value.up,
+.stat-cell-value .up {
+    color: var(--primary-green-dark);
+}
+
+.stat-cell-value.down,
+.stat-cell-value .down {
+    color: var(--danger);
+}
+
+.stat-cell-value small {
+    color: var(--color-gray-300);
+}
+
+/* Compact club panel (dashboard) */
+.club-panel {
+    border: 1px solid var(--color-gray-200);
+    border-radius: var(--radius-lg);
+    background: var(--color-white);
+    overflow: hidden;
+}
+
+.club-panel-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.9rem;
+    background: var(--color-gray-900);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.club-panel-head .bi {
+    color: #2cce7e;
+}
+
+/* Compact quick links: one slim row */
+.quick-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.quick-row a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.32rem 0.7rem;
+    border: 1px solid var(--color-gray-200);
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--color-gray-600);
+    text-decoration: none;
+    transition: all var(--transition-fast);
+}
+
+.quick-row a:hover {
+    border-color: var(--primary-green);
+    color: var(--primary-green-dark);
+    background: var(--primary-green-faint);
+}
+
+@media (max-width: 767.98px) {
+    .stat-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}

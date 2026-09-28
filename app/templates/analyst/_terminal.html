@@ -1,0 +1,116 @@
+{# Shared "performance terminal" panel.
+   Included by dashboard.html and performance.html so both pages share ONE design.
+   Expects: primary_index, benchmark_comparison, risk_metrics, performance_chart,
+            analyst_rank, total_analysts
+   Optional: chart_id (defaults to 'analystPerfChart') #}
+{% set _cid = chart_id if chart_id is defined else 'analystPerfChart' %}
+<div class="term-panel">
+    <div class="term-bar">
+        <span class="term-dots"><i></i><i></i><i></i></span>
+        <span class="term-title">PERFORMANCE TERMINAL</span>
+        <span class="term-sym">{{ primary_index.ticker }}</span>
+        <span class="term-chg {{ 'up' if (benchmark_comparison.primary_diff or 0) >= 0 else 'down' }}">
+            {{ '▲' if (benchmark_comparison.primary_diff or 0) >= 0 else '▼' }}
+            {{ "%+.1f"|format(benchmark_comparison.primary_diff or 0) }}%
+        </span>
+    </div>
+
+    <div class="term-kpis">
+        <div class="term-kpi">
+            <span class="term-kpi-label">Portfolio return</span>
+            <span class="term-kpi-value {{ 'up' if (benchmark_comparison.portfolio_return or 0) >= 0 else 'down' }}">
+                {% if benchmark_comparison.portfolio_return is not none %}{{ "%+.1f"|format(benchmark_comparison.portfolio_return) }}%{% else %}—{% endif %}
+            </span>
+        </div>
+        <div class="term-kpi">
+            <span class="term-kpi-label">{{ primary_index.label }}</span>
+            <span class="term-kpi-value muted">
+                {% if benchmark_comparison.primary_return is not none %}{{ "%+.1f"|format(benchmark_comparison.primary_return) }}%{% else %}—{% endif %}
+            </span>
+        </div>
+        <div class="term-kpi">
+            <span class="term-kpi-label">Alpha vs closest index</span>
+            <span class="term-kpi-value {{ 'up' if (benchmark_comparison.primary_diff or 0) >= 0 else 'down' }}">
+                {% if benchmark_comparison.primary_diff is not none %}{{ "%+.1f"|format(benchmark_comparison.primary_diff) }}%{% else %}—{% endif %}
+            </span>
+        </div>
+        <div class="term-kpi">
+            <span class="term-kpi-label">Rank</span>
+            <span class="term-kpi-value">#{{ analyst_rank }}<small>/{{ total_analysts }}</small></span>
+        </div>
+        <div class="term-kpi">
+            <span class="term-kpi-label">Win rate</span>
+            <span class="term-kpi-value">{% if performance.win_rate is not none %}{{ "%.0f"|format(performance.win_rate) }}%{% else %}—{% endif %}</span>
+        </div>
+        <div class="term-kpi">
+            <span class="term-kpi-label">Max drawdown</span>
+            <span class="term-kpi-value down">{% if risk_metrics %}{{ "%.1f"|format(risk_metrics.max_drawdown) }}%{% else %}—{% endif %}</span>
+        </div>
+        <div class="term-kpi">
+            <span class="term-kpi-label">Volatility</span>
+            <span class="term-kpi-value muted">{% if risk_metrics %}{{ "%.2f"|format(risk_metrics.volatility) }}{% else %}—{% endif %}</span>
+        </div>
+        <div class="term-kpi">
+            <span class="term-kpi-label">Sharpe (like)</span>
+            <span class="term-kpi-value {{ 'up' if risk_metrics and (risk_metrics.sharpe or 0) >= 0 else 'down' }}">
+                {% if risk_metrics and risk_metrics.sharpe is not none %}{{ "%.2f"|format(risk_metrics.sharpe) }}{% else %}—{% endif %}
+            </span>
+        </div>
+    </div>
+
+    {% if performance_chart %}
+    <div class="term-chart">
+        <canvas id="{{ _cid }}" height="260"></canvas>
+    </div>
+    {% endif %}
+
+    <div class="term-note">
+        <i class="bi bi-info-circle"></i>
+        Closest index for your coverage: <strong>{{ primary_index.label }}</strong>
+        ({{ primary_index.matched }}/{{ primary_index.total }} covered tickers classified as {{ primary_index.region }}).
+        S&amp;P 500 shown for reference — not a substitute.
+    </div>
+</div>
+
+{% if performance_chart %}
+<script>
+(function () {
+    function draw() {
+        var el = document.getElementById('{{ _cid }}');
+        if (!el || typeof Chart === 'undefined') return;
+        var data = {
+            dates: {{ performance_chart.dates | tojson }},
+            portfolio: {{ performance_chart.portfolio | tojson }},
+            primary: {{ performance_chart.primary | tojson }},
+            spy: {{ performance_chart.spy | tojson }}
+        };
+        new Chart(el.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: data.dates,
+                datasets: [
+                    { label: 'Your portfolio', data: data.portfolio, borderColor: '#2cce7e', backgroundColor: 'rgba(44,206,126,0.12)', borderWidth: 2.5, fill: true, tension: 0.35, pointRadius: 0 },
+                    { label: '{{ performance_chart.primary_label }}', data: data.primary, borderColor: '#d4a520', backgroundColor: 'transparent', borderWidth: 2, borderDash: [6, 4], tension: 0.35, pointRadius: 0 },
+                    { label: 'S&P 500', data: data.spy, borderColor: '#6b7682', backgroundColor: 'transparent', borderWidth: 1.5, tension: 0.35, pointRadius: 0 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { labels: { color: '#c5cdd4', boxWidth: 12 } },
+                    tooltip: { callbacks: { label: function (c) { return c.dataset.label + ': ' + (c.parsed.y >= 0 ? '+' : '') + c.parsed.y.toFixed(1) + '%'; } } }
+                },
+                scales: {
+                    x: { ticks: { color: '#6b7682', maxTicksLimit: 6 }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    y: { ticks: { color: '#6b7682', callback: function (v) { return v + '%'; } }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                }
+            }
+        });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', draw);
+    else draw();
+})();
+</script>
+{% endif %}
