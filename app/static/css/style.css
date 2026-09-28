@@ -3524,3 +3524,55 @@ canvas {
 }
 
 .auth-note .bi { color: #2cce7e; }
+
+/* Global refresh widget (button + state chip) and its result panel */
+.refresh-widget {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.refresh-state {
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-gray-500);
+    min-width: 2.6rem;
+}
+
+.term-result {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-bottom: 0.75rem;
+}
+
+.term-result-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.35rem 0.1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 0.85rem;
+}
+
+.term-result-row span {
+    color: var(--color-gray-400);
+}
+
+.term-result-row strong {
+    color: var(--color-white);
+    font-variant-numeric: tabular-nums;
+}
+
+.term-error {
+    border: 1px solid rgba(220, 53, 69, 0.35);
+    border-radius: var(--radius-md);
+    padding: 0.6rem 0.75rem;
+    font-size: 0.8rem;
+    color: #ffb3ba;
+}
+
+.term-error strong {
+    display: block;
+    margin-bottom: 0.35rem;
+}

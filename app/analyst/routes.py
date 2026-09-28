@@ -902,6 +902,74 @@ def dashboard():
                            **data)
 
 
+# A 'running' row older than this can only be a job whose process died (deploy or
+# Render idle spin-down), so it is reported as interrupted instead of progress.
+REFRESH_INTERRUPTED_AFTER_MINUTES = 45
+
+
+def build_refresh_state():
+    """State for the refresh widget, valid on any page and after a restart.
+
+    Two sources, because neither is sufficient on its own:
+      * the in-process progress object - live detail (percent, log lines) while a
+        job runs in this worker
+      * RecalculationLog rows - what actually survives page navigation, a
+        redeploy and an idle spin-down, which is where the finished/failed state
+        and the summary come from
+    """
+    from ..utils.unified_calculator import get_progress, is_calculation_running
+    from ..models import RecalculationLog
+
+    live = is_calculation_running()
+    progress = get_progress().to_dict() if live else {}
+
+    last = RecalculationLog.query.order_by(RecalculationLog.id.desc()).first()
+
+    # A job killed mid-run leaves status='running' forever. Do not report that as
+    # ongoing work (and do not leave it in the log table as if it were).
+    if not live and last is not None and last.status == 'running':
+        started = last.started_at or datetime.utcnow()
+        if datetime.utcnow() - started > timedelta(minutes=REFRESH_INTERRUPTED_AFTER_MINUTES):
+            last.mark_failed('Interrupted: the worker restarted while this refresh was running')
+            last = RecalculationLog.query.order_by(RecalculationLog.id.desc()).first()
+
+    running = bool(live or (last is not None and last.status == 'running'))
+
+    if live:
+        pct = int(progress.get('progress_pct') or 0)
+        message = progress.get('message') or progress.get('status') or 'Working…'
+        logs = progress.get('logs') or []
+    elif running:
+        pct, logs = 0, []
+        message = ('A refresh is already running in another worker - progress will '
+                   'show here as it reports in.')
+    else:
+        pct = 0
+        message = ''
+        logs = []
+
+    return {
+        'running': running,
+        'status': 'running' if running else (last.status if last else 'idle'),
+        'progress_pct': pct,
+        'message': message,
+        'logs': logs,
+        'last': None if last is None else {
+            'id': last.id,
+            'status': last.status,
+            'run_type': last.run_type,
+            'started_at': last.started_at.isoformat() if last.started_at else None,
+            'finished_at': last.completed_at.isoformat() if last.completed_at else None,
+            'duration_seconds': last.duration_seconds,
+            'analyses_processed': last.analyses_processed or 0,
+            'prices_updated': last.prices_updated or 0,
+            'calculations_updated': last.calculations_updated or 0,
+            'errors_count': last.errors_count or 0,
+            'error_message': last.error_message,
+        },
+    }
+
+
 @analyst_bp.route('/refresh-data', methods=['POST'])
 @login_required
 @rate_limit(limit=4, window=3600)
@@ -924,8 +992,7 @@ def refresh_progress():
     Deliberately not SSE: a long-lived stream would hold one of the few gunicorn
     threads for the whole 5-10 minute job.
     """
-    from ..utils.unified_calculator import get_progress
-    return jsonify(get_progress().to_dict())
+    return jsonify(build_refresh_state())
 
 
 @analyst_bp.route('/performance')

@@ -142,6 +142,13 @@
                 </ul>
                 
                 <ul class="navbar-nav align-items-center">
+                    {% if current_user.is_authenticated %}
+                    <li class="nav-item me-2">
+                        {# Global refresh widget: available on every page, and it shows
+                           the running progress or the last result wherever you are. #}
+                        {% include 'analyst/_refresh_modal.html' %}
+                    </li>
+                    {% endif %}
                     <!-- Language Toggle -->
                     <li class="nav-item me-2">
                         <button class="btn btn-sm btn-outline-secondary" onclick="window.LANG.toggle()" title="Switch language">

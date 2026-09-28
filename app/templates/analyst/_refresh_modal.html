@@ -1,9 +1,19 @@
-{# Refresh-data widget: button + live progress modal. Include on any analyst page.
-   Progress is short-polled (see analyst.refresh_progress) rather than SSE, so it
-   never holds a gunicorn thread for the 5-10 minute job. #}
-<button type="button" class="btn btn-sm btn-outline-secondary" id="refreshDataBtn" data-i18n-html="analyst.refresh_data">
-    <i class="bi bi-arrow-repeat"></i> Refresh data
-</button>
+{# Global data-refresh widget: start button + progress/result modal.
+   Included once, from base.html, so it is available on every page for logged-in
+   users: pressing it anywhere shows either the live progress of a running
+   refresh or the result of the last one (interrupted, failed or finished).
+
+   Progress is short-polled (analyst.refresh_progress) rather than SSE, so a
+   refresh never holds a gunicorn thread for the 5-10 minutes it runs. The state
+   comes from the database (RecalculationLog rows), which is why it is still
+   correct after navigating away, changing pages or restarting the worker. #}
+<span class="refresh-widget">
+    <button type="button" class="btn btn-sm btn-outline-secondary" id="refreshDataBtn"
+            data-i18n-html="analyst.refresh_data">
+        <i class="bi bi-arrow-repeat"></i> Refresh data
+    </button>
+    <span class="refresh-state" id="refreshState" aria-live="polite"></span>
+</span>
 
 <div class="modal fade" id="refreshModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -13,17 +23,45 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div class="term-progress"><div class="term-progress-fill" id="refreshBar"></div></div>
-                <div class="term-progress-meta">
-                    <span id="refreshStatus" data-i18n="analyst.refresh_starting">Starting…</span>
-                    <span id="refreshPct">0%</span>
+                <div id="refreshLive">
+                    <div class="term-progress"><div class="term-progress-fill" id="refreshBar"></div></div>
+                    <div class="term-progress-meta">
+                        <span id="refreshStatus" data-i18n="analyst.refresh_starting">Starting…</span>
+                        <span id="refreshPct">0%</span>
+                    </div>
+                    <pre class="term-log" id="refreshLog"></pre>
+                    <p class="term-footnote" data-i18n="analyst.refresh_note">
+                        Refreshes prices, performance, benchmarks, caches and every analyst dashboard. This can take 5–10 minutes — you can leave this window open.
+                    </p>
                 </div>
-                <pre class="term-log" id="refreshLog"></pre>
-                <p class="term-footnote" data-i18n="analyst.refresh_note">
-                    Refreshes prices, performance, benchmarks, caches and every analyst dashboard. This can take 5–10 minutes — you can leave this window open.
-                </p>
+
+                <div id="refreshResult" class="d-none">
+                    <div class="term-result">
+                        <div class="term-result-row">
+                            <span data-i18n="analyst.refresh_finished_at">Finished</span>
+                            <strong id="refreshFinishedAt">–</strong>
+                        </div>
+                        <div class="term-result-row">
+                            <span data-i18n="analyst.refresh_duration">Duration</span>
+                            <strong id="refreshDuration">–</strong>
+                        </div>
+                        <div class="term-result-row">
+                            <span data-i18n="analyst.refresh_views">Views updated</span>
+                            <strong id="refreshViews">–</strong>
+                        </div>
+                        <div class="term-result-row">
+                            <span data-i18n="analyst.refresh_errors">Errors</span>
+                            <strong id="refreshErrors">–</strong>
+                        </div>
+                    </div>
+                    <div class="term-error d-none" id="refreshErrorBox">
+                        <strong data-i18n="analyst.refresh_failed">Refresh failed</strong>
+                        <pre class="term-log" id="refreshErrorMsg"></pre>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
+                <a href="#" class="btn btn-sm btn-light d-none" id="refreshReload" data-i18n="analyst.refresh_reload">Reload page</a>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="analyst.close">Close</button>
             </div>
         </div>
@@ -33,51 +71,129 @@
 <script>
 (function () {
     function init() {
-    var btn = document.getElementById('refreshDataBtn');
-    var modalEl = document.getElementById('refreshModal');
-    if (!btn || !modalEl || typeof bootstrap === 'undefined') return;
+        var btn = document.getElementById('refreshDataBtn');
+        var modalEl = document.getElementById('refreshModal');
+        if (!btn || !modalEl || typeof bootstrap === 'undefined') return;
 
-    var modal = new bootstrap.Modal(modalEl);
-    var bar = document.getElementById('refreshBar');
-    var pct = document.getElementById('refreshPct');
-    var statusEl = document.getElementById('refreshStatus');
-    var logEl = document.getElementById('refreshLog');
-    var timer = null;
+        var modal = new bootstrap.Modal(modalEl);
+        var bar = document.getElementById('refreshBar');
+        var pct = document.getElementById('refreshPct');
+        var statusEl = document.getElementById('refreshStatus');
+        var logEl = document.getElementById('refreshLog');
+        var chip = document.getElementById('refreshState');
+        var liveBox = document.getElementById('refreshLive');
+        var resultBox = document.getElementById('refreshResult');
+        var reloadEl = document.getElementById('refreshReload');
+        var errorBox = document.getElementById('refreshErrorBox');
+        var errorMsg = document.getElementById('refreshErrorMsg');
+        var timer = null;
 
-    function render(d) {
-        var p = d.progress_pct || 0;
-        bar.style.width = p + '%';
-        pct.textContent = p + '%';
-        if (d.message || d.status) statusEl.textContent = d.message || d.status;
-        if (d.logs) {
-            logEl.textContent = d.logs.slice(-14).join('\n');
-            logEl.scrollTop = logEl.scrollHeight;
+        var STATE_URL = '{{ url_for("analyst.refresh_progress") }}';
+        var START_URL = '{{ url_for("analyst.refresh_data") }}';
+
+        function parseDate(iso) {
+            if (!iso) return null;
+            var d = new Date(iso.indexOf('Z') === -1 && iso.indexOf('+') === -1 ? iso + 'Z' : iso);
+            return isNaN(d) ? null : d;
         }
-        if (d.status === 'completed' || d.status === 'error') {
-            stop();
-            if (d.status === 'completed') setTimeout(function () { location.reload(); }, 900);
-        }
-    }
-    function poll() {
-        fetch('{{ url_for("analyst.refresh_progress") }}', { headers: { 'Accept': 'application/json' } })
-            .then(function (r) { return r.json(); })
-            .then(render)
-            .catch(function () {});
-    }
-    function stop() { if (timer) { clearInterval(timer); timer = null; } }
 
-    btn.addEventListener('click', function () {
-        modal.show();
-        fetch('{{ url_for("analyst.refresh_data") }}', {
-            method: 'POST',
-            headers: { 'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || '' }
-        }).then(function (r) { return r.json().catch(function () { return {}; }); })
-          .then(function (d) { if (d && d.message) statusEl.textContent = d.message; })
-          .catch(function () { statusEl.textContent = 'Could not start the refresh.'; });
-        if (!timer) { poll(); timer = setInterval(poll, 1500); }
-    });
-    modalEl.addEventListener('hidden.bs.modal', stop);
+        function clock(iso) {
+            var d = parseDate(iso);
+            return d ? d.toLocaleString() : (iso || '–');
+        }
+
+        function shortTime(iso) {
+            var d = parseDate(iso);
+            return d ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+        }
+
+        function dur(sec) {
+            if (sec === null || sec === undefined) return '–';
+            sec = Math.round(sec);
+            if (sec < 60) return sec + 's';
+            return Math.floor(sec / 60) + 'm ' + (sec % 60) + 's';
+        }
+
+        function showResult(last) {
+            liveBox.classList.add('d-none');
+            resultBox.classList.remove('d-none');
+            reloadEl.classList.remove('d-none');
+            document.getElementById('refreshFinishedAt').textContent = clock(last.finished_at || last.started_at);
+            document.getElementById('refreshDuration').textContent = dur(last.duration_seconds);
+            document.getElementById('refreshViews').textContent =
+                last.calculations_updated + ' (' + last.prices_updated + ' prices)';
+            document.getElementById('refreshErrors').textContent = last.errors_count;
+            if (last.status === 'failed' && last.error_message) {
+                errorBox.classList.remove('d-none');
+                errorMsg.textContent = last.error_message;
+            } else {
+                errorBox.classList.add('d-none');
+            }
+        }
+
+        function renderLive(d) {
+            liveBox.classList.remove('d-none');
+            resultBox.classList.add('d-none');
+            reloadEl.classList.add('d-none');
+            var p = d.progress_pct || 0;
+            bar.style.width = Math.max(p, 3) + '%';
+            pct.textContent = p + '%';
+            if (d.message) statusEl.textContent = d.message;
+            if (d.logs && d.logs.length) {
+                logEl.textContent = d.logs.slice(-14).join('\n');
+                logEl.scrollTop = logEl.scrollHeight;
+            }
+            chip.textContent = p > 0 ? p + '%' : '…';
+        }
+
+        function render(d) {
+            if (d && d.running) {
+                renderLive(d);
+                startPolling();
+            } else if (d && d.last) {
+                showResult(d.last);
+                chip.textContent = (d.last.status === 'completed' ? '✓ ' : '✕ ') + shortTime(d.last.finished_at);
+                stopPolling();
+            } else {
+                chip.textContent = '';
+                stopPolling();
+            }
+        }
+
+        function fetchState() {
+            return fetch(STATE_URL, { headers: { 'Accept': 'application/json' } })
+                .then(function (r) { return r.json(); })
+                .catch(function () { return null; });
+        }
+
+        function poll() { fetchState().then(function (d) { if (d) render(d); }); }
+        function startPolling() { if (!timer) timer = setInterval(poll, 2500); }
+        function stopPolling() { if (timer) { clearInterval(timer); timer = null; } }
+
+        btn.addEventListener('click', function () {
+            modal.show();
+            fetchState().then(function (d) {
+                if (d && d.running) {
+                    render(d);                      // already running: just show it
+                    return;
+                }
+                return fetch(START_URL, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || '' }
+                }).then(function (r) { return r.json().catch(function () { return {}; }); })
+                  .then(function (s) {
+                      renderLive({ running: true, message: (s && s.message) || '', progress_pct: 0, logs: [] });
+                      startPolling();
+                  })
+                  .catch(function () { statusEl.textContent = 'Could not start the refresh.'; });
+            });
+        });
+
+        // Keep the chip (and an open modal) current, whatever page you are on.
+        poll();
+        setInterval(function () { if (!timer) poll(); }, 20000);
     }
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
