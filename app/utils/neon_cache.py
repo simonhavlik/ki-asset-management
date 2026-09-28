@@ -448,7 +448,7 @@ def get_cached_featured_research(limit: int = 6, force_refresh: bool = False) ->
     """
     cache = get_cache()
     # Single key (no limit suffix) so a bare-prefix invalidation clears it.
-    cache_key = get_cache_key(KEY_PREFIX['main_featured_research'])
+    cache_key = get_cache_key(KEY_PREFIX['main_featured_research'], _cache_generation('research'))
 
     if not force_refresh and cache and NEON_OPTIMIZE:
         try:
@@ -963,6 +963,8 @@ def invalidate_blog_cache():
     """Invalidate all blog-related caches."""
     # Bump the generation so paged/filtered index keys are all invalidated.
     _bump_cache_generation('blog')
+    # The featured-research block uses its own generation.
+    _bump_cache_generation('research')
     keys = [
         KEY_PREFIX['main_blog_posts'],
         KEY_PREFIX['main_featured_research'],

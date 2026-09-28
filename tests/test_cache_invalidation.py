@@ -56,3 +56,15 @@ def test_page_cache_key_carries_the_generation(monkeypatch):
     key_after = wall_key()
 
     assert key_before != key_after, "wall invalidation must change the page key"
+
+
+def test_blog_invalidation_bumps_research_generation(monkeypatch):
+    """The featured-research block is keyed by the 'research' generation, so
+    saving/editing a paper must bump it (otherwise the block goes stale)."""
+    _with_fake_cache(monkeypatch)
+
+    before = neon_cache._cache_generation("research")
+    neon_cache.invalidate_blog_cache()
+    after = neon_cache._cache_generation("research")
+
+    assert before != after, "editing a paper must refresh the featured-research cache"

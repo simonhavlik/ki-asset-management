@@ -550,15 +550,18 @@ def edit_post(post_id):
             blog_post.is_featured = is_featured
         
         db.session.commit()
-        
-        # Invalidate caches if published
+
+        # Any edit can change what the research page / featured block shows
+        # (title, category, type, files, visibility), so always invalidate -
+        # not only on the first publish.
+        from ..utils.neon_cache import invalidate_blog_cache, invalidate_main_cache
+        try:
+            invalidate_blog_cache()
+            invalidate_main_cache()
+        except Exception as e:
+            current_app.logger.warning(f"Failed to invalidate caches: {e}")
+
         if was_published:
-            from ..utils.neon_cache import invalidate_blog_cache, invalidate_main_cache
-            try:
-                invalidate_blog_cache()
-                invalidate_main_cache()
-            except Exception as e:
-                current_app.logger.warning(f"Failed to invalidate caches: {e}")
             flash('Research article published successfully!', 'success')
         else:
             flash('Research article updated successfully!', 'success')
@@ -1107,6 +1110,14 @@ def upload_pdf_api():
                 # Keep pdf_path for backward compatibility (optional)
                 db.session.commit()
                 current_app.logger.info(f"PDF stored in database for post {post_id}. Size: {file_size} bytes")
+
+                # Saving a paper must refresh the research/featured caches.
+                from ..utils.neon_cache import invalidate_blog_cache, invalidate_main_cache
+                try:
+                    invalidate_blog_cache()
+                    invalidate_main_cache()
+                except Exception as e:
+                    current_app.logger.warning(f"Failed to invalidate caches: {e}")
         
         return jsonify({
             'success': True,
@@ -1136,7 +1147,13 @@ def delete_pdf_api():
     if not data:
         return jsonify({'error': 'No data provided'}), 400
     
-    post_id = data.get('post_id', type=int)
+    # request.get_json() returns a plain dict, so dict.get(..., type=int) raised
+    # TypeError and this endpoint always 500'd. Coerce manually.
+    post_id = data.get('post_id')
+    try:
+        post_id = int(post_id) if post_id is not None else None
+    except (TypeError, ValueError):
+        post_id = None
     
     if not post_id:
         return jsonify({'error': 'Post ID required'}), 400
@@ -1157,11 +1174,22 @@ def delete_pdf_api():
                     os.unlink(full_path)
             except Exception as e:
                 current_app.logger.warning(f"Could not delete PDF file: {e}")
-            
-            # Clear from database
-            blog_post.pdf_path = None
-            db.session.commit()
-        
+
+        # Clear every trace, including the database copy - otherwise
+        # is_pdf_post stays True and the "deleted" paper keeps showing up.
+        blog_post.pdf_path = None
+        blog_post.pdf_binary = None
+        blog_post.pdf_content_type = None
+        blog_post.pdf_filename_db = None
+        db.session.commit()
+
+        from ..utils.neon_cache import invalidate_blog_cache, invalidate_main_cache
+        try:
+            invalidate_blog_cache()
+            invalidate_main_cache()
+        except Exception as e:
+            current_app.logger.warning(f"Failed to invalidate caches: {e}")
+
         return jsonify({'success': True})
         
     except Exception as e:
