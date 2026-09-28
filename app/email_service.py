@@ -29,21 +29,87 @@ def send_email(to, subject, body, html=None):
     Returns:
         bool: True if email was sent successfully, False otherwise
     """
-    # Try SendGrid first (works on Render)
-    sendgrid_api_key = current_app.config.get('SENDGRID_API_KEY')
-    if sendgrid_api_key:
+    # Provider order: MAIL_PROVIDER if forced, else Brevo / Resend / SendGrid
+    # by whichever key is configured, with SMTP last (local dev - Render
+    # blocks SMTP, so an HTTPS API is required in production).
+    provider = (current_app.config.get('MAIL_PROVIDER') or '').lower()
+    if provider:
+        attempts = [provider]
+    else:
+        attempts = []
+        if current_app.config.get('BREVO_API_KEY'):
+            attempts.append('brevo')
+        if current_app.config.get('RESEND_API_KEY'):
+            attempts.append('resend')
+        if current_app.config.get('SENDGRID_API_KEY'):
+            attempts.append('sendgrid')
+        attempts.append('smtp')
+
+    for name in attempts:
         try:
-            return _send_sendgrid(to, subject, body, html)
+            if name == 'brevo':
+                return _send_brevo(to, subject, body, html)
+            if name == 'resend':
+                return _send_resend(to, subject, body, html)
+            if name == 'sendgrid':
+                return _send_sendgrid(to, subject, body, html)
+            if name == 'smtp':
+                return _send_smtp(to, subject, body, html)
         except Exception as e:
-            current_app.logger.error(f'SendGrid failed: {e}')
-            # Fall through to SMTP as backup
-    
-    # Fallback to SMTP (for local development)
-    try:
-        return _send_smtp(to, subject, body, html)
-    except Exception as e:
-        current_app.logger.error(f'SMTP failed: {e}')
-        return False
+            current_app.logger.error(f'{name} failed: {e}')
+
+    current_app.logger.error('No email provider succeeded')
+    return False
+
+
+def _sender():
+    return (current_app.config.get('MAIL_DEFAULT_SENDER')
+            or current_app.config.get('MAIL_USERNAME'))
+
+
+def _send_brevo(to, subject, body, html=None):
+    """Send via Brevo (Sendinblue) HTTPS API. Its free tier verifies a single
+    sender *email* (no domain needed) - easiest drop-in for this app."""
+    import requests
+    key = current_app.config.get('BREVO_API_KEY')
+    sender = _sender()
+    if not (key and sender):
+        raise ValueError('BREVO_API_KEY and MAIL_DEFAULT_SENDER must be set')
+    payload = {
+        'sender': {'email': sender},
+        'to': [{'email': to}],
+        'subject': subject,
+        'textContent': body,
+    }
+    if html:
+        payload['htmlContent'] = html
+    r = requests.post('https://api.brevo.com/v3/smtp/email',
+                      headers={'api-key': key, 'Content-Type': 'application/json',
+                               'accept': 'application/json'},
+                      json=payload, timeout=15)
+    if r.status_code in (200, 201, 202):
+        current_app.logger.info(f'Email sent to {to} via Brevo')
+        return True
+    raise Exception(f'Brevo {r.status_code}: {r.text[:200]}')
+
+
+def _send_resend(to, subject, body, html=None):
+    """Send via Resend HTTPS API (requires a verified sending domain)."""
+    import requests
+    key = current_app.config.get('RESEND_API_KEY')
+    sender = _sender()
+    if not (key and sender):
+        raise ValueError('RESEND_API_KEY and MAIL_DEFAULT_SENDER must be set')
+    r = requests.post('https://api.resend.com/emails',
+                      headers={'Authorization': f'Bearer {key}',
+                               'Content-Type': 'application/json'},
+                      json={'from': sender, 'to': [to], 'subject': subject,
+                            'text': body, 'html': html or body},
+                      timeout=15)
+    if r.status_code in (200, 201, 202):
+        current_app.logger.info(f'Email sent to {to} via Resend')
+        return True
+    raise Exception(f'Resend {r.status_code}: {r.text[:200]}')
 
 
 def _send_sendgrid(to, subject, body, html=None):
@@ -52,7 +118,7 @@ def _send_sendgrid(to, subject, body, html=None):
     from sendgrid.helpers.mail import Mail
     
     sendgrid_api_key = current_app.config['SENDGRID_API_KEY']
-    sender = current_app.config.get('MAIL_DEFAULT_SENDER') or current_app.config.get('MAIL_USERNAME')
+    sender = _sender()
     
     if not sender:
         raise ValueError("MAIL_DEFAULT_SENDER or MAIL_USERNAME must be set")

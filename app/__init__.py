@@ -238,6 +238,27 @@ def create_app(config_name=None):
 
 def register_cli(app):
     """Register CLI commands."""
+    import click
+
+    @app.cli.command('send-test-email')
+    @click.argument('recipient')
+    def send_test_email(recipient):
+        """Send a test email to verify the outbound mail configuration.
+
+        Example: flask send-test-email you@klubinvestoru.com
+        """
+        from .email_service import send_email
+        ok = send_email(
+            recipient,
+            'KI Asset Management - mail test',
+            'If you received this, outbound email works.',
+            '<p>If you received this, <strong>outbound email works</strong>.</p>',
+        )
+        if ok:
+            print(f'OK - test email accepted for {recipient}')
+        else:
+            print('FAILED - no provider accepted the message; see the provider error logged above')
+
     @app.cli.command('create-admin')
     def create_admin():
         """Create an admin user."""

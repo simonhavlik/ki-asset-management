@@ -88,6 +88,13 @@ class Config:
     # Never let a broken/unreachable SMTP host hang a request: without this,
     # the fallback path blocked a worker for >2 minutes when SendGrid failed.
     MAIL_TIMEOUT = int(os.environ.get('MAIL_TIMEOUT', 10))
+
+    # Outbound mail providers (HTTPS APIs - Render blocks SMTP):
+    #   MAIL_PROVIDER forces one ('brevo' | 'resend' | 'sendgrid' | 'smtp');
+    #   otherwise whichever API key is configured is used, SMTP last.
+    MAIL_PROVIDER = os.environ.get('MAIL_PROVIDER', '').strip().lower()
+    RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
+    BREVO_API_KEY = os.environ.get('BREVO_API_KEY', '')
     MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', MAIL_USERNAME)
