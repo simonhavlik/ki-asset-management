@@ -41,22 +41,33 @@ def _ensure_email_outbox_table(app):
         # PostgreSQL only: wake the listener on the database host the moment a
         # message is queued, so delivery is instant instead of polled. Kept out
         # of the SQLite path used by tests and run-local.sh.
+        #
+        # This runs on every boot, so it must never be able to hang: DROP/CREATE
+        # TRIGGER need an ACCESS EXCLUSIVE lock, and a single long-lived reader
+        # holding the table (e.g. the relay's LISTEN connection sitting "idle in
+        # transaction") would block them forever - the app never binds its port
+        # and the deploy dies with Render's "Port scan timeout reached". It
+        # happened once. Hence: only do the DDL when the trigger is missing, and
+        # never wait more than a few seconds for the lock.
         if db.engine.dialect.name == 'postgresql':
             with db.engine.begin() as conn:
-                conn.execute(text(
-                    "CREATE OR REPLACE FUNCTION notify_email_outbox() RETURNS trigger AS $$ "
-                    "BEGIN "
-                    "PERFORM pg_notify('email_outbox', CAST(NEW.id AS text)); "
-                    "RETURN NEW; "
-                    "END; $$ LANGUAGE plpgsql"
-                ))
-                conn.execute(text(
-                    "DROP TRIGGER IF EXISTS email_outbox_notify ON email_outbox"
-                ))
-                conn.execute(text(
-                    "CREATE TRIGGER email_outbox_notify AFTER INSERT ON email_outbox "
-                    "FOR EACH ROW EXECUTE FUNCTION notify_email_outbox()"
-                ))
+                conn.execute(text("SET LOCAL lock_timeout = '5s'"))
+                has_trigger = conn.execute(text(
+                    "SELECT 1 FROM pg_trigger WHERE tgname = 'email_outbox_notify'"
+                )).scalar()
+                if not has_trigger:
+                    app.logger.info("Creating email_outbox NOTIFY trigger...")
+                    conn.execute(text(
+                        "CREATE OR REPLACE FUNCTION notify_email_outbox() RETURNS trigger AS $$ "
+                        "BEGIN "
+                        "PERFORM pg_notify('email_outbox', CAST(NEW.id AS text)); "
+                        "RETURN NEW; "
+                        "END; $$ LANGUAGE plpgsql"
+                    ))
+                    conn.execute(text(
+                        "CREATE TRIGGER email_outbox_notify AFTER INSERT ON email_outbox "
+                        "FOR EACH ROW EXECUTE FUNCTION notify_email_outbox()"
+                    ))
     except Exception as e:
         app.logger.warning(f"Could not ensure email_outbox: {e}")
 
@@ -74,6 +85,7 @@ def _ensure_token_index(app):
         if 'password_reset_tokens' not in inspector.get_table_names():
             return
         with db.engine.begin() as conn:
+            conn.execute(text("SET LOCAL lock_timeout = '5s'"))
             conn.execute(text(
                 'CREATE INDEX IF NOT EXISTS ix_password_reset_tokens_token_hash '
                 'ON password_reset_tokens (token_hash)'

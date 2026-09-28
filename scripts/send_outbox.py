@@ -81,7 +81,15 @@ def connect_db():
     if not url:
         log('ERROR: DATABASE_URL is not set')
         sys.exit(1)
-    return psycopg2.connect(url, connect_timeout=10)
+    conn = psycopg2.connect(url, connect_timeout=10)
+    # Autocommit, always. A long-lived reader that sits "idle in transaction"
+    # holds an ACCESS SHARE lock on email_outbox, and any ACCESS EXCLUSIVE
+    # operation - the app's startup DROP/CREATE TRIGGER, a manual ALTER, a
+    # vacuum - then blocks behind it. That is not hypothetical: it stalled a
+    # deploy until Render's port scan timed out, because the app never finished
+    # booting. Reads here must never hold a transaction open.
+    conn.set_session(autocommit=True)
+    return conn
 
 
 def smtp_send(recipient: str, subject: str, text_body: str, html_body: str | None) -> None:
