@@ -1,0 +1,21 @@
+[Unit]
+Description=Deliver queued KI Asset Management emails over SMTP
+Documentation=file:/usr/local/bin/kiam-send-outbox.py
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/kiam-send-outbox.py --limit 20
+EnvironmentFile=/etc/kiam-mail.env
+User=kiammail
+Group=kiammail
+# This box is small (435 MB, cgroup-capped Postgres) and this job is a
+# short-lived oneshot, so keep it at the very bottom of the pecking order.
+MemoryMax=96M
+CPUQuota=30%
+Nice=19
+IOSchedulingClass=idle
+# Never let a send failure mark the unit failed; the script exits 0 unless the
+# database itself is unreachable.
+SuccessExitStatus=0 1

@@ -57,7 +57,7 @@ deploy is self-initialising.
 | `USE_LOCAL_SQLITE` | `False` (must be False to use PostgreSQL) |
 | `NEON_OPTIMIZE` | `true` — despite the legacy name, this just enables the aggressive in-memory cache |
 | `SECRET_KEY` | Flask session signing key — **secret** |
-| `SENDGRID_API_KEY`, mail vars | Outbound email (Render free blocks SMTP) |
+| `SENDGRID_API_KEY`, mail vars | Outbound email (Render free blocks SMTP) — see [Outbound email](#outbound-email-outbox-relay-on-the-database-host) |
 | `FLASK_ENV`, `ADMIN_EMAIL`, `ALLOWED_EMAIL_DOMAIN` | Runtime / access control |
 
 Full list: [Environment Variables](../reference/environment-variables.md).
@@ -115,6 +115,57 @@ Cache=yes
 ```
 
 (Exact anycast IP and profile id are environment-specific and kept off this repo.)
+
+---
+
+## Outbound email (outbox relay on the database host)
+
+**Render cannot send email.** Two independent limits apply, confirmed in the
+production log:
+
+- outbound SMTP is blocked outright — `smtp failed: [Errno 101] Network is unreachable`
+- the HTTPS API providers run out of credit — SendGrid answers `401 Maximum credits exceeded`
+
+A failed send used to be logged and dropped, which is why password-reset links
+silently never arrived. Now `send_email()` parks anything no provider accepted in
+the `email_outbox` table, and a timer on the database host delivers it, because
+that host *can* reach SMTP and already holds the database the two share.
+
+```
+Render (app)
+  └─ send_email() → brevo / resend / sendgrid / smtp ─ all fail
+       └─ INSERT email_outbox (pending)
+                 │  (same PostgreSQL instance)
+charizard ───────┘
+  └─ kiam-send-outbox.timer (every 60s)
+       └─ /usr/local/bin/kiam-send-outbox.py → Gmail SMTP → status='sent'
+```
+
+Install (on charizard, from a checkout of this repo):
+
+```bash
+cp deploy/mail-relay/kiam-mail.env.example /etc/kiam-mail.env
+$EDITOR /etc/kiam-mail.env          # localhost DB URL + Gmail app password
+sudo deploy/mail-relay/install.sh
+```
+
+Operate it:
+
+```bash
+journalctl -u kiam-send-outbox -f            # follow deliveries
+systemctl start kiam-send-outbox.service     # deliver immediately
+sudo -u kiammail /usr/local/bin/kiam-send-outbox.py --status
+flask mail-status                            # provider config + queue depth
+```
+
+The relay claims rows with `UPDATE ... WHERE status='pending' RETURNING`, so two
+overlapping runs can never deliver a message twice. It gives up after 5 attempts
+and prunes delivered rows after 30 days.
+
+**Adding a real provider is still preferable** (instant delivery, no dependency
+on charizard): set `BREVO_API_KEY` in Render and it is used before the fallback.
+Brevo verifies a single sender address, so no DNS work is needed. The outbox
+stays useful either way — it is what makes a provider outage non-lossy.
 
 ---
 
