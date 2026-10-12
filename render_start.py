@@ -229,7 +229,13 @@ def main():
         '--error-logfile', '-',   # Log errors to stdout
         '--capture-output',        # Capture print statements
         '--enable-stdio-inheritance',  # Allow stdout/stderr in logs
-        '--preload',  # Preload app code to save memory
+        # NOTE: no --preload. With preload, create_app() (and therefore the
+        # APScheduler background scheduler) is started in the gunicorn MASTER;
+        # the forked worker inherits a scheduler whose executor thread does not
+        # survive fork(), so the worker can never run a job and /api/jobs reports
+        # a stale next_run + empty last_run. Letting the single worker create the
+        # app keeps the scheduler in the process that also serves the API (1 worker
+        # + 4 threads means there is still exactly one scheduler).
         'app:create_app()'
     ]
     
