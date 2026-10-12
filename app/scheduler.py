@@ -106,6 +106,23 @@ def import_notion_daily():
     logger.info("=" * 60)
 
 
+def notion_import_if_stale(max_age_hours: int = 20) -> None:
+    """Run the Notion import only if the last one is older than ``max_age_hours``.
+
+    Safety net for the 04:00 job: if the instance was asleep (or restarting) at
+    04:00 and APScheduler skipped the misfired run, this catches up within the
+    hour. Normally a no-op, because the 04:00 import ran.
+    """
+    from .models import CsvUpload
+    last = (CsvUpload.query.filter(CsvUpload.filename.like('notion_import_%'))
+            .order_by(CsvUpload.id.desc()).first())
+    if last and last.processed_at and (datetime.utcnow() - last.processed_at) < timedelta(hours=max_age_hours):
+        logger.debug("Notion safety net: last import %s is fresh; nothing to do", last.processed_at)
+        return
+    logger.info("Notion safety net: last import is stale or missing - importing now")
+    import_notion_daily()
+
+
 def weekly_data_refresh():
     """Full data refresh + recalculation (the weekly job).
 
@@ -292,6 +309,17 @@ def init_scheduler(app):
         )
         logger.info(f"Daily Notion import scheduled for "
                     f"{DAILY_IMPORT_HOUR:02d}:{DAILY_IMPORT_MINUTE:02d} {TIMEZONE}")
+
+        # Safety net: guarantee the daily Notion sync even if the 04:00 slot was
+        # missed (instance asleep/restarting). Runs hourly but only acts when the
+        # last import is stale, so 04:00 stays the primary trigger.
+        scheduler.add_job(
+            func=_with_app_context(notion_import_if_stale),
+            trigger=IntervalTrigger(hours=1),
+            id='notion_import_guard',
+            name='Notion import safety net',
+            replace_existing=True,
+        )
 
         settings = get_scheduler_settings()
 
