@@ -240,10 +240,14 @@ class CsvImporter:
             self.progress.blank += 1
             return True
         
-        # Parse date
+        # Parse date. A Notion row with no Date yet (not scheduled) is not an
+        # error - there is simply nothing to key an analysis on. Skip it quietly;
+        # it will be imported on a later run once it is dated.
         analysis_date = self._parse_date(row['Date'])
         if not analysis_date:
-            raise ValueError(f"Invalid date: {row['Date']}")
+            self.progress.skipped += 1
+            logger.info(f"Skipping undated row (no Date yet): {company_name}")
+            return True
         
         # Get or create company with ticker resolution
         company = self._get_or_create_company(company_name, row.get('Sector', '').strip())
