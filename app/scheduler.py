@@ -1,11 +1,25 @@
 """
 Background scheduler for KI Asset Management.
 
-Runs automated data refresh based on configured schedule.
-Supports flexible scheduling from SystemSettings.
+Two autonomous jobs run here, both in Europe/Prague local time:
+
+  * ``daily_notion_import``    - every day at 04:00, pulls the Notion analysis
+    schedule into the database (analysis_schedule import).
+  * ``automated_recalc``       - the full data refresh + recalculation, weekly on
+    Monday at 04:00 (day/hour/minute are configurable from SystemSettings).
+
+The recalculation's schedule is driven by SystemSettings so the admin UI can
+change it; the daily Notion import is intentionally not gated on that toggle,
+because keeping the site in step with Notion is the point of the job.
+
+Render's free instance sleeps when idle. The club keeps it awake with UptimeRobot
+pinging /health every few minutes, which is what lets these in-process jobs fire
+at 04:00; without that keep-alive the instance would be asleep at 04:00.
 """
 
+import functools
 import logging
+import threading
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -15,17 +29,91 @@ logger = logging.getLogger(__name__)
 
 scheduler = BackgroundScheduler()
 
+# Wall-clock timezone for the cron jobs. The club is in Czechia and "04:00" is
+# meant as local time; APScheduler would otherwise use the process timezone (UTC
+# on Render) and run two hours off.
+TIMEZONE = 'Europe/Prague'
+DAILY_IMPORT_HOUR = 4
+DAILY_IMPORT_MINUTE = 0
+
+# The Flask app, captured in init_scheduler so jobs can push an app context.
+_app = None
+
+# Serialises the heavy jobs so the daily import and the weekly recalculation can
+# never touch the database at the same time (they share the 04:00 slot on Monday).
+_run_lock = threading.Lock()
+
+
+def _with_app_context(job_func):
+    """Wrap a job so it runs inside a Flask application context.
+
+    APScheduler runs jobs in its own worker thread, which does not inherit the
+    app context that was active when the job was registered. Without this the
+    first database access inside a job raises "Working outside of application
+    context" - which is what silently killed the previous automated
+    recalculation whenever it was switched on.
+    """
+    @functools.wraps(job_func)
+    def wrapper(*args, **kwargs):
+        app = _app
+        if app is None:
+            from . import create_app
+            app = create_app()
+        with app.app_context():
+            return job_func(*args, **kwargs)
+    return wrapper
+
 
 def get_scheduler_settings():
     """Get scheduler settings from database."""
     from .models import SystemSettings
-    
+
     return {
         'enabled': SystemSettings.get('auto_recalc_enabled', False),
-        'day_of_week': SystemSettings.get('auto_recalc_day', 'fri'),
-        'hour': SystemSettings.get('auto_recalc_hour', 23),
+        'day_of_week': SystemSettings.get('auto_recalc_day', 'mon'),
+        'hour': SystemSettings.get('auto_recalc_hour', 4),
         'minute': SystemSettings.get('auto_recalc_minute', 0)
     }
+
+
+def import_notion_daily():
+    """Pull the Notion analysis schedule into the database.
+
+    Runs every day at 04:00. Never raises for a Notion/transport error: it logs
+    the outcome so the autonomous run is visible in the app log.
+    """
+    from .utils.notion_import import run_notion_import
+
+    logger.info("=" * 60)
+    logger.info("Daily Notion import starting...")
+    logger.info("=" * 60)
+
+    with _run_lock:
+        stats = run_notion_import()
+
+    if stats.get('success'):
+        logger.info(
+            "Daily Notion import finished: %s created, %s updated, %s skipped "
+            "(%s blank, %s unchanged)",
+            stats.get('created', 0), stats.get('updated', 0), stats.get('skipped', 0),
+            stats.get('blank', 0), stats.get('unchanged', 0),
+        )
+        errors = stats.get('errors') or []
+        if errors:
+            logger.warning("Daily Notion import had %s row error(s)", len(errors))
+    else:
+        logger.error("Daily Notion import failed: %s", stats.get('error'))
+    logger.info("=" * 60)
+
+
+def weekly_data_refresh():
+    """Full data refresh + recalculation (the weekly job).
+
+    Runs under the shared lock so it cannot overlap the daily Notion import on a
+    Monday, and inside an app context (via _with_app_context at registration).
+    """
+    with _run_lock:
+        return refresh_all_cached_data(run_type='scheduled')
 
 
 def refresh_all_cached_data(run_type='scheduled'):
@@ -168,16 +256,33 @@ def retry_queued_emails():
 
 def init_scheduler(app):
     """Initialize and start the background scheduler."""
+    global _app
+    _app = app
+
     with app.app_context():
         # Always scheduled, and never gated on the recalculation setting: this
         # is the safety net for undeliverable mail.
         scheduler.add_job(
-            func=retry_queued_emails,
+            func=_with_app_context(retry_queued_emails),
             trigger=IntervalTrigger(minutes=15),
             id='email_outbox_retry',
             name='Email outbox retry',
             replace_existing=True,
         )
+
+        # Daily autonomous Notion import. Deliberately always on: keeping the
+        # site in step with Notion is the point, and the job is a no-op when
+        # nothing changed.
+        scheduler.add_job(
+            func=_with_app_context(import_notion_daily),
+            trigger=CronTrigger(hour=DAILY_IMPORT_HOUR, minute=DAILY_IMPORT_MINUTE,
+                                timezone=TIMEZONE),
+            id='daily_notion_import',
+            name='Daily Notion import',
+            replace_existing=True,
+        )
+        logger.info(f"Daily Notion import scheduled for "
+                    f"{DAILY_IMPORT_HOUR:02d}:{DAILY_IMPORT_MINUTE:02d} {TIMEZONE}")
 
         settings = get_scheduler_settings()
 
@@ -191,18 +296,19 @@ def init_scheduler(app):
                 'fri': 4, 'sat': 5, 'sun': 6
             }
 
-            day_of_week = day_map.get(settings['day_of_week'], 4)  # Default to Friday
+            day_of_week = day_map.get(settings['day_of_week'], 0)  # Default to Monday
 
             scheduler.add_job(
-                func=refresh_all_cached_data,
-                trigger=CronTrigger(day_of_week=day_of_week, hour=settings['hour'], minute=settings['minute']),
+                func=_with_app_context(weekly_data_refresh),
+                trigger=CronTrigger(day_of_week=day_of_week, hour=settings['hour'],
+                                    minute=settings['minute'], timezone=TIMEZONE),
                 id='automated_recalc',
                 name='Automated Data Refresh',
                 replace_existing=True
             )
 
             logger.info(f"Automated recalculation scheduled for "
-                       f"{settings['day_of_week']} at {settings['hour']:02d}:{settings['minute']:02d}")
+                       f"{settings['day_of_week']} at {settings['hour']:02d}:{settings['minute']:02d} {TIMEZONE}")
         else:
             logger.info("Automated recalculation is disabled in settings")
 
@@ -235,7 +341,7 @@ def update_scheduler_settings():
         'fri': 4, 'sat': 5, 'sun': 6
     }
     
-    day_of_week = day_map.get(settings['day_of_week'], 4)
+    day_of_week = day_map.get(settings['day_of_week'], 0)
     
     # Remove existing job
     if scheduler.get_job('automated_recalc'):
@@ -243,14 +349,15 @@ def update_scheduler_settings():
     
     # Add new job
     scheduler.add_job(
-        func=refresh_all_cached_data,
-        trigger=CronTrigger(day_of_week=day_of_week, hour=settings['hour'], minute=settings['minute']),
+        func=_with_app_context(weekly_data_refresh),
+        trigger=CronTrigger(day_of_week=day_of_week, hour=settings['hour'],
+                            minute=settings['minute'], timezone=TIMEZONE),
         id='automated_recalc',
         name='Automated Data Refresh',
         replace_existing=True
     )
     
-    logger.info(f"Scheduler updated: {settings['day_of_week']} at {settings['hour']:02d}:{settings['minute']:02d}")
+    logger.info(f"Scheduler updated: {settings['day_of_week']} at {settings['hour']:02d}:{settings['minute']:02d} {TIMEZONE}")
 
 
 # Make db accessible

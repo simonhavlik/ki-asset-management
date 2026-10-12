@@ -14,8 +14,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   See [Production Infrastructure](../deployment/production.md).
 - Server DNS moved from the `nextdns` daemon to **NextDNS over DNS-over-TLS** via
   `systemd-resolved` (same filtering, no daemon).
+- The automated recalculation now runs **weekly on Monday 04:00 Europe/Prague**
+  (previously a Friday 23:00 default that only a self-hosted cron could trigger).
+
+### Fixed
+- Scheduler jobs now run **inside a Flask application context**. APScheduler runs
+  each job in its own thread, which did not inherit the app context, so enabling
+  the automated recalculation previously failed with *"Working outside of
+  application context"* the moment it fired. See [Weekly Recalculation](../operations/weekly-recalculation.md).
 
 ### Added
+- **Autonomous data updates.** The running app now imports the Notion analysis
+  schedule **every day at 04:00 Europe/Prague** and recalculates weekly (Monday
+  04:00 Europe/Prague), in-process via APScheduler. Both jobs log to the
+  application log, which is captured by Render and readable through the Render
+  logs API (`scripts/render_logs.py`).
 - **Featured Research** block on the homepage — an inline PDF viewer fed by blog
   posts marked *featured* that have an attached PDF.
 - Comprehensive documentation overhaul with new docs structure

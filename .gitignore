@@ -176,6 +176,8 @@ debug_*.py
 
 # Private documents directory (contains sensitive files, API keys, etc.)
 private_docs/
+# Live-debug credentials (Render API key + production charizard DB) - never commit
+private_docs/live-debug.env
 # Node (jsdom for tests/js)
 node_modules/
 package-lock.json

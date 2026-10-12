@@ -489,69 +489,34 @@ def register_cli(app):
 
     @app.cli.command('notion-import')
     def notion_import():
-        """Import analysis schedule from Notion."""
-        import os
-        from .models import SystemSettings
-        from .utils.notion_helper import NotionClient, NotionAPIError
-        from .utils.csv_import import CsvImporter
-        from datetime import datetime
-        api_key = os.environ.get('NOTION_API_KEY', '') or SystemSettings.get('notion_api_key', '')
-        database_id = os.environ.get('NOTION_DATABASE_ID', '') or SystemSettings.get('notion_database_id', '')
-        if not api_key or not database_id:
-            print('Notion API key or database ID not configured.')
-            print('Set NOTION_API_KEY and NOTION_DATABASE_ID in .env.')
-            return
-        client = NotionClient(api_key)
-        try:
-            # Auto-detect the mapping from the database's real property names
-            # rather than assuming a fixed schema: the live database's title
-            # column is 'Name' (not 'Company') and its date column is 'Date '
-            # with a trailing space, so an exact-match mapping silently produced
-            # blank values that imported nothing.
-            from .utils.notion_helper import build_notion_column_mapping
-            properties = client.get_database_properties(database_id)
-            column_mapping = build_notion_column_mapping(properties)
-            resolved = {prop.strip() or prop: col for prop, col in column_mapping.items()}
-            print(f'Mapped Notion columns: {resolved}')
-            missing = [col for prop, col in column_mapping.items()
-                       if prop.startswith('__missing__')]
-            if missing:
-                print(f'NOTE: no Notion property for {missing} - those will be empty')
+        """Import the analysis schedule from Notion (read-only source).
 
-            csv_content = client.export_database_as_csv(database_id, column_mapping)
-            if not csv_content:
-                print('No data found in Notion database.')
-                return
-            importer = CsvImporter(
-                csv_content=csv_content,
-                filename=f'notion_import_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv',
-                uploaded_by=None
-            )
-            stats = importer.process()
-            print(f"Created: {stats.get('created', 0)}")
-            print(f"Updated: {stats.get('updated', 0)}")
-            print(f"Skipped: {stats.get('skipped', 0)}"
-                  f" (blank rows: {stats.get('blank', 0)}, already up to date: {stats.get('unchanged', 0)})")
-            if stats.get('errors'):
-                print(f"Errors: {len(stats['errors'])}")
-                for err in stats['errors'][:5]:
-                    print(f"  - {err}")
-            if stats.get('created', 0) == 0 and stats.get('updated', 0) == 0:
-                if stats.get('blank'):
-                    print(
-                        'WARNING: every row was blank, so the Notion properties were not '
-                        'mapped to columns. Check the mapping printed above.'
-                    )
-                else:
-                    print('Nothing to do: every row is already up to date.')
-            if stats.get('errors'):
-                print(f"Errors: {len(stats['errors'])}")
-                for err in stats['errors'][:5]:
-                    print(f'  - {err}')
-        except NotionAPIError as e:
-            print(f'Notion Error: {e}')
-        except Exception as e:
-            print(f'Error: {e}')
+        Runs exactly the code path the daily scheduler job uses, so a manual run
+        and the autonomous run can never drift apart.
+        """
+        from .utils.notion_import import run_notion_import
+
+        stats = run_notion_import()
+        if not stats.get('success'):
+            print(f"Import failed: {stats.get('error')}")
+            return
+        print(f"Created: {stats.get('created', 0)}")
+        print(f"Updated: {stats.get('updated', 0)}")
+        print(f"Skipped: {stats.get('skipped', 0)}"
+              f" (blank rows: {stats.get('blank', 0)}, already up to date: {stats.get('unchanged', 0)})")
+        errors = stats.get('errors') or []
+        if errors:
+            print(f"Errors: {len(errors)}")
+            for err in errors[:5]:
+                print(f"  - {err}")
+        if stats.get('created', 0) == 0 and stats.get('updated', 0) == 0:
+            if stats.get('blank'):
+                print(
+                    'WARNING: every row was blank, so the Notion properties were not '
+                    'mapped to columns. Check the mapping logged above.'
+                )
+            else:
+                print('Nothing to do: every row is already up to date.')
 
 # Import models to ensure they are registered with SQLAlchemy
 from . import models

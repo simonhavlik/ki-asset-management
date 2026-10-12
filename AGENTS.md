@@ -18,6 +18,22 @@ Full detail: [docs/deployment/production.md](docs/deployment/production.md).
 The env var enabling the aggressive cache is still named `NEON_OPTIMIZE` even though
 production is no longer on Neon — the name is legacy, the behaviour is just caching.
 
+### Autonomous jobs (in-process scheduler)
+
+`app/scheduler.py` runs two jobs inside the web process, in **Europe/Prague** local
+time (Render's clock is UTC):
+
+| Job | When | What |
+|---|---|---|
+| `daily_notion_import` | daily, 04:00 | Pulls the Notion analysis schedule into the analyses table (Notion is a read-only source). |
+| `automated_recalc` | Monday, 04:00 | Full refresh + recalculation + cache re-warm. |
+
+They depend on the uptime monitor keeping the Render instance awake, and they run
+inside a Flask application context (APScheduler threads do not inherit one). Read
+their output back from Render with `python scripts/render_logs.py --text "Notion
+import"` — it needs `RENDER_API_KEY`, kept in the gitignored
+`private_docs/live-debug.env`.
+
 ---
 
 ## ⚡ Critical First Steps
@@ -268,7 +284,7 @@ The application supports integration with WebFlow-designed site shells.
 
 ---
 
-**Last Updated:** 2026-09-27  
+**Last Updated:** 2026-10-12  
 **Location:** `/AGENTS.md` (project root)
 
 ---

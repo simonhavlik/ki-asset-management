@@ -4,40 +4,43 @@
 
 KI Asset Management automatically recalculates all performance data on a weekly basis to ensure accuracy and cache freshness. The system also supports manual recalculation by administrators.
 
-## Automatic Weekly Recalculation
+## Automatic Background Jobs
+
+Both jobs are scheduled **in-process** by the running app (APScheduler — see
+`app/scheduler.py`), in **Europe/Prague** local time. Production is a Render free
+instance that sleeps when idle, so it is kept awake by an uptime monitor pinging
+`/health`; that keep-alive is what lets the 04:00 jobs fire.
 
 ### Schedule
-- **When**: Every Sunday at 3:00 AM UTC
-- **What it does**:
-  1. Recalculates performance for all approved analyses
-  2. Clears all public caches (main page, blog, wall, board)
-  3. Warms all caches with fresh data
-  4. Updates the last recalculation timestamp
 
-### Setup (Cron)
+| Job | When | What it does |
+|---|---|---|
+| **Notion import** (`daily_notion_import`) | every day, **04:00** | Pulls the Notion "Analysis Schedule" database into the analyses table (read-only against Notion). Drops the public page caches when rows changed. |
+| **Full recalculation** (`automated_recalc`) | **Monday, 04:00** | Refreshes stock + benchmark prices, recalculates performance, rebuilds and re-warms the overview / board / dashboard caches, and refreshes the presentation exports. |
 
-Add this line to your crontab (`crontab -e`):
+They share a lock, so they never touch the database at the same time (they share
+the 04:00 slot on Monday).
+
+### Changing the recalculation schedule
+
+Admins set the day / hour / minute from **Admin → Unified Update → Automated
+Recalculation Settings** (`SystemSettings`). The change takes effect when the app
+next starts or when the settings are saved. The daily Notion import is
+deliberately *not* gated on that toggle — keeping the site in step with Notion is
+the point of the job.
+
+### Watching the jobs
+
+Both jobs log to the application log, which Render captures. Read it back with:
 
 ```bash
-# Weekly recalculation - Sundays at 3:00 AM UTC
-0 3 * * 0 cd /home/simon/py/nmy/analyst_website 2.0 && python weekly_recalculation.py >> logs/weekly_recalculation.log 2>&1
-```
-
-Or use the system-wide cron:
-
-```bash
-sudo nano /etc/cron.d/ki-am-weekly
-```
-
-Add:
-```
-# KI Asset Management Weekly Recalculation
-0 3 * * 0 root cd /home/simon/py/nmy/analyst_website 2.0 && /usr/bin/python3 weekly_recalculation.py >> /var/log/ki-am/weekly_recalculation.log 2>&1
+python scripts/render_logs.py --text "Notion import"
+python scripts/render_logs.py --text "refresh completed"
 ```
 
 ### Manual Testing
 
-You can test the recalculation without setting up cron:
+You can run the recalculation by hand without waiting for the schedule:
 
 ```bash
 # Check if recalculation is due
@@ -49,6 +52,10 @@ python weekly_recalculation.py --force
 # Normal run (only if due)
 python weekly_recalculation.py
 ```
+
+`weekly_recalculation.py` is a standalone entry point for a self-hosted box that
+has cron instead of the in-process scheduler; production does not use it.
+
 
 ## Manual Recalculation (Admin)
 
