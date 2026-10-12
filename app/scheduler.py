@@ -20,7 +20,8 @@ at 04:00; without that keep-alive the instance would be asleep at 04:00.
 import functools
 import logging
 import threading
-from datetime import datetime, timedelta
+import time
+from datetime import datetime, timedelta, timezone
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
@@ -42,6 +43,52 @@ _app = None
 # Serialises the heavy jobs so the daily import and the weekly recalculation can
 # never touch the database at the same time (they share the 04:00 slot on Monday).
 _run_lock = threading.Lock()
+
+# Last-run bookkeeping per job id, surfaced by GET /api/jobs so an operator can
+# see whether the automation actually ran, how long it took and what it returned
+# — without reading Render's (paid) logs. One small record per job, overwritten
+# on every run; the process restart clears it, which is fine: next_run shows the
+# schedule and the log buffer holds the detail.
+JOB_RUNS = {}
+
+
+def _iso(ts):
+    return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat(timespec='seconds')
+
+
+def _summarize(value):
+    """Small, JSON-safe summary of whatever a job returned."""
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if isinstance(value, dict):
+        return {k: v for k, v in list(value.items())[:8]
+                if isinstance(v, (bool, int, float, str))}
+    if isinstance(value, (list, tuple)):
+        return f'{len(value)} item(s)'
+    return None
+
+
+def _tracked(job_id, job_func):
+    """Wrap a job so its outcome lands in JOB_RUNS (never swallows the error)."""
+    @functools.wraps(job_func)
+    def wrapper(*args, **kwargs):
+        started = time.time()
+        record = {'job_id': job_id, 'status': 'running', 'started_at': _iso(started),
+                  'finished_at': None, 'duration_seconds': None, 'error': None,
+                  'result': None}
+        JOB_RUNS[job_id] = record
+        try:
+            result = job_func(*args, **kwargs)
+        except Exception as exc:  # noqa: BLE001 - record, then let APScheduler log it
+            record.update(status='error', error=f'{type(exc).__name__}: {exc}')
+            raise
+        else:
+            record.update(status='ok', result=_summarize(result))
+            return result
+        finally:
+            record['finished_at'] = _iso(time.time())
+            record['duration_seconds'] = round(time.time() - started, 2)
+    return wrapper
 
 
 def _with_app_context(job_func):
@@ -289,23 +336,27 @@ def init_scheduler(app):
         # Always scheduled, and never gated on the recalculation setting: this
         # is the safety net for undeliverable mail.
         scheduler.add_job(
-            func=_with_app_context(retry_queued_emails),
+            func=_tracked('email_outbox_retry', _with_app_context(retry_queued_emails)),
             trigger=IntervalTrigger(minutes=15),
             id='email_outbox_retry',
             name='Email outbox retry',
             replace_existing=True,
+            coalesce=True,
+            misfire_grace_time=300,
         )
 
         # Daily autonomous Notion import. Deliberately always on: keeping the
         # site in step with Notion is the point, and the job is a no-op when
         # nothing changed.
         scheduler.add_job(
-            func=_with_app_context(import_notion_daily),
+            func=_tracked('daily_notion_import', _with_app_context(import_notion_daily)),
             trigger=CronTrigger(hour=DAILY_IMPORT_HOUR, minute=DAILY_IMPORT_MINUTE,
                                 timezone=TIMEZONE),
             id='daily_notion_import',
             name='Daily Notion import',
             replace_existing=True,
+            coalesce=True,
+            misfire_grace_time=60,
         )
         logger.info(f"Daily Notion import scheduled for "
                     f"{DAILY_IMPORT_HOUR:02d}:{DAILY_IMPORT_MINUTE:02d} {TIMEZONE}")
@@ -314,11 +365,13 @@ def init_scheduler(app):
         # missed (instance asleep/restarting). Runs hourly but only acts when the
         # last import is stale, so 04:00 stays the primary trigger.
         scheduler.add_job(
-            func=_with_app_context(notion_import_if_stale),
+            func=_tracked('notion_import_guard', _with_app_context(notion_import_if_stale)),
             trigger=IntervalTrigger(hours=1),
             id='notion_import_guard',
             name='Notion import safety net',
             replace_existing=True,
+            coalesce=True,
+            misfire_grace_time=600,
         )
 
         settings = get_scheduler_settings()
@@ -336,12 +389,19 @@ def init_scheduler(app):
             day_of_week = day_map.get(settings['day_of_week'], 0)  # Default to Monday
 
             scheduler.add_job(
-                func=_with_app_context(weekly_data_refresh),
+                func=_tracked('automated_recalc', _with_app_context(weekly_data_refresh)),
                 trigger=CronTrigger(day_of_week=day_of_week, hour=settings['hour'],
                                     minute=settings['minute'], timezone=TIMEZONE),
                 id='automated_recalc',
                 name='Automated Data Refresh',
-                replace_existing=True
+                replace_existing=True,
+                # A missed Monday slot is DROPPED, never caught up: the jobstore is
+                # in-memory, so a restarted/asleep instance simply schedules the next
+                # Monday. Starting a multi-minute full recalculation on boot or on
+                # wake is far worse than skipping one week - the 04:00 slot (and the
+                # manual /api/recalculate endpoint) is the only place it may start.
+                coalesce=True,
+                misfire_grace_time=1,
             )
 
             logger.info(f"Automated recalculation scheduled for "
@@ -386,12 +446,15 @@ def update_scheduler_settings():
     
     # Add new job
     scheduler.add_job(
-        func=_with_app_context(weekly_data_refresh),
+        func=_tracked('automated_recalc', _with_app_context(weekly_data_refresh)),
         trigger=CronTrigger(day_of_week=day_of_week, hour=settings['hour'],
                             minute=settings['minute'], timezone=TIMEZONE),
         id='automated_recalc',
         name='Automated Data Refresh',
-        replace_existing=True
+        replace_existing=True,
+        # Same policy as init_scheduler: a missed slot is dropped, never caught up.
+        coalesce=True,
+        misfire_grace_time=1,
     )
     
     logger.info(f"Scheduler updated: {settings['day_of_week']} at {settings['hour']:02d}:{settings['minute']:02d} {TIMEZONE}")

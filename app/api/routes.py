@@ -16,6 +16,7 @@ cron slot (Render's free instance sleeps when idle, so an on-demand run is how t
 schedule is actually verified).
 """
 import functools
+import hmac
 import logging
 import threading
 from datetime import datetime, timezone
@@ -38,14 +39,22 @@ def _now():
 
 
 def require_api_key(fn):
-    """Reject unless a valid REFRESH_API_KEY is supplied."""
+    """Reject unless a valid REFRESH_API_KEY is supplied.
+
+    Accepts the same key three ways — ``X-API-Key: <key>``,
+    ``Authorization: Bearer <key>`` or ``?key=<key>`` — so a caller cannot fail
+    on the header spelling alone.
+    """
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
         configured = (current_app.config.get('REFRESH_API_KEY') or '').strip()
         if not configured:
             return jsonify({'error': 'refresh API is not configured on the server'}), 503
-        provided = (request.headers.get('X-API-Key') or request.args.get('key') or '').strip()
-        if not provided or provided != configured:
+        authorization = request.headers.get('Authorization') or ''
+        bearer = authorization[7:].strip() if authorization.lower().startswith('bearer ') else ''
+        provided = (request.headers.get('X-API-Key') or bearer
+                    or request.args.get('key') or '').strip()
+        if not provided or not hmac.compare_digest(provided, configured):
             return jsonify({'error': 'unauthorized'}), 401
         return fn(*args, **kwargs)
     return wrapper
@@ -167,14 +176,15 @@ def recalculate_status():
 @api_bp.route('/jobs', methods=['GET'])
 @require_api_key
 def jobs():
-    """The scheduler's jobs, their next run times, and the recalc settings."""
-    from ..scheduler import scheduler, get_scheduler_settings
+    """The scheduler's jobs: next run, trigger, and the last run's outcome."""
+    from ..scheduler import JOB_RUNS, scheduler, get_scheduler_settings
     out = []
     for j in scheduler.get_jobs():
         nxt = getattr(j, 'next_run_time', None)
         out.append({'id': j.id, 'name': j.name,
                     'next_run': nxt.isoformat() if nxt else None,
-                    'trigger': str(j.trigger)})
+                    'trigger': str(j.trigger),
+                    'last_run': JOB_RUNS.get(j.id)})
     return jsonify({'scheduler_running': scheduler.running,
                     'settings': get_scheduler_settings(), 'jobs': out})
 
@@ -182,9 +192,30 @@ def jobs():
 @api_bp.route('/logs', methods=['GET'])
 @require_api_key
 def logs():
-    """Recent in-process log lines (so a forced run can be read back)."""
+    """Recent in-process log lines, filtered.
+
+    Options: ``lines``/``limit`` (count), ``level`` (DEBUG…CRITICAL), ``since``
+    (ISO timestamp or a relative window such as ``-30m``), ``logger`` (name
+    prefix), ``q`` (case-insensitive substring) and ``include_requests=1`` to
+    keep HTTP request lines — they are excluded by default because the public
+    site is scanned constantly and that chatter hides the job logs.
+    """
+    raw = request.args.get('lines') or request.args.get('limit') or '200'
     try:
-        lines = int(request.args.get('lines', 200))
+        lines = max(1, int(raw))
     except (TypeError, ValueError):
         lines = 200
-    return jsonify({'lines': LOG_BUFFER.tail(lines, request.args.get('level', 'INFO'))})
+    include_requests = str(request.args.get('include_requests', '')).lower() in ('1', 'true', 'yes', 'on')
+    level = request.args.get('level', 'INFO')
+    since = request.args.get('since')
+    logger_name = request.args.get('logger')
+    needle = request.args.get('q')
+    rows = LOG_BUFFER.tail(lines, level, since=since, logger=logger_name, q=needle,
+                           include_requests=include_requests)
+    return jsonify({
+        'lines': rows,
+        'returned': len(rows),
+        'filters': {'level': level, 'since': since, 'logger': logger_name,
+                    'q': needle, 'include_requests': include_requests, 'limit': lines},
+        'buffer': LOG_BUFFER.stats(),
+    })
