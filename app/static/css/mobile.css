@@ -281,14 +281,16 @@
         line-height: 1.38;
     }
 
-    /* ---------- bootstrap scaffolding: two-up, or three-up when tiny ---------- */
+    /* ---------- bootstrap scaffolding: two-up instead of one-per-row ---------- */
     /* Bootstrap collapses .col-md-4 / .col-lg-6 to 100% below 768px, which turned
-       every three-card row into three full-width cards. */
-    #universe .row > [class*="col-"],
-    .perks-section .row > .col-md-4,
-    #strategy .row > [class*="col-"] {
-        flex: 0 0 33.3333%;
-        max-width: 33.3333%;
+       every three-card row into three full-width cards. Only the two card rows
+       that carry an explicit hook are touched: a blanket `[class*=col-]` rule
+       also matched the nested rows inside cards (it squeezed the Exclusion
+       Criteria column to 35px) and the strategy section's 7/5 chart pair. */
+    .universe-cards > [class*="col-"],
+    .perks-cards > [class*="col-"] {
+        flex: 0 0 50%;
+        max-width: 50%;
     }
 
     .perk-card {
