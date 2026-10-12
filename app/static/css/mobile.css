@@ -1,16 +1,20 @@
 /* =====================================================================
-   mobile.css — phone density layer
+   mobile.css — phone density layer  (phones ONLY; desktop is untouched)
    ---------------------------------------------------------------------
-   Loaded AFTER style.css. Everything here is inside `max-width` media
-   queries, so desktop rendering (>= 992px) is untouched by design.
+   Loaded after style.css. Everything visual lives inside max-width media
+   queries, so >= 992px renders exactly as before.
 
-   Purpose (2026-10-12): the landing page was 16,091px tall at 390px
-   (~19 screens) because every card grid collapsed to one column and
-   sections kept 64px paddings. This layer packs the same content into
-   two-column card grids, halves the vertical rhythm, tightens the type
-   scale, replaces the PDF <iframe> (iOS Safari shows only page 1 of an
-   inline PDF) with an explicit "open the PDF" action, and re-enables the
-   jump-to-section menu that used to be hidden on phones.
+   Goal: compact. The phone landing page was 16,091px tall at 390px
+   (~19 screens) because every card grid collapsed to one column, sections
+   kept 64px paddings, buttons were sized for a desktop hero, and the
+   featured-research PDF was an <iframe> — which iOS Safari cannot scroll
+   (it shows page 1 and stops).
+
+   Rules of the layer:
+     * two- and three-up grids instead of one card per row
+     * small buttons, tight line-heights, small type
+     * no decorative empty space: halved section rhythm, small gaps
+     * jump-to-section menu stays available on phones
    ===================================================================== */
 
 /* Desktop/tablet: the tap-through PDF card is phone-only. */
@@ -21,235 +25,301 @@
 @media (max-width: 767.98px) {
     /* ---------- vertical rhythm ---------- */
     :root {
-        --section-padding: 2.15rem;
+        --section-padding: 1.6rem;
     }
 
     .container {
-        padding-left: 0.85rem;
-        padding-right: 0.85rem;
+        padding-left: 0.7rem;
+        padding-right: 0.7rem;
+        max-width: none;
+    }
+
+    .row {
+        --bs-gutter-x: 0.55rem;
+        --bs-gutter-y: 0.55rem;
     }
 
     .section-header {
         max-width: none;
-        margin-bottom: 1.5rem;
+        margin-bottom: 1.05rem;
     }
 
     .section-label {
-        font-size: 0.6rem;
-        padding: 0.28rem 0.7rem;
-        margin-bottom: 0.55rem;
-        letter-spacing: 0.1em;
+        font-size: 0.54rem;
+        padding: 0.2rem 0.55rem;
+        margin-bottom: 0.4rem;
+        letter-spacing: 0.09em;
     }
 
+    /* Headlines: keep them from eating a full line on a narrow screen. */
     .section-title {
-        font-size: 1.32rem;
-        line-height: 1.22;
-        margin-bottom: 0.55rem;
+        font-size: 1.14rem;
+        line-height: 1.18;
+        margin-bottom: 0.4rem;
     }
 
-    /* a <br> inside a headline wastes a whole line on a narrow screen */
     .section-title br {
         display: none;
     }
 
     .section-subtitle {
-        font-size: 0.9rem;
-        line-height: 1.5;
+        font-size: 0.82rem;
+        line-height: 1.42;
+    }
+
+    /* ---------- generic buttons: small, no giant tap slabs ---------- */
+    .btn {
+        font-size: 0.76rem;
+        padding: 0.3rem 0.6rem;
+        border-radius: 8px;
+    }
+
+    .btn-sm {
+        font-size: 0.7rem;
+        padding: 0.22rem 0.5rem;
     }
 
     /* ---------- hero ---------- */
     .hero-section {
-        padding: 1.35rem 0 1.6rem;
+        padding: 0.9rem 0 1.1rem;
     }
 
     .hero-corporate {
-        gap: 1.15rem;
+        gap: 0.8rem;
     }
 
     .hero-title {
-        font-size: 1.95rem;
-        line-height: 1.06;
+        font-size: 1.75rem;
+        line-height: 1.02;
     }
 
     .hero-badge {
-        font-size: 0.6rem;
-        padding: 0.25rem 0.62rem;
+        font-size: 0.54rem;
+        padding: 0.18rem 0.5rem;
+        margin-bottom: 0.4rem;
     }
 
     .hero-subtitle {
-        font-size: 0.9rem;
-        line-height: 1.45;
+        font-size: 0.82rem;
+        line-height: 1.38;
+        margin-bottom: 0.6rem;
     }
 
+    /* four stats on one row — they are short numbers */
     .hero-stats-row {
-        gap: 0.5rem 0.6rem;
+        gap: 0.3rem;
+        padding: 0.45rem 0;
+        margin: 0.5rem 0;
     }
 
     .hero-stat-compact {
-        flex: 1 1 calc(25% - 0.6rem);
+        flex: 1 1 0;
+        min-width: 0;
         text-align: center;
     }
 
     .hero-stat-compact .value {
-        font-size: 1.3rem;
+        font-size: 1.05rem;
     }
 
     .hero-stat-compact .label {
-        font-size: 0.58rem;
+        font-size: 0.5rem;
+        letter-spacing: 0.03em;
     }
 
     .hero-cta {
-        gap: 0.5rem;
+        gap: 0.35rem;
+        margin-bottom: 0.4rem;
     }
 
     .btn-hero-primary,
     .btn-hero-secondary {
         max-width: none;
         width: auto;
-        padding: 0.6rem 0.95rem;
-        font-size: 0.85rem;
+        padding: 0.45rem 0.75rem;
+        font-size: 0.78rem;
+        border-radius: 9px;
     }
 
     .czech-note {
-        font-size: 0.7rem;
-        padding: 0.45rem 0.6rem;
+        font-size: 0.68rem;
+        line-height: 1.35;
+        padding: 0.35rem 0.5rem;
     }
 
     /* ---------- live performance panel ---------- */
     .performance-dashboard {
-        padding: 0.85rem;
-        border-radius: 14px;
+        padding: 0.7rem;
+        border-radius: 12px;
+    }
+
+    .performance-header {
+        padding: 0 0 0.5rem;
     }
 
     .performance-main {
-        padding: 0.75rem 0.15rem 0.9rem;
+        padding: 0.5rem 0.1rem 0.6rem;
     }
 
     .performance-main .return-value {
-        font-size: 2.05rem;
+        font-size: 1.8rem;
     }
 
     .performance-main .return-label {
-        font-size: 0.73rem;
+        font-size: 0.68rem;
     }
 
     .performance-main .return-meta {
-        font-size: 0.66rem;
+        font-size: 0.62rem;
     }
 
+    /* six risk tiles: 3 across, 2 rows */
     .risk-metrics {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.35rem;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.28rem;
     }
 
     .risk-metric {
-        padding: 0.5rem 0.4rem;
+        padding: 0.4rem 0.25rem;
+        border-radius: 8px;
     }
 
     .risk-metric .metric-label {
-        font-size: 0.56rem;
-        letter-spacing: 0.03em;
-        margin-bottom: 0.15rem;
+        font-size: 0.5rem;
+        letter-spacing: 0.02em;
+        margin-bottom: 0.1rem;
     }
 
     .risk-metric .metric-value {
-        font-size: 0.98rem;
+        font-size: 0.86rem;
     }
 
-    /* the tile label already carries the meaning on a phone */
     .risk-metric .metric-subtext {
         display: none;
     }
 
     .benchmark-comparison {
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 0.4rem;
-        padding: 0.6rem 0.5rem;
+        gap: 0.3rem;
+        padding: 0.45rem 0.35rem;
     }
 
     .benchmark-item .benchmark-name {
-        font-size: 0.56rem;
+        font-size: 0.5rem;
     }
 
     .benchmark-item .benchmark-value {
-        font-size: 0.8rem;
+        font-size: 0.74rem;
     }
 
-    /* ---------- card grids: two per row ---------- */
+    /* ---------- card grids: two per row, small cards ---------- */
     .feature-grid,
     .strategy-grid,
     .risk-grid,
-    .team-grid,
-    .universe-grid {
+    .team-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.55rem;
+        gap: 0.45rem;
     }
 
     .feature-card,
     .strategy-card,
     .risk-card {
-        padding: 0.8rem 0.7rem;
-        border-radius: 12px;
+        padding: 0.6rem 0.55rem;
+        border-radius: 10px;
     }
 
     .feature-icon {
-        width: 32px;
-        height: 32px;
-        font-size: 0.92rem;
-        margin-bottom: 0.5rem;
-        border-radius: 9px;
+        width: 26px;
+        height: 26px;
+        font-size: 0.78rem;
+        margin-bottom: 0.35rem;
+        border-radius: 7px;
     }
 
     .feature-title {
-        font-size: 0.8rem;
-        margin-bottom: 0.28rem;
+        font-size: 0.76rem;
+        margin-bottom: 0.2rem;
     }
 
     .feature-text {
-        font-size: 0.72rem;
-        line-height: 1.45;
+        font-size: 0.69rem;
+        line-height: 1.38;
     }
 
     .strategy-card h4 {
-        font-size: 0.77rem;
-        gap: 0.35rem;
-        margin-bottom: 0.28rem;
+        font-size: 0.72rem;
+        gap: 0.28rem;
+        margin-bottom: 0.2rem;
     }
 
     .strategy-card h4 i {
-        font-size: 0.88rem;
+        font-size: 0.8rem;
     }
 
     .strategy-card p {
-        font-size: 0.71rem;
-        line-height: 1.45;
+        font-size: 0.68rem;
+        line-height: 1.38;
     }
 
     .risk-card .risk-header {
-        gap: 0.4rem;
-        margin-bottom: 0.4rem;
+        gap: 0.3rem;
+        margin-bottom: 0.3rem;
     }
 
     .risk-card .risk-icon {
-        width: 26px;
-        height: 26px;
-        font-size: 0.72rem;
+        width: 22px;
+        height: 22px;
+        font-size: 0.66rem;
     }
 
     .risk-card .risk-title {
-        font-size: 0.77rem;
+        font-size: 0.72rem;
     }
 
     .risk-card .risk-desc {
-        font-size: 0.71rem;
-        line-height: 1.45;
+        font-size: 0.68rem;
+        line-height: 1.38;
     }
 
-    /* ---------- investment process: 2x2 instead of 4 stacked rows ---------- */
+    /* ---------- bootstrap scaffolding: two-up, or three-up when tiny ---------- */
+    /* Bootstrap collapses .col-md-4 / .col-lg-6 to 100% below 768px, which turned
+       every three-card row into three full-width cards. */
+    #universe .row > [class*="col-"],
+    .perks-section .row > .col-md-4,
+    #strategy .row > [class*="col-"] {
+        flex: 0 0 33.3333%;
+        max-width: 33.3333%;
+    }
+
+    .perk-card {
+        padding: 0.6rem 0.5rem;
+        border-radius: 10px;
+    }
+
+    .perk-icon {
+        width: 26px;
+        height: 26px;
+        font-size: 0.78rem;
+        margin-bottom: 0.35rem;
+        border-radius: 7px;
+    }
+
+    .perk-card h4 {
+        font-size: 0.74rem;
+        margin-bottom: 0.18rem;
+    }
+
+    .perk-card p {
+        font-size: 0.67rem;
+        line-height: 1.36;
+        margin: 0;
+    }
+
+    /* ---------- investment process: 4 across in one row ---------- */
     .process-flow {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.85rem;
+        gap: 0.6rem;
         max-width: none;
     }
 
@@ -259,146 +329,103 @@
     }
 
     .process-step .step-number {
-        width: 2.1rem;
-        height: 2.1rem;
-        font-size: 0.78rem;
-        margin: 0 0 0.35rem;
+        width: 1.6rem;
+        height: 1.6rem;
+        font-size: 0.68rem;
+        margin: 0 0 0.25rem;
         border-width: 1px;
     }
 
     .process-step .step-title {
-        font-size: 0.78rem;
-        margin-bottom: 0.2rem;
-    }
-
-    .process-step .step-desc {
-        font-size: 0.71rem;
-        line-height: 1.45;
-    }
-
-    /* ---------- stats: 2x2 ---------- */
-    .stats-section {
-        padding: 1.5rem 0;
-    }
-
-    .stats-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.5rem;
-    }
-
-    .stat-item {
-        padding: 0.3rem;
-    }
-
-    .stat-number {
-        font-size: 1.55rem;
+        font-size: 0.72rem;
         margin-bottom: 0.15rem;
     }
 
-    .stat-label {
-        font-size: 0.56rem;
+    .process-step .step-desc {
+        font-size: 0.67rem;
+        line-height: 1.36;
     }
 
-    /* ---------- team: compact two-up ---------- */
+    /* ---------- stats: one dense strip ---------- */
+    .stats-section {
+        padding: 0.9rem 0;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.3rem;
+    }
+
+    .stat-item {
+        padding: 0.15rem;
+    }
+
+    .stat-number {
+        font-size: 1.25rem;
+        margin-bottom: 0.05rem;
+    }
+
+    .stat-label {
+        font-size: 0.5rem;
+        letter-spacing: 0.04em;
+    }
+
+    /* ---------- team ---------- */
     .team-grid {
         max-width: none;
     }
 
     .team-image-wrapper {
-        height: 94px;
+        height: 72px;
     }
 
     .team-content {
-        padding: 0.6rem 0.65rem;
+        padding: 0.5rem 0.55rem;
     }
 
     .team-name {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
     }
 
     .team-role {
-        font-size: 0.68rem;
+        font-size: 0.62rem;
+    }
+
+    .team-edu {
+        font-size: 0.62rem;
+    }
+
+    .team-quote {
+        font-size: 0.66rem;
+        line-height: 1.36;
+        margin: 0.3rem 0;
     }
 
     .team-photo {
-        margin-bottom: 1rem;
+        margin-bottom: 0.7rem;
     }
 
-/* ---------- featured research: no inline PDF on iOS ---------- */
+    .team-photo img {
+        height: 130px;
+    }
+
+    .team-photo-caption {
+        font-size: 0.62rem;
+        padding: 0.35rem 0.6rem;
+    }
+
+    /* ---------- featured research: no inline PDF on iOS ---------- */
     .research-viewer-frame {
         display: none;
     }
 
-    /* the tap-through card that replaces the iframe */
-    .research-mobile-cta {
-        display: flex;
-        gap: 0.75rem;
-        padding: 0.85rem;
-    }
-
-    .research-mobile-poster {
-        flex: 0 0 74px;
-        width: 74px;
-        height: 104px;
-        border-radius: 9px;
-        border: 1px solid var(--color-gray-200);
-        background-color: var(--color-gray-100);
-        background-size: cover;
-        background-position: center;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--primary-green);
-        font-size: 1.6rem;
-    }
-
-    .research-mobile-body {
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 0.3rem;
-    }
-
-    .research-mobile-title {
-        font-size: 0.86rem;
-        font-weight: 600;
-        line-height: 1.25;
-        color: var(--color-gray-900);
-        display: -webkit-box;
-        -webkit-line-clamp: 3;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-    }
-
-    .research-mobile-hint {
-        margin: 0;
-        font-size: 0.7rem;
-        line-height: 1.4;
-        color: var(--color-gray-400);
-    }
-
-    .research-mobile-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.4rem;
-        margin-top: auto;
-        padding-top: 0.15rem;
-    }
-
-    .research-mobile-actions .btn-hero-primary,
-    .research-mobile-actions .btn-hero-secondary {
-        padding: 0.5rem 0.7rem;
-        font-size: 0.78rem;
-        border-radius: 9px;
-    }
-
     .research-picker {
         flex-direction: row;
-        gap: 0.4rem;
+        gap: 0.3rem;
         max-height: none;
         overflow-x: auto;
         overflow-y: hidden;
-        padding: 0 0 0.35rem;
+        padding: 0 0 0.3rem;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
     }
@@ -414,71 +441,105 @@
     .research-pick {
         flex: 0 0 auto;
         width: auto;
-        max-width: 70vw;
+        max-width: 60vw;
+        padding: 0.22rem 0.4rem;
+    }
+
+    .research-pick-thumb {
+        width: 26px;
+        height: 26px;
+    }
+
+    .research-pick-title {
+        font-size: 0.7rem;
+        -webkit-line-clamp: 1;
+    }
+
+    .research-pick-meta {
+        font-size: 0.56rem;
     }
 
     .research-viewer-bar {
-        gap: 0.5rem;
-        padding: 0.5rem 0.6rem;
+        gap: 0.35rem;
+        padding: 0.4rem 0.5rem;
     }
 
     .research-viewer-title {
-        font-size: 0.76rem;
+        font-size: 0.7rem;
     }
 
     /* the tap-through card that replaces the iframe */
     .research-mobile-cta {
         display: flex;
+        gap: 0.6rem;
+        padding: 0.7rem;
+    }
+
+    .research-mobile-poster {
+        flex: 0 0 58px;
+        width: 58px;
+        height: 80px;
+        border-radius: 8px;
+        border: 1px solid var(--color-gray-200);
+        background-color: var(--color-gray-100);
+        background-size: cover;
+        background-position: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--primary-green);
+        font-size: 1.3rem;
+    }
+
+    .research-mobile-body {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+    }
+
+    .research-mobile-title {
+        font-size: 0.8rem;
+        font-weight: 600;
+        line-height: 1.2;
+        color: var(--color-gray-900);
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .research-mobile-hint {
+        margin: 0;
+        font-size: 0.64rem;
+        line-height: 1.35;
+        color: var(--color-gray-400);
+    }
+
+    .research-mobile-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+        margin-top: auto;
+    }
+
+    .research-mobile-actions .btn-hero-primary,
+    .research-mobile-actions .btn-hero-secondary {
+        padding: 0.38rem 0.55rem;
+        font-size: 0.72rem;
+        border-radius: 8px;
     }
 
     .research-note {
-        font-size: 0.7rem;
+        font-size: 0.64rem;
+        margin-top: 0.5rem;
     }
 
-    /* ---------- bootstrap scaffolding: two-up instead of one-per-row ---------- */
-    /* Bootstrap collapses .col-md-4 / .col-lg-6 to 100% below 768px, which turned
-       every three-card row into three full-width cards. Small cards go two-up;
-       the wide chart columns (.col-lg-7) stay full width so charts keep room. */
-    .row {
-        --bs-gutter-x: 0.8rem;
-        --bs-gutter-y: 0.8rem;
-    }
-
-    #universe .row > [class*="col-"],
-    .perks-section .row > .col-md-4,
-    #strategy .row > [class*="col-"] {
-        flex: 0 0 50%;
-        max-width: 50%;
-    }
-
-    .perk-card {
-        padding: 0.85rem 0.8rem;
-        border-radius: 12px;
-    }
-
-    .perk-icon {
-        width: 34px;
-        height: 34px;
-        font-size: 0.95rem;
-        margin-bottom: 0.55rem;
-        border-radius: 9px;
-    }
-
-    .perk-card h4 {
-        font-size: 0.82rem;
-        margin-bottom: 0.25rem;
-    }
-
-    .perk-card p {
-        font-size: 0.72rem;
-        line-height: 1.45;
-        margin: 0;
-    }
-
+    /* ---------- about / prose / cards ---------- */
     /* the three "values" cards in About carry an inline one-column style */
     #about .feature-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-        gap: 0.55rem;
+        gap: 0.45rem;
     }
 
     #about .feature-card.mb-3 {
@@ -486,80 +547,109 @@
     }
 
     #about blockquote {
-        padding-left: 0.8rem !important;
-        margin-bottom: 0.9rem !important;
+        padding-left: 0.6rem !important;
+        margin-bottom: 0.6rem !important;
+    }
+
+    #about blockquote p,
+    #about .blockquote-footer {
+        font-size: 0.78rem;
+        line-height: 1.4;
     }
 
     #about h3 {
-        font-size: 1.15rem;
-        margin-bottom: 0.7rem !important;
+        font-size: 1rem;
+        margin-bottom: 0.4rem !important;
     }
 
-    /* generic prose/card tightening for every remaining section */
+    /* the portfolio chart in About is 200px tall in an inline style */
+    #about .card-body [style*="height: 200px"] {
+        height: 130px !important;
+    }
+
     .section .text-muted,
     .section .lead {
-        font-size: 0.85rem;
-        line-height: 1.5;
+        font-size: 0.78rem;
+        line-height: 1.42;
     }
 
     .section .card-body {
-        padding: 0.85rem !important;
+        padding: 0.6rem !important;
     }
 
     .section h5,
     .section h4.mb-4 {
-        font-size: 0.95rem;
+        font-size: 0.88rem;
     }
 
     .section .row.mt-3,
     .section .row.mt-4 {
-        margin-top: 0.6rem !important;
+        margin-top: 0.45rem !important;
     }
 
     /* ---------- CTA ---------- */
     .cta-section {
-        padding: 2.2rem 0;
+        padding: 1.4rem 0;
     }
 
     .cta-content {
-        padding: 1.4rem 1rem;
+        padding: 1rem 0.8rem;
+        border-radius: 12px;
     }
 
     .cta-title {
-        font-size: 1.35rem;
+        font-size: 1.15rem;
+        margin-bottom: 0.35rem;
     }
 
     .cta-text {
-        font-size: 0.9rem;
-        line-height: 1.5;
+        font-size: 0.8rem;
+        line-height: 1.4;
     }
 
     /* ---------- jump-to-section menu: keep it on phones ---------- */
     .secnav {
         display: flex;
-        right: 0.7rem;
-        bottom: 0.9rem;
+        right: 0.6rem;
+        bottom: 0.7rem;
     }
 
     .secnav-toggle {
-        width: 42px;
-        height: 42px;
-        font-size: 1rem;
+        width: 38px;
+        height: 38px;
+        font-size: 0.92rem;
     }
 
     .secnav-panel {
         min-width: 0;
-        width: min(78vw, 280px);
+        width: min(74vw, 260px);
     }
 
     .secnav-list {
-        max-height: 52vh;
+        max-height: 50vh;
+    }
+
+    /* ---------- footer ---------- */
+    .footer,
+    .site-footer {
+        padding: 1.2rem 0 1.4rem;
+    }
+
+    .footer-content,
+    .footer-links {
+        gap: 0.5rem;
+    }
+
+    .footer p,
+    .footer a,
+    .footer-links a {
+        font-size: 0.72rem;
     }
 }
 
-/* On a phone in landscape / small tablet the hero panel can breathe again */
+/* Phones turned sideways have room for the desktop-ish hero column */
 @media (min-width: 576px) and (max-width: 767.98px) {
     .hero-stat-compact {
-        flex: 1 1 calc(25% - 0.6rem);
+        flex: 1 1 0;
     }
 }
