@@ -29,6 +29,8 @@
     
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Phone density layer: everything inside max-width media queries (see the file header). -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
     
     {% block extra_css %}{% endblock %}
 </head>

@@ -878,6 +878,7 @@
                             data-pdf-url="{{ post.pdf_url }}"
                             data-article-url="{{ url_for('blog.post', slug=post.slug) }}"
                             data-title="{{ post.title | e }}"
+                            data-og-image="{{ post.og_image or '' }}"
                             data-slug="{{ post.slug }}"
                             onclick="selectFeaturedResearch(this)">
                         {% if post.og_image %}
@@ -907,6 +908,7 @@
                             data-pdf-url="{{ post.pdf_url }}"
                             data-article-url="{{ url_for('blog.post', slug=post.slug) }}"
                             data-title="{{ post.title | e }}"
+                            data-og-image="{{ post.og_image or '' }}"
                             data-slug="{{ post.slug }}"
                             onclick="selectFeaturedResearch(this)">
                         {% if post.og_image %}
@@ -958,6 +960,38 @@
                                 src="{{ first_doc.pdf_url }}"
                                 title="{{ first_doc.title }}"
                                 loading="lazy"></iframe>
+                    </div>
+
+                    <!-- Phones: iOS Safari cannot scroll an inline PDF (it shows page 1 and stops),
+                         so below 768px the iframe above is hidden and this tap-through card takes
+                         its place. selectFeaturedResearch() keeps both hrefs in sync. -->
+                    <div class="research-mobile-cta">
+                        <div class="research-mobile-poster" id="featuredResearchPoster"
+                             {% if first_doc.og_image %}style="background-image: url('{{ first_doc.og_image }}');"{% endif %}>
+                            {% if not first_doc.og_image %}<i class="bi bi-file-earmark-pdf"></i>{% endif %}
+                        </div>
+                        <div class="research-mobile-body">
+                            <div class="research-mobile-title" id="featuredResearchMobileTitle">{{ first_doc.title }}</div>
+                            <p class="research-mobile-hint" data-i18n="home.pdf_mobile_hint">
+                                Phones cannot scroll an embedded PDF. Open it here to read it full screen.
+                            </p>
+                            <div class="research-mobile-actions">
+                                <a id="featuredResearchOpenMobile"
+                                   href="{{ first_doc.pdf_url }}"
+                                   target="_blank" rel="noopener"
+                                   class="btn-hero-primary">
+                                    <i class="bi bi-box-arrow-up-right"></i>
+                                    <span data-i18n="home.open_pdf">Open PDF</span>
+                                </a>
+                                <a id="featuredResearchDownloadMobile"
+                                   href="{{ first_doc.pdf_url }}"
+                                   download
+                                   class="btn-hero-secondary">
+                                    <i class="bi bi-download"></i>
+                                    <span data-i18n="home.download_pdf">Download</span>
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1249,6 +1283,11 @@ function selectFeaturedResearch(button) {
     const openLink = document.getElementById('featuredResearchOpen');
     const downloadLink = document.getElementById('featuredResearchDownload');
     const urlEl = document.getElementById('featuredResearchUrl');
+    // phone card (the iframe is hidden below 768px)
+    const mobileTitle = document.getElementById('featuredResearchMobileTitle');
+    const mobileOpen = document.getElementById('featuredResearchOpenMobile');
+    const mobileDownload = document.getElementById('featuredResearchDownloadMobile');
+    const poster = document.getElementById('featuredResearchPoster');
 
     if (frame && pdfUrl) frame.src = pdfUrl;
     if (titleEl) titleEl.textContent = title;
@@ -1256,6 +1295,14 @@ function selectFeaturedResearch(button) {
     if (articleLink && articleUrl) articleLink.href = articleUrl;
     if (openLink && pdfUrl) openLink.href = pdfUrl;
     if (downloadLink && pdfUrl) downloadLink.href = pdfUrl;
+    if (mobileTitle) mobileTitle.textContent = title;
+    if (mobileOpen && pdfUrl) mobileOpen.href = pdfUrl;
+    if (mobileDownload && pdfUrl) mobileDownload.href = pdfUrl;
+    if (poster) {
+        const og = button.getAttribute('data-og-image') || '';
+        poster.style.backgroundImage = og ? "url('" + og + "')" : '';
+        poster.innerHTML = og ? '' : '<i class="bi bi-file-earmark-pdf"></i>';
+    }
 }
 </script>
 
