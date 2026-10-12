@@ -125,6 +125,10 @@ class Config:
     DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY', '')
     BRAVE_SEARCH_API_KEY = os.environ.get('BRAVE_SEARCH_API_KEY', '')
     UNSPLASH_API_KEY = os.environ.get('UNSPLASH_API_KEY', '')
+
+    # Key for the server-to-server force-refresh API (/api/refresh-prices).
+    # Deliberately SEPARATE from SECRET_KEY.
+    REFRESH_API_KEY = os.environ.get('REFRESH_API_KEY', '')
     
     # Security settings
     ALLOWED_EMAIL_DOMAIN = os.environ.get('ALLOWED_EMAIL_DOMAIN', 'klubinvestoru.com')

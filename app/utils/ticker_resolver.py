@@ -34,31 +34,51 @@ COMPANY_INDICATORS = [
 ]
 
 
-def is_other_event(company_name: str) -> bool:
+def is_other_event(company_name: str, sector: Optional[str] = None) -> bool:
     """
     Detect if this is a non-stock "Other" event (market commentary, macro, etc.)
-    
+
+    Decision order (most reliable first):
+      1. Explicit "Other"/empty marker -> Other.
+      2. A real Notion *Sector* value -> it is a stock pitch (NOT Other).
+      3. A name that clearly looks like a company (Inc/Corp/Ltd/Plc/AG/Group/Holdings ...)
+         -> NOT Other, even if a keyword is a substring.
+      4. Non-stock keywords, matched on WORD BOUNDARIES only (so e.g. "Sector" no
+         longer matches inside another word, and a company called "X Industries"
+         is not mistaken for the "industry" commentary keyword).
+
     Args:
         company_name: The name from the CSV/analysis
-        
+        sector: Optional sector value from the Notion "Sector" property
+
     Returns:
         True if this appears to be a non-stock event
     """
     if not company_name:
         return True
-        
-    name_lower = company_name.lower()
-    
-    # Check for explicit "Other" marker
-    if name_lower.strip() in ['other', 'n/a', 'na', '-', '']:
+
+    name = company_name.strip()
+    name_lower = name.lower()
+
+    # 1. Explicit "Other" marker
+    if name_lower in ['other', 'n/a', 'na', '-', '']:
         return True
-    
-    # Check for non-stock keywords
+
+    # 2. A real sector means it is a listed stock pitch, not an "Other" event.
+    if sector and sector.strip() and sector.strip().lower() not in ('other', 'n/a', 'na', '-', 'none'):
+        return False
+
+    # 3. A name that clearly looks like a company is not an "Other" event.
+    for indicator in COMPANY_INDICATORS:
+        if re.search(r'\b' + re.escape(indicator) + r'\b', name_lower):
+            return False
+
+    # 4. Non-stock keywords, whole words only.
     for keyword in OTHER_EVENT_KEYWORDS:
-        if keyword in name_lower:
+        if re.search(r'\b' + re.escape(keyword) + r'\b', name_lower):
             logger.info(f"Detected 'Other' event for '{company_name}' (matched: {keyword})")
             return True
-    
+
     return False
 
 

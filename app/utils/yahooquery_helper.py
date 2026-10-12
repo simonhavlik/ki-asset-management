@@ -228,26 +228,41 @@ def update_prices_for_company(company: Company, force: bool = False) -> int:
     if not company.ticker_symbol:
         logger.info(f"No ticker for company {company.name}, skipping price update")
         return 0
-    
+
     # Determine date range
     earliest = db.session.query(db.func.min(Analysis.analysis_date)).filter_by(company_id=company.id).scalar()
     if not earliest:
         logger.info(f"No analyses for company {company.name}, skipping price update")
         return 0
-    
-    start_date = earliest - timedelta(days=7)  # a week before to capture price on exact date
+
     end_date = date.today()
+    full_start = earliest - timedelta(days=7)  # a week before to capture price on exact date
+
+    # Incremental: download ONLY the tail we are missing, not the whole history.
+    # We start from the newest stored date (minus a small overlap so late
+    # corrections/restatements of the last few days are picked up) and fetch to
+    # today. With no stored history yet (first run / force) we take the full range.
+    latest_existing = db.session.query(db.func.max(StockPrice.date)).filter_by(company_id=company.id).scalar()
+    if latest_existing and not force:
+        start_date = max(full_start, latest_existing - timedelta(days=3))
+    else:
+        start_date = full_start
     # Ensure start_date <= end_date
     if start_date > end_date:
         logger.warning(f"Start date {start_date} after end date {end_date} for company {company.name}, adjusting.")
         start_date = end_date - timedelta(days=7)
-    
+
     # Optimized: Only fetch date column to reduce memory and network usage
     existing_dates = {d[0] for d in db.session.query(StockPrice.date).filter_by(company_id=company.id).all()}
-    
+
+    logger.info(
+        f"{company.name} ({company.ticker_symbol}): incremental price fetch "
+        f"{start_date}..{end_date} (latest stored={latest_existing})"
+    )
+
     # Fetch prices
     df = fetch_prices(company.ticker_symbol, start_date, end_date)
-    
+
     # Small delay to be nice to the API
     time.sleep(0.5)
     
@@ -276,6 +291,37 @@ def update_prices_for_company(company: Company, force: bool = False) -> int:
         logger.info(f"No new price records needed for {company.name}")
     
     return new_records
+
+
+def update_all_prices(force: bool = False) -> Dict[str, int]:
+    """Incrementally refresh prices for every company that has a ticker and analyses.
+
+    Only the missing tail per company is downloaded (see update_prices_for_company).
+    Returns a small summary dict.
+    """
+    companies = (Company.query
+                 .filter(Company.ticker_symbol.isnot(None), Company.ticker_symbol != '')
+                 .all())
+    total_new = 0
+    updated = 0
+    errors = 0
+    for company in companies:
+        try:
+            n = update_prices_for_company(company, force=force)
+            if n:
+                total_new += n
+                updated += 1
+        except Exception as e:
+            errors += 1
+            logger.warning(f"Price update failed for {company.name}: {e}")
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+    summary = {'companies': len(companies), 'updated': updated,
+               'new_records': total_new, 'errors': errors}
+    logger.info(f"Incremental price update: {summary}")
+    return summary
 
 
 def get_price_on_date(company_id: int, target_date: date) -> Optional[float]:

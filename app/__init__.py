@@ -266,6 +266,10 @@ def create_app(config_name=None):
     app.register_blueprint(presentation_bp, url_prefix='/presentation')
     app.register_blueprint(blog_bp, url_prefix='/blog')
 
+    # Key-secured server-to-server API (force incremental price refresh).
+    from .api import api_bp
+    app.register_blueprint(api_bp, url_prefix='/api')
+
     # WebFlow integration routes
     from flask import render_template
 

@@ -325,12 +325,12 @@ class CsvImporter:
         db.session.flush()  # Get ID
         
         # Try to resolve ticker
-        self._resolve_company_ticker(company)
+        self._resolve_company_ticker(company, sector)
         
         self._company_cache[name] = company
         return company
     
-    def _resolve_company_ticker(self, company: Company):
+    def _resolve_company_ticker(self, company: Company, sector: str = ''):
         """Resolve ticker for a company using multiple methods."""
         # Check cache first
         if company.name in self._mapping_cache:
@@ -345,8 +345,9 @@ class CsvImporter:
             self._apply_mapping_to_company(company, existing_mapping)
             return
         
-        # Check if it's an "Other" event first
-        if is_other_event(company.name):
+        # Check if it's an "Other" event first (sector-aware: a real Notion sector
+        # means it is a stock pitch, so it is never auto-labelled Other).
+        if is_other_event(company.name, sector):
             # Mark as Other in ticker mapping
             mapping = CompanyTickerMapping(
                 company_name=company.name,
