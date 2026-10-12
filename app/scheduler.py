@@ -207,7 +207,25 @@ def refresh_all_cached_data(run_type='scheduled'):
         sector_data = get_sector_analysis(use_cache=False)
         
         logger.info("Refreshing comprehensive export...")
-        export_data, _, _ = generate_comprehensive_export(force_new=True)
+        # Best-effort, bounded: the comprehensive Excel is a downloadable artifact,
+        # not needed by any page. On the 512 MB instance it can be slow, so run it
+        # detached and never let it block the recalculation from completing.
+        import threading as _threading
+
+        def _build_export():
+            try:
+                generate_comprehensive_export(force_new=True)
+            except Exception as exc:  # noqa: BLE001 - an artifact must not fail the job
+                logger.warning("Comprehensive export failed: %s", exc)
+
+        _export_thread = _threading.Thread(target=_build_export, daemon=True, name='recalc-export')
+        _export_thread.start()
+        _export_thread.join(timeout=180)
+        if _export_thread.is_alive():
+            logger.warning(
+                "Comprehensive export exceeded 180s; recalculation completes without it "
+                "(the export will finish in the background or be rebuilt on demand)"
+            )
         
         elapsed = (datetime.now() - start_time).total_seconds()
         stats['duration_seconds'] = elapsed

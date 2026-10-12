@@ -149,6 +149,34 @@ def reconcile_interrupted_jobs():
         print(f"Warning: could not reconcile interrupted jobs: {e}")
 
 
+def ensure_indexes():
+    """Create the hot-path indexes if they are missing (idempotent).
+
+    The (company_id, date) lookups that back performance and charting are only
+    fast when these indexes exist; on a database created before the constraint
+    was added they are absent, which turns every price lookup into a full scan.
+    """
+    try:
+        from app import create_app
+        from app.extensions import db
+        from sqlalchemy import text
+
+        stmts = [
+            "CREATE INDEX IF NOT EXISTS ix_stock_prices_company_date ON stock_prices (company_id, date)",
+            "CREATE INDEX IF NOT EXISTS ix_benchmark_prices_ticker_date ON benchmark_prices (ticker, date)",
+            "CREATE INDEX IF NOT EXISTS ix_perf_analysis_calcdate ON performance_calculations (analysis_id, calculation_date DESC)",
+            "CREATE INDEX IF NOT EXISTS ix_analyses_status ON analyses (status)",
+        ]
+        app = create_app()
+        with app.app_context():
+            for stmt in stmts:
+                db.session.execute(text(stmt))
+            db.session.commit()
+        print("Indexes ensured")
+    except Exception as e:
+        print(f"Warning: could not ensure indexes: {e}")
+
+
 def main():
     """Main startup sequence."""
     print("\n" + "=" * 60)
@@ -164,6 +192,9 @@ def main():
 
     # Clear any job left 'running' by the previous instance being replaced
     reconcile_interrupted_jobs()
+
+    # Ensure the performance-critical indexes exist
+    ensure_indexes()
 
     # Create auto-admin if configured
     create_default_admin()

@@ -1,0 +1,6 @@
+# Dependencies for scripts/generate_portfolio_deck.py (the portfolio .pptx tool).
+# Install:  pip install -r scripts/requirements-deck.txt
+python-pptx==1.0.2
+pandas>=2.0
+numpy>=1.26
+psycopg2-binary>=2.9
