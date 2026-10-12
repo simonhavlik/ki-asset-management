@@ -1536,55 +1536,18 @@ def _build_analyst_series(analyses_with_perf, years=None):
 @admin_bp.route('/update-benchmarks', methods=['POST'])
 @admin_required
 def update_benchmarks():
-    """Update cached benchmark prices from Yahoo Finance."""
-    tickers = ['SPY', 'VT', 'EEMS']
-    end_date = date.today()
-    # Fetch 5 years of data to cover all possible analysis histories
-    # This ensures we have data for views going back several years
-    start_date = end_date - timedelta(days=1825)  # 5 years of data
-    
-    updated = 0
-    errors = []
-    
-    for ticker in tickers:
-        try:
-            from ..utils.yahooquery_helper import fetch_prices
-            df = fetch_prices(ticker, start_date, end_date)
-            
-            if df.empty:
-                errors.append(f"{ticker}: No data returned")
-                continue
-            
-            # Optimized: Only fetch date column to reduce memory and network usage
-            existing_dates = {d[0] for d in db.session.query(BenchmarkPrice.date).filter_by(ticker=ticker).all()}
-            
-            new_records = 0
-            for _, row in df.iterrows():
-                price_date = row['Date'].date() if hasattr(row['Date'], 'date') else row['Date']
-                
-                if price_date in existing_dates:
-                    continue
-                
-                bp = BenchmarkPrice(
-                    ticker=ticker,
-                    date=price_date,
-                    close_price=row['close_price']
-                )
-                db.session.add(bp)
-                new_records += 1
-            
-            db.session.commit()
-            updated += new_records
-            
-        except Exception as e:
-            errors.append(f"{ticker}: {str(e)}")
-            current_app.logger.error(f"Error updating benchmark {ticker}: {e}")
-    
+    """Update cached benchmark prices from Yahoo Finance (incremental)."""
+    from ..utils.yahooquery_helper import update_benchmark_prices
+
+    result = update_benchmark_prices()
+    updated = result.get('new_records', 0)
+    errors = result.get('error_details', [])
+
     if errors:
         flash(f'Benchmarks updated: {updated} new prices. Errors: {", ".join(errors)}', 'warning')
     else:
         flash(f'Benchmarks updated: {updated} new prices cached.', 'success')
-    
+
     return redirect(request.referrer or url_for('admin.board'))
 
 

@@ -131,9 +131,7 @@ def refresh_all_cached_data(run_type='scheduled'):
     from .utils.neon_cache import warm_public_caches, invalidate_all_public_cache
     from .utils.performance import PerformanceCalculator
     from .utils.unified_calculator import recalculate_all_unified
-    from .utils.yahooquery_helper import fetch_benchmark_prices
     from .extensions import db
-    from datetime import date, timedelta
     
     logger.info("=" * 60)
     logger.info(f"Starting {run_type} data refresh...")
@@ -154,21 +152,14 @@ def refresh_all_cached_data(run_type='scheduled'):
     }
     
     try:
-        # Step 1: Update benchmarks
-        logger.info("Updating benchmark prices...")
-        tickers = ['SPY', 'VT', 'EEMS']
-        end_date = date.today()
-        start_date = end_date - timedelta(days=1825)
-        
-        for ticker in tickers:
-            try:
-                df = fetch_benchmark_prices(ticker, start_date, end_date)
-                if not df.empty:
-                    stats['prices_updated'] += len(df)
-                    logger.info(f"  {ticker}: {len(df)} prices updated")
-            except Exception as e:
-                stats['errors_count'] += 1
-                logger.error(f"Error updating benchmark {ticker}: {e}")
+        # Step 1: Update benchmarks - incrementally. Only the missing tail per
+        # index is downloaded and stored; never a full 5-year re-download.
+        logger.info("Updating benchmark prices (incremental)...")
+        from .utils.yahooquery_helper import update_benchmark_prices
+        bm = update_benchmark_prices()
+        stats['prices_updated'] += bm.get('new_records', 0)
+        stats['errors_count'] += bm.get('errors', 0)
+        logger.info(f"  benchmarks: {bm}")
         
         # Step 2: Recalculate all performance
         logger.info("Recalculating performance metrics...")

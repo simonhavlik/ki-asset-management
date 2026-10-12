@@ -228,6 +228,9 @@ def create_app(config_name=None):
     # every module-level logger (app.utils.*, app.admin.*) is actually visible.
     from .logging_config import configure_logging, get_logger
     configure_logging(app)
+    # Keep an in-process tail of log records for the key-secured /api/logs endpoint.
+    from .api.log_buffer import install_log_buffer
+    install_log_buffer()
     startup_logger = get_logger('startup')
     startup_logger.info(
         'creating app: config=%s debug=%s db=%s',

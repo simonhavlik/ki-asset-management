@@ -324,6 +324,74 @@ def update_all_prices(force: bool = False) -> Dict[str, int]:
     return summary
 
 
+# Benchmark indices whose cached prices back the performance comparisons.
+BENCHMARK_TICKERS = ['SPY', 'VT', 'EEMS']
+
+
+def update_benchmark_prices(tickers: Optional[List[str]] = None, force: bool = False) -> Dict:
+    """Incrementally cache benchmark prices (only the missing tail per ticker).
+
+    Same rule as update_prices_for_company: start from the newest stored date
+    (minus a small overlap) and fetch to today; with no stored history yet - or
+    when forced - take the full 5-year range. Existing dates are never re-inserted.
+    """
+    from ..models import BenchmarkPrice
+
+    tickers = tickers or BENCHMARK_TICKERS
+    end_date = date.today()
+    full_start = end_date - timedelta(days=1825)  # 5 years back
+
+    total_new = 0
+    errors = []
+    for ticker in tickers:
+        try:
+            latest_existing = db.session.query(
+                db.func.max(BenchmarkPrice.date)
+            ).filter_by(ticker=ticker).scalar()
+            if latest_existing and not force:
+                start_date = max(full_start, latest_existing - timedelta(days=3))
+            else:
+                start_date = full_start
+            if start_date > end_date:
+                start_date = end_date - timedelta(days=7)
+
+            existing_dates = {d[0] for d in db.session.query(BenchmarkPrice.date).filter_by(ticker=ticker).all()}
+
+            logger.info(f"Benchmark {ticker}: incremental fetch {start_date}..{end_date} (latest stored={latest_existing})")
+            df = fetch_prices(ticker, start_date, end_date)
+            time.sleep(0.5)
+
+            if df.empty:
+                errors.append(f"{ticker}: no data returned")
+                logger.warning(f"No benchmark data for {ticker}")
+                continue
+
+            new_records = 0
+            for _, row in df.iterrows():
+                price_date = row['Date'].date() if hasattr(row['Date'], 'date') else row['Date']
+                if price_date in existing_dates and not force:
+                    continue
+                db.session.add(BenchmarkPrice(ticker=ticker, date=price_date,
+                                              close_price=row['close_price']))
+                new_records += 1
+
+            db.session.commit()
+            total_new += new_records
+            logger.info(f"Benchmark {ticker}: added {new_records} new records")
+        except Exception as e:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            errors.append(f"{ticker}: {e}")
+            logger.warning(f"Benchmark update failed for {ticker}: {e}")
+
+    summary = {'tickers': len(tickers), 'new_records': total_new,
+               'errors': len(errors), 'error_details': errors}
+    logger.info(f"Incremental benchmark update: {summary}")
+    return summary
+
+
 def get_price_on_date(company_id: int, target_date: date) -> Optional[float]:
     """
     Return closing price on or before target_date for the given company.
