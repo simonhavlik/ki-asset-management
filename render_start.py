@@ -121,6 +121,34 @@ def create_default_admin():
     except Exception as e:
         print(f"Warning: Could not create auto-admin: {e}")
 
+def reconcile_interrupted_jobs():
+    """Mark recalculation log rows orphaned by a restart as failed.
+
+    A redeploy or crash can kill an in-flight recalculation between creating its
+    RecalculationLog row and marking it completed, leaving it stuck at
+    'running' forever. Clear those on boot so the admin never sees a perpetual
+    job and the next run starts from a clean state.
+    """
+    try:
+        from app import create_app
+        from app.extensions import db
+        from app.models import RecalculationLog
+        from datetime import datetime
+
+        app = create_app()
+        with app.app_context():
+            stuck = RecalculationLog.query.filter_by(status='running').all()
+            for row in stuck:
+                row.status = 'failed'
+                row.completed_at = datetime.utcnow()
+                row.error_message = 'interrupted by restart'
+            if stuck:
+                db.session.commit()
+                print(f"Marked {len(stuck)} interrupted recalculation(s) as failed")
+    except Exception as e:
+        print(f"Warning: could not reconcile interrupted jobs: {e}")
+
+
 def main():
     """Main startup sequence."""
     print("\n" + "=" * 60)
@@ -133,7 +161,10 @@ def main():
 
     # Initialize database
     init_database()
-    
+
+    # Clear any job left 'running' by the previous instance being replaced
+    reconcile_interrupted_jobs()
+
     # Create auto-admin if configured
     create_default_admin()
     

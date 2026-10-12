@@ -238,19 +238,23 @@ def update_prices_for_company(company: Company, force: bool = False) -> int:
     end_date = date.today()
     full_start = earliest - timedelta(days=7)  # a week before to capture price on exact date
 
-    # Incremental: download ONLY the tail we are missing, not the whole history.
-    # We start from the newest stored date (minus a small overlap so late
-    # corrections/restatements of the last few days are picked up) and fetch to
-    # today. With no stored history yet (first run / force) we take the full range.
+    # Incremental: download ONLY the days we are missing - never re-fetch what is
+    # already stored. We start the day AFTER the newest stored date, so a run that
+    # is already current makes NO Yahoo request at all. With no stored history yet
+    # (first run / force) we take the full range.
     latest_existing = db.session.query(db.func.max(StockPrice.date)).filter_by(company_id=company.id).scalar()
     if latest_existing and not force:
-        start_date = max(full_start, latest_existing - timedelta(days=3))
+        start_date = latest_existing + timedelta(days=1)
+        if start_date > end_date:
+            logger.info(
+                f"{company.name} ({company.ticker_symbol}): up to date "
+                f"(latest={latest_existing}); nothing to fetch"
+            )
+            return 0
     else:
         start_date = full_start
-    # Ensure start_date <= end_date
-    if start_date > end_date:
-        logger.warning(f"Start date {start_date} after end date {end_date} for company {company.name}, adjusting.")
-        start_date = end_date - timedelta(days=7)
+        if start_date > end_date:
+            start_date = end_date - timedelta(days=7)
 
     # Optimized: Only fetch date column to reduce memory and network usage
     existing_dates = {d[0] for d in db.session.query(StockPrice.date).filter_by(company_id=company.id).all()}
@@ -349,11 +353,14 @@ def update_benchmark_prices(tickers: Optional[List[str]] = None, force: bool = F
                 db.func.max(BenchmarkPrice.date)
             ).filter_by(ticker=ticker).scalar()
             if latest_existing and not force:
-                start_date = max(full_start, latest_existing - timedelta(days=3))
+                start_date = latest_existing + timedelta(days=1)
+                if start_date > end_date:
+                    logger.info(f"Benchmark {ticker}: up to date (latest={latest_existing}); nothing to fetch")
+                    continue
             else:
                 start_date = full_start
-            if start_date > end_date:
-                start_date = end_date - timedelta(days=7)
+                if start_date > end_date:
+                    start_date = end_date - timedelta(days=7)
 
             existing_dates = {d[0] for d in db.session.query(BenchmarkPrice.date).filter_by(ticker=ticker).all()}
 
