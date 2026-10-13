@@ -52,6 +52,147 @@ _run_lock = threading.Lock()
 JOB_RUNS = {}
 
 
+# --- who owns the schedule ---------------------------------------------------
+# A preloaded gunicorn master and the worker it forks both build the app, so both
+# would add the jobs and both would run them (the daily import twice, the weekly
+# recalculation twice). A Postgres advisory lock on a dedicated connection decides:
+# the process that acquires it runs the jobs ("owner"), every other process only
+# reports ("follower") and never starts a scheduler of its own.
+SCHEDULER_LOCK_KEY = 0x6B692121          # 'ki!!'
+SCHEDULER_ROLE = 'unknown'
+_owner_conn = None                       # held open for the process's lifetime
+_ownership_decided = False               # create_app() may run several times
+
+
+def _try_owner_lock():
+    """One-shot attempt at the advisory lock (True = this process owns it)."""
+    from .models import db
+
+    global _owner_conn
+    try:
+        if db.engine.dialect.name != 'postgresql':
+            return True                  # SQLite/tests: one process anyway
+        conn = db.engine.raw_connection()   # dedicated: the pool must not recycle it
+        cur = conn.cursor()
+        cur.execute("select pg_try_advisory_lock(%s)", (SCHEDULER_LOCK_KEY,))
+        got = bool(cur.fetchone()[0])
+        cur.close()
+        if got:
+            _owner_conn = conn
+            return True
+        conn.close()
+        return False
+    except Exception as exc:  # noqa: BLE001 - better to run than to stay idle
+        logger.warning("scheduler ownership check failed (%s); assuming owner", exc)
+        return True
+
+
+def _acquire_owner_lock(app):
+    """Decide, once per process, whether this process runs the jobs.
+
+    create_app() runs several times per process (render_start.py's helpers, then
+    gunicorn), so the answer has to stick: a second attempt would find the lock
+    already held by this same process and wrongly demote it to follower.
+    """
+    global _ownership_decided, SCHEDULER_ROLE
+    if _ownership_decided:
+        return SCHEDULER_ROLE == 'owner'
+    _ownership_decided = True
+    owner = _try_owner_lock()
+    SCHEDULER_ROLE = 'owner' if owner else 'follower'
+    return owner
+
+
+def _ensure_job_runs_table(app):
+    """Last-run records that survive a restart and are readable by any process.
+
+    The in-memory JOB_RUNS dict only describes the process that ran the job; the
+    API is served by a different one when gunicorn preloads, so the record has to
+    live in the database to be truthful.
+    """
+    from sqlalchemy import text as _sa_text
+    from .models import db
+
+    try:
+        if db.engine.dialect.name != 'postgresql':
+            return
+        with db.engine.begin() as conn:
+            conn.execute(_sa_text("""
+                create table if not exists job_runs (
+                    job_id text primary key,
+                    status text,
+                    started_at timestamptz,
+                    finished_at timestamptz,
+                    duration_seconds double precision,
+                    error text,
+                    result text
+                )"""))
+    except Exception as exc:  # noqa: BLE001 - bookkeeping must never block boot
+        app.logger.warning("job_runs table check failed: %s", exc)
+
+
+def _persist_run(record):
+    """Best-effort write of one run record (never raises)."""
+    from sqlalchemy import text as _sa_text
+    from .models import db
+
+    try:
+        if db.engine.dialect.name != 'postgresql':
+            return
+        import json as _json
+        with db.engine.begin() as conn:
+            conn.execute(_sa_text("""
+                insert into job_runs (job_id, status, started_at, finished_at,
+                                      duration_seconds, error, result)
+                values (:job_id, :status, cast(:started_at as timestamptz),
+                        cast(:finished_at as timestamptz), :duration_seconds, :error, :result)
+                on conflict (job_id) do update set
+                    status = excluded.status, started_at = excluded.started_at,
+                    finished_at = excluded.finished_at,
+                    duration_seconds = excluded.duration_seconds,
+                    error = excluded.error, result = excluded.result
+            """), {'job_id': record.get('job_id'), 'status': record.get('status'),
+                   'started_at': record.get('started_at'), 'finished_at': record.get('finished_at'),
+                   'duration_seconds': record.get('duration_seconds'),
+                   'error': record.get('error'),
+                   'result': _json.dumps(record.get('result'), ensure_ascii=False)
+                   if record.get('result') is not None else None})
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def load_run(job_id):
+    """The last recorded run of a job, from this process or the database."""
+    from sqlalchemy import text as _sa_text
+    from .models import db
+
+    rec = JOB_RUNS.get(job_id)
+    if rec:
+        return rec
+    try:
+        if db.engine.dialect.name != 'postgresql':
+            return None
+        import json as _json
+        with db.engine.connect() as conn:
+            row = conn.execute(_sa_text("""select job_id, status, started_at, finished_at,
+                                                  duration_seconds, error, result
+                                           from job_runs where job_id = :j"""),
+                               {'j': job_id}).fetchone()
+        if not row:
+            return None
+        out = {'job_id': row[0], 'status': row[1],
+               'started_at': row[2].isoformat() if row[2] else None,
+               'finished_at': row[3].isoformat() if row[3] else None,
+               'duration_seconds': row[4], 'error': row[5]}
+        try:
+            out['result'] = _json.loads(row[6]) if row[6] else None
+        except (TypeError, ValueError):
+            out['result'] = None
+        return out
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _iso(ts):
     return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat(timespec='seconds')
 
@@ -88,6 +229,7 @@ def _tracked(job_id, job_func):
         finally:
             record['finished_at'] = _iso(time.time())
             record['duration_seconds'] = round(time.time() - started, 2)
+            _persist_run(record)
     return wrapper
 
 
@@ -327,11 +469,13 @@ def retry_queued_emails():
         logger.warning(f"Email outbox retry failed: {e}")
 
 
-def init_scheduler(app):
-    """Initialize and start the background scheduler."""
-    global _app
-    _app = app
+def _register_jobs(app):
+    """Create every scheduled job on the module-level scheduler.
 
+    Called at boot, and again after the watchdog restarts a scheduler whose
+    worker thread was lost: the job store is in memory, so jobs have to be
+    re-added if the scheduler was rebuilt from empty.
+    """
     with app.app_context():
         # Always scheduled, and never gated on the recalculation setting: this
         # is the safety net for undeliverable mail.
@@ -409,13 +553,195 @@ def init_scheduler(app):
         else:
             logger.info("Automated recalculation is disabled in settings")
 
+
+def init_scheduler(app):
+    """Initialize and start the background scheduler (owner process only)."""
+    global _app, SCHEDULER_ROLE
+    _app = app
+
+    # A preloaded master and its forked worker both build the app: without this
+    # gate, both would run every job. Reporters never start a scheduler.
+    if not _acquire_owner_lock(app):
+        SCHEDULER_ROLE = 'follower'
+        # Still register the jobs and start the scheduler *paused*: nothing runs
+        # (the owner has the schedule), but /api/jobs can report every job, its
+        # trigger and its persisted last run from whichever process serves the
+        # request.
+        _register_jobs(app)
         if not scheduler.running:
+            try:
+                scheduler.start(paused=True)
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("paused scheduler start failed: %s", exc)
+        logger.info("another process owns the job schedule; this one only reports")
+        _start_watchdog()
+        return
+
+    SCHEDULER_ROLE = 'owner'
+    _register_jobs(app)
+
+    if not scheduler.running:
+        try:
             scheduler.start()
-            logger.info("Background scheduler started")
+            logger.info("Background scheduler started (owner)")
+        except Exception as exc:  # noqa: BLE001 - a broken scheduler must not
+            logger.exception("scheduler start failed: %s", exc)  # kill the app
+
+    _start_watchdog()
+
+
+# ---------------------------------------------------------------------------
+# Liveness watchdog
+# ---------------------------------------------------------------------------
+# A BackgroundScheduler whose worker thread is gone reports next_run times in the
+# past for ever and silently stops running the club's imports and the email
+# retry - exactly what production showed (a live, HTTP-answering process with a
+# next_run 17 minutes stale). Nothing else watches it on a single-worker free
+# instance, so a small daemon thread does: it records a heartbeat (exposed by
+# /api/jobs) and restarts the scheduler when the thread is gone or when a job
+# has been overdue far longer than any plausible scheduling delay.
+HEARTBEAT = {'at': None, 'running': None, 'thread_alive': None, 'next': {},
+             'restarts': 0, 'last_error': None}
+WATCHDOG_INTERVAL = 60          # seconds between liveness checks
+STALE_JOB_SECONDS = 900         # a job overdue by this much means the loop is gone
+HEARTBEAT_EVERY = 5             # log a heartbeat every N checks (5 minutes)
+
+_watchdog_thread = None              # the watchdog thread of *this* process
+_watchdog_stop = threading.Event()   # set on shutdown: never restart a dying app
+
+
+def scheduler_thread_alive():
+    """Whether the scheduler's own worker thread is alive."""
+    thread = getattr(scheduler, '_thread', None)
+    return bool(thread and thread.is_alive())
+
+
+def _stalest_job(now):
+    """(job_id, seconds_overdue) for the job furthest past its scheduled time."""
+    worst = None
+    for job in scheduler.get_jobs():
+        nxt = getattr(job, 'next_run_time', None)
+        if nxt is None:
+            continue
+        late = (now - nxt).total_seconds()
+        if late > 0 and (worst is None or late > worst[1]):
+            worst = (job.id, late)
+    return worst
+
+
+def _restart_scheduler(reason):
+    """Replace the scheduler with a fresh, running one.
+
+    APScheduler's ``shutdown()`` also shuts down the executors, and the default
+    ThreadPoolExecutor cannot be reused ("cannot schedule new futures after
+    shutdown"), so the object has to be rebuilt rather than restarted. The module
+    global is rebound: every caller resolves it at call time (routes.py imports it
+    inside the view), so they all pick up the new instance.
+    """
+    global scheduler
+    old = scheduler
+    try:
+        if old.running:
+            old.shutdown(wait=False)
+    except Exception as exc:  # noqa: BLE001 - the old one is being discarded anyway
+        logger.warning("scheduler shutdown during restart failed: %s", exc)
+    try:
+        scheduler = BackgroundScheduler()
+        if _app is not None:
+            _register_jobs(_app)
+        scheduler.start()
+        HEARTBEAT['restarts'] += 1
+        HEARTBEAT['last_error'] = reason
+        logger.warning("scheduler restarted (%s); %d job(s)", reason, len(scheduler.get_jobs()))
+        return True
+    except Exception as exc:  # noqa: BLE001 - record and keep the app serving
+        HEARTBEAT['last_error'] = f'{type(exc).__name__}: {exc}'
+        logger.exception("scheduler restart failed: %s", exc)
+        return False
+
+
+def _watchdog_loop():
+    checks = 0
+    while not _watchdog_stop.is_set():
+        time.sleep(WATCHDOG_INTERVAL)
+        if _watchdog_stop.is_set():
+            return
+        checks += 1
+        try:
+            now = datetime.now(timezone.utc)
+            alive = scheduler_thread_alive()
+            HEARTBEAT.update({'at': now.isoformat(timespec='seconds'),
+                              'running': scheduler.running,
+                              'thread_alive': alive,
+                              'next': {j.id: (j.next_run_time.isoformat(timespec='seconds')
+                                              if j.next_run_time else None)
+                                       for j in scheduler.get_jobs()}})
+            if SCHEDULER_ROLE != 'owner':
+                # Reporters must never start a scheduler: that would double-run
+                # every job next to the process that owns the schedule.
+                if checks % HEARTBEAT_EVERY == 0:
+                    logger.info("scheduler heartbeat: follower (schedule owned by another process)")
+                continue
+            if not alive:
+                _restart_scheduler('worker thread not alive')
+            else:
+                stale = _stalest_job(now)
+                if stale and stale[1] > STALE_JOB_SECONDS:
+                    _restart_scheduler(f'{stale[0]} overdue by {stale[1] / 60:.1f} min')
+            if checks % HEARTBEAT_EVERY == 0:
+                logger.info("scheduler heartbeat: running=%s thread=%s next=%s",
+                            HEARTBEAT['running'], HEARTBEAT['thread_alive'], HEARTBEAT['next'])
+        except Exception as exc:  # noqa: BLE001 - the watchdog itself must never die
+            logger.warning("scheduler watchdog error: %s", exc)
+
+
+def _start_watchdog():
+    global _watchdog_thread
+    if _watchdog_thread is not None and _watchdog_thread.is_alive():
+        return
+    # Deliberately not a boolean flag: after a gunicorn fork the parent's thread
+    # object is still referenced but its thread does not exist in the child, and a
+    # flag would make the child believe it already has a watchdog.
+    _watchdog_thread = threading.Thread(target=_watchdog_loop, name='scheduler-watchdog',
+                                        daemon=True)
+    _watchdog_thread.start()
+    logger.info("scheduler watchdog started (checks every %ss)", WATCHDOG_INTERVAL)
+
+
+# --- request-path safety net -------------------------------------------------
+# create_app() is also called by the pre-start helpers (render_start.py) and, if
+# the service ever runs gunicorn with --preload, by the gunicorn master - whose
+# threads do not survive the fork into the worker that actually serves requests.
+# So the process that answers HTTP re-checks its own scheduler on the request
+# path: cheap (a timestamp comparison), idempotent, and it means a lost or
+# never-started scheduler recovers on the first request instead of never.
+_last_ensure = 0.0
+_ensure_lock = threading.Lock()
+
+
+def ensure_scheduler_healthy(max_age_seconds=30):
+    """Owner: revive the scheduler if its thread died. Follower: report only.
+
+    Never starts a scheduler in a process that does not own the schedule - a
+    preloaded master's worker would otherwise run every job a second time.
+    """
+    global _last_ensure
+    now = time.time()
+    with _ensure_lock:
+        if now - _last_ensure < max_age_seconds:
+            return False
+        _last_ensure = now
+    _start_watchdog()
+    if _watchdog_stop.is_set() or SCHEDULER_ROLE != 'owner':
+        return False
+    if not scheduler_thread_alive():
+        return _restart_scheduler('request path: scheduler thread not alive')
+    return False
 
 
 def shutdown_scheduler():
     """Shutdown the scheduler gracefully."""
+    _watchdog_stop.set()
     if scheduler.running:
         scheduler.shutdown()
         logger.info("Background scheduler shut down")

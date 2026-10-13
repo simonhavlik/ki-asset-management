@@ -297,6 +297,9 @@ def create_app(config_name=None):
         _ensure_token_index(app)
         # Auto-migrate: dashboard payloads that survive restarts
         _ensure_dashboard_cache_table(app)
+        # Auto-migrate: scheduled-job run bookkeeping (readable from any process)
+        from .scheduler import _ensure_job_runs_table
+        _ensure_job_runs_table(app)
         
         # Warm caches for Neon.tech optimization (pre-populate in-memory cache)
         if (os.environ.get('NEON_OPTIMIZE', 'true').lower() == 'true'
@@ -310,10 +313,26 @@ def create_app(config_name=None):
     # Initialize background scheduler for weekly updates
     from .scheduler import init_scheduler, shutdown_scheduler
     init_scheduler(app)
-    
+
     # Register shutdown handler
     import atexit
     atexit.register(shutdown_scheduler)
+
+    @app.before_request
+    def _scheduler_request_check():
+        """Keep the scheduler alive in the process that actually serves traffic.
+
+        If the service runs gunicorn with --preload, create_app() (and therefore
+        the scheduler) runs in the master, and the forked worker inherits a
+        scheduler whose worker thread does not exist - jobs then never fire and
+        /api/jobs reports a next_run stuck in the past. Throttled internally to
+        one check per 30s; never allowed to break a request.
+        """
+        try:
+            from .scheduler import ensure_scheduler_healthy
+            ensure_scheduler_healthy()
+        except Exception:  # noqa: BLE001 - maintenance must not fail a page
+            pass
 
     # Add global functions to Jinja2
     app.jinja_env.globals.update(abs=abs, min=min, max=max)

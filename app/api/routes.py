@@ -177,16 +177,56 @@ def recalculate_status():
 @require_api_key
 def jobs():
     """The scheduler's jobs: next run, trigger, and the last run's outcome."""
-    from ..scheduler import JOB_RUNS, scheduler, get_scheduler_settings
+    import os
+    import threading
+    import time as _time
+
+    from ..scheduler import HEARTBEAT, SCHEDULER_ROLE, load_run, scheduler, get_scheduler_settings
+
     out = []
     for j in scheduler.get_jobs():
         nxt = getattr(j, 'next_run_time', None)
         out.append({'id': j.id, 'name': j.name,
                     'next_run': nxt.isoformat() if nxt else None,
                     'trigger': str(j.trigger),
-                    'last_run': JOB_RUNS.get(j.id)})
+                    'last_run': load_run(j.id)})
+
+    # Diagnostics: a background scheduler that reports next_run in the past is
+    # either asleep, restarted, or has lost its worker thread. The process start
+    # time and the live thread list say which — without paying for Render logs.
+    proc_started = None
+    try:
+        with open('/proc/self/stat', 'r') as fh:
+            fields = fh.read().split()
+        ticks = os.sysconf('SC_CLK_TCK')
+        uptime = float(open('/proc/uptime').read().split()[0])
+        process_age = uptime - (int(fields[21]) / ticks)  # field 22 = starttime
+        proc_started = _time.time() - process_age
+    except Exception:  # noqa: BLE001 - diagnostics are best effort
+        proc_started = None
+    try:
+        with open('/proc/self/cmdline', 'rb') as fh:
+            cmdline = fh.read().decode('utf-8', 'replace').split('\x00')
+    except Exception:  # noqa: BLE001
+        cmdline = []
+
     return jsonify({'scheduler_running': scheduler.running,
-                    'settings': get_scheduler_settings(), 'jobs': out})
+                    'role': SCHEDULER_ROLE,
+                    'settings': get_scheduler_settings(),
+                    'diag': {
+                        'now': datetime.now(timezone.utc).isoformat(timespec='seconds'),
+                        'pid': os.getpid(),
+                        'process_started': (datetime.fromtimestamp(proc_started, tz=timezone.utc)
+                                            .isoformat(timespec='seconds')) if proc_started else None,
+                        'cmdline': [c for c in cmdline if c][:8],
+                        'scheduler_thread_alive': bool(getattr(scheduler, '_thread', None)
+                                                       and scheduler._thread.is_alive()),
+                        'threads': [t.name for t in threading.enumerate()],
+                        'gunicorn_env': os.environ.get('GUNICORN_CMD_ARGS'),
+                        'skip_warm': os.environ.get('KI_SKIP_WARM'),
+                        'heartbeat': HEARTBEAT,
+                    },
+                    'jobs': out})
 
 
 @api_bp.route('/logs', methods=['GET'])
