@@ -119,7 +119,8 @@ def test_run_notion_import_creates_analyses(app, monkeypatch):
 
     monkeypatch.setattr(nh, 'NotionClient', FakeClient)
     # Keep it hermetic: no DeepSeek/Brave/Yahoo calls for the new company.
-    monkeypatch.setattr(ci, 'is_other_event', lambda name: True)
+    # is_other_event() takes (name, sector); accept both.
+    monkeypatch.setattr(ci, 'is_other_event', lambda *args: True)
     monkeypatch.setenv('NOTION_API_KEY', 'test-key')
     monkeypatch.setenv('NOTION_DATABASE_ID', 'test-db-id')
 
@@ -131,3 +132,75 @@ def test_run_notion_import_creates_analyses(app, monkeypatch):
     assert stats['created'] == 1
     with app.app_context():
         assert Analysis.query.count() == before + 1
+
+
+def _run_import_with_csv(app, monkeypatch, csv_holder):
+    """Run the shared import path against a CSV this test can change between runs."""
+    import app.utils.notion_helper as nh
+    import app.utils.csv_import as ci
+    from app.utils.notion_import import run_notion_import
+
+    class FakeClient:
+        def __init__(self, api_key):
+            self.api_key = api_key
+
+        def get_database_properties(self, database_id):
+            return {'Name': {'type': 'title'}, 'Date': {'type': 'date'},
+                    'Sector': {'type': 'rich_text'}, 'Analyst': {'type': 'people'},
+                    'Voting': {'type': 'rich_text'}, 'Status': {'type': 'select'}}
+
+        def export_database_as_csv(self, database_id, column_mapping):
+            return csv_holder['csv']
+
+    monkeypatch.setattr(nh, 'NotionClient', FakeClient)
+    monkeypatch.setattr(ci, 'is_other_event', lambda *args: True)
+    monkeypatch.setenv('NOTION_API_KEY', 'test-key')
+    monkeypatch.setenv('NOTION_DATABASE_ID', 'test-db-id')
+
+    with app.app_context():
+        return run_notion_import()
+
+
+def test_notion_import_picks_up_a_changed_voting_tally(app, monkeypatch):
+    """A new tally must land even when the analysis status has not moved.
+
+    Notion writes the vote result in the Voting column (mapped to Comment) as
+    for-neutral-against-not_voted, e.g. '9-3-1-0'. The committee votes after the
+    analysis is first imported, so the row's Comment changes while its Status
+    stays 'On Watchlist' - the importer used to write Comment only when the
+    status changed, which left production carrying stale tallies.
+    """
+    from app.models import Analysis
+
+    holder = {'csv': 'Company,Date,Sector,Analyst,Opponent,Comment,Status,Files & media\n'
+                     'Tally Test Co,2026-10-01,Technology,,,,On Watchlist,\n'}
+    _run_import_with_csv(app, monkeypatch, holder)
+
+    holder['csv'] = ('Company,Date,Sector,Analyst,Opponent,Comment,Status,Files & media\n'
+                     'Tally Test Co,2026-10-01,Technology,,,9-3-1-0,On Watchlist,\n')
+    stats = _run_import_with_csv(app, monkeypatch, holder)
+
+    assert stats['success'] is True
+    assert stats['updated'] == 1, 'a changed tally must not be counted as unchanged'
+    with app.app_context():
+        analysis = Analysis.query.join(Analysis.company).filter_by(name='Tally Test Co').one()
+        assert analysis.comment == '9-3-1-0'
+        assert analysis.status == 'On Watchlist'
+
+
+def test_notion_import_does_not_wipe_comment_with_a_blank_column(app, monkeypatch):
+    """An import whose Comment column is empty leaves the stored tally alone."""
+    from app.models import Analysis
+
+    holder = {'csv': 'Company,Date,Sector,Analyst,Opponent,Comment,Status,Files & media\n'
+                     'Blank Comment Co,2026-10-01,Technology,,,9-3-1-0,On Watchlist,\n'}
+    _run_import_with_csv(app, monkeypatch, holder)
+
+    holder['csv'] = ('Company,Date,Sector,Analyst,Opponent,Comment,Status,Files & media\n'
+                     'Blank Comment Co,2026-10-01,Technology,,,,On Watchlist,\n')
+    stats = _run_import_with_csv(app, monkeypatch, holder)
+
+    assert stats['success'] is True
+    with app.app_context():
+        analysis = Analysis.query.join(Analysis.company).filter_by(name='Blank Comment Co').one()
+        assert analysis.comment == '9-3-1-0', 'a blank Comment must not delete the stored tally'

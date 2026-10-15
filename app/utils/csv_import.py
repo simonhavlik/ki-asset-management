@@ -262,11 +262,27 @@ class CsvImporter:
         ).first()
         
         if existing:
-            # Update existing analysis if status changed
-            if existing.status != status:
+            # Sync every imported column, not just the status. Notion is the
+            # source of truth for the voting tally (Voting -> Comment) and for
+            # attachments, and both change after the row is first imported - the
+            # committee votes, a PDF is attached - while Status stays put. Writing
+            # only on a status change left 39 rows in production carrying a stale
+            # tally (and four with none at all).
+            #
+            # A blank incoming Comment/Files is treated as "nothing to say", not
+            # as a deletion, so a manual CSV upload that leaves those columns
+            # empty cannot wipe already-imported data.
+            new_comment = row.get('Comment', '').strip()
+            new_files = row.get('Files & media', '').strip()
+            comment_changed = bool(new_comment) and new_comment != (existing.comment or '').strip()
+            files_changed = bool(new_files) and new_files != (existing.files_media or '').strip()
+
+            if existing.status != status or comment_changed or files_changed:
                 existing.status = status
-                existing.comment = row.get('Comment', '').strip()
-                existing.files_media = row.get('Files & media', '').strip()
+                if comment_changed:
+                    existing.comment = new_comment
+                if files_changed:
+                    existing.files_media = new_files
                 existing.updated_at = datetime.utcnow()
                 db.session.flush()
                 self.progress.updated += 1
