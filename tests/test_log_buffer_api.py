@@ -5,7 +5,7 @@ import logging
 import pathlib
 import sys
 
-path = pathlib.Path("/tmp/ki-check/log_buffer.py")
+path = pathlib.Path(__file__).resolve().parent.parent / "app" / "api" / "log_buffer.py"
 spec = importlib.util.spec_from_file_location("log_buffer", path)
 mod = importlib.util.module_from_spec(spec)
 sys.modules["log_buffer"] = mod
