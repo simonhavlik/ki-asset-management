@@ -42,7 +42,7 @@ from sqlalchemy import func
 
 from ..extensions import db
 from ..models import (Analysis, PerformanceCalculation, PortfolioPurchase,
-                      User, BenchmarkPrice, Company, StockPrice)
+                      User, BenchmarkPrice, Company, StockPrice, CompanySectorCache)
 from .performance import get_vote_counts_for_analyses
 from .presentation_export import (
     get_analyst_summary_table,
@@ -492,6 +492,16 @@ def _collect(window_years: Optional[int] = None) -> dict:
         'series': series, 'metrics': metrics,
         'win_rate': (sum(1 for p in positions if p['ret_pct'] and p['ret_pct'] > 0) / n * 100.0) if n else None,
     }
+
+def _collect_full(lang: str, window_years: Optional[int] = None) -> dict:
+    data = _collect(window_years)
+    tracker = _load_tracker()
+    pipe = _pipeline_counts()
+    live_ret = [p['unreal_pct'] for p in tracker['positions']]
+    data['live_win_rate'] = (sum(1 for v in live_ret if v > 0) / len(live_ret) * 100.0) if live_ret else None
+    data['tracker'] = tracker
+    data['pipe'] = pipe
+    return data
 
 
 # ------------------------------------------------------------------
@@ -1348,26 +1358,60 @@ def build_pitch_deck(lang: str = 'cs', window_years: Optional[int] = None):
     """Render the deck; returns (BytesIO, filename)."""
     from datetime import date as _date
     txt = _txt(lang)
-    data = _collect(window_years)
+    data = _collect_full(lang, window_years)
+    tracker = data['tracker']
+    pipe = data['pipe']
+    m = data['metrics']
 
     prs = Presentation()
     prs.slide_width, prs.slide_height = SLIDE_W, SLIDE_H
 
-    _slide_cover(prs, txt, lang, data)                                               # 01
-    _slide_positions(prs, 2, txt, lang, data)                                        # 02
-    _slide_performance(prs, 3, txt, lang, data)                                      # 03
-    _slide_contributions(prs, 4, txt, lang, data)                                    # 04
-    _slide_paths(prs, 5, txt, lang, data)                                            # 05
-    _slide_divider(prs, txt['d2_kicker'], txt['d2_title'], txt['d2_sub'])             # 06
-    _slide_month_heat(prs, 7, txt, lang, data)                                       # 07
-    _slide_distribution(prs, 8, txt, lang, data)                                     # 08
-    _slide_drawdown(prs, 9, txt, lang, data)                                         # 09
-    _slide_rolling(prs, 10, txt, lang, data)                                         # 10
-    _slide_tails(prs, 11, txt, lang, data)                                           # 11
-    _slide_regression(prs, 12, txt, lang, data)                                      # 12
-    _slide_forward(prs, 13, txt, lang, data)                                         # 13
-    _slide_benchmarks(prs, 14, txt, lang, data)                                      # 14
-    _slide_close(prs, 15, txt, lang, data)                                           # 15
+    # 01 LIVE THE BOOK
+    _slide_cover(prs, txt, lang, data)
+    _slide_live_book(prs, 2, txt, lang, data, tracker)
+    _slide_live_returns(prs, 3, txt, lang, data, tracker)
+    _slide_nav_track(prs, 4, txt, lang, data, tracker)
+    _slide_alloc(prs, 5, txt, lang, data, tracker)
+    _slide_purchase_log(prs, 6, txt, lang, data)
+    _slide_live_paths(prs, 7, txt, lang, data, tracker)
+
+    # 02 RESEARCH FACTORY
+    _slide_divider(prs, txt['d2_kicker'], txt['d2_title'], txt['d2_sub'])
+    _slide_funnel2(prs, 9, txt, lang, data)
+    _slide_factory_monthly(prs, 10, txt, lang, data, pipe)
+    _slide_factory_year(prs, 11, txt, lang, data)
+    _slide_sector_table(prs, 12, txt, lang, data, None, _ft(lang)['sector_title_all'],
+                        _ft(lang)['sector_sub_all'])
+    _slide_sector_table(prs, 13, txt, lang, data, ('On Watchlist',),
+                        _ft(lang)['sector_title_watch'], _ft(lang)['sector_sub_watch'])
+    _slide_sector_compare(prs, 14, txt, lang, data)
+    _slide_analysts_ft(prs, 15, txt, lang, data)
+    _slide_top_bottom(prs, 16, txt, lang, data, worst=False)
+    _slide_top_bottom(prs, 17, txt, lang, data, worst=True)
+    _slide_exclusions(prs, 18, txt, lang, data)
+
+    # 03 PERFORMANCE (vote-approved simulation, labelled as such)
+    _slide_divider(prs, txt['d1_kicker'], txt['d1_title'],
+                   ('Simulace hlasovacího portfolia; živé pozice jsou nahoře.' if lang == 'cs'
+                    else 'Simulation of the vote-approved book; live positions are above.'))
+    _slide_performance(prs, 20, txt, lang, data)
+    _slide_contributions(prs, 21, txt, lang, data)
+    _slide_paths(prs, 22, txt, lang, data)
+
+    # 04 RISK
+    _slide_divider(prs, txt['d2_kicker'], txt['d2_title'], txt['d2_sub'])
+    _slide_month_heat(prs, 24, txt, lang, data)
+    _slide_distribution(prs, 25, txt, lang, data)
+    _slide_drawdown(prs, 26, txt, lang, data)
+    _slide_rolling(prs, 27, txt, lang, data)
+    _slide_tails(prs, 28, txt, lang, data)
+    _slide_regression(prs, 29, txt, lang, data)
+    _slide_benchmarks(prs, 30, txt, lang, data)
+
+    # 05 FORWARD
+    _slide_divider(prs, txt['d3_kicker'], txt['d3_title'], txt['d3_sub'])
+    _slide_forward(prs, 32, txt, lang, data)
+    _slide_close(prs, 33, txt, lang, data)
 
     stream = io.BytesIO()
     prs.save(stream)
@@ -1389,4 +1433,668 @@ def _slide_divider(prs, kicker, title, sub):
     _para(tf, title, size=34, color=WHITE, bold=True, first=True)
     tf = _tbox(slide, MARGIN, Inches(4.5), Inches(6.8), Inches(0.8))
     _para(tf, sub, size=11, color=MINT_TEXT, line=1.25, first=True)
+    return slide
+
+
+# ------------------------------------------------------------------
+# Live book - from the club's Portfolio tracker (Patria broker export)
+# The tracker file ships with the repo (app/utils/data/portfolio_tracker.xlsx);
+# KI_TRACKER_PATH can point at a fresher export.
+# ------------------------------------------------------------------
+
+def _tracker_path() -> str:
+    import os
+    return os.environ.get('KI_TRACKER_PATH') or os.path.join(
+        os.path.dirname(__file__), 'data', 'portfolio_tracker.xlsx')
+
+
+def _load_tracker() -> Dict:
+    """Patria export: securities block + cash block + monthly NAV from Perf table."""
+    import os
+    import pandas as pd
+    path = _tracker_path()
+    if not os.path.exists(path):
+        raise FileNotFoundError(f'Portfolio tracker not found at {path}')
+    xl = pd.read_excel(path, sheet_name='Portfolio', header=None)
+
+    positions, cash_czk, nav_czk = [], None, None
+    in_sec = False
+    for _, row in xl.iterrows():
+        c0 = str(row.iloc[0]) if pd.notna(row.iloc[0]) else ''
+        if c0 == 'Cenné papíry':
+            in_sec = True
+        elif in_sec and (c0 == 'Peněžní zůstatky'):
+            in_sec = False
+        if in_sec and pd.notna(row.iloc[3]) and pd.notna(row.iloc[4]) \
+                and c0 and not c0.startswith('Cenné papíry'):
+            try:
+                positions.append({
+                    'name': c0, 'ticker': str(row.iloc[1]), 'market': str(row.iloc[2]),
+                    'qty': float(row.iloc[3]), 'avg_cost': float(row.iloc[4]),
+                    'mkt_price': float(row.iloc[5]), 'unreal_pct': float(row.iloc[6]) * 100.0,
+                    'value_local': float(row.iloc[7]), 'value_czk': float(row.iloc[8]),
+                })
+            except (TypeError, ValueError):
+                pass
+        if c0 == 'Peníze celkem':
+            cash_czk = float(row.iloc[5])
+        if c0 == 'Cenné papíry celkem CZK':
+            sec_czk = float(row.iloc[7])
+
+    nav_czk = cash_czk + sec_czk
+
+    # monthly track record from Perf table (recorded statements)
+    perf = pd.read_excel(path, sheet_name='Perf table', header=None)
+    nav_series, pnl_series = [], []
+    for ri, row in perf.iterrows():
+        label = str(row.iloc[1]) if pd.notna(row.iloc[1]) else ''
+        if label in ('value', 'PnL'):
+            # the labelled ROW is the Jan..Dec header; the year row under it holds the numbers
+            if ri + 1 >= perf.shape[0]:
+                continue
+            for ci in range(2, 14):
+                mo0 = perf.iloc[ri, ci]
+                if pd.isna(mo0) or str(mo0) not in ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                                                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'):
+                    continue
+                try:
+                    v = float(perf.iloc[ri + 1, ci])
+                except (TypeError, ValueError):
+                    continue
+                if label == 'value':
+                    # NAV block values are 100k-scale CZK; the allocation blocks are small
+                    if v > 100000:
+                        nav_series.append((str(mo0), v))
+                else:
+                    pnl_series.append((str(mo0), v * 100.0))
+    # keep the dated (2026) block: Apr..Aug filled, then None until year end
+    nav_series = [(mo, v) for mo, v in nav_series if v is not None]
+    nav_map = {mo: v for mo, v in nav_series}
+    pnl_map = {mo: v for mo, v in pnl_series}
+    return {
+        'positions': positions, 'cash_czk': cash_czk, 'nav_czk': nav_czk,
+        'sec_czk': sec_czk, 'nav_series': nav_series, 'pnl_series': pnl_series,
+        'nav_map': nav_map,
+        'pnl_map': dict(pnl_series),
+        'export_date': '29. 8. 2026',
+    }
+
+
+def _invested_positions() -> List[Dict]:
+    """The invested book: DB purchases reaching back to the actual buy dates."""
+    rows = (PortfolioPurchase.query
+            .with_entities(PortfolioPurchase.analysis_id, PortfolioPurchase.purchase_date)
+            .all())
+    out = []
+    for aid, bought in rows:
+        a = Analysis.query.get(aid)
+        if not a:
+            continue
+        c = Company.query.get(a.company_id)
+        pc = (PerformanceCalculation.query.filter_by(analysis_id=aid)
+              .order_by(PerformanceCalculation.calculation_date.desc()).first())
+        # price at the purchase date (not the analysis date)
+        bought_px = (StockPrice.query.filter(StockPrice.company_id == a.company_id,
+                                             StockPrice.date <= bought)
+                     .order_by(StockPrice.date.desc()).first())
+        px = float(bought_px.close_price) if bought_px else float(pc.price_at_analysis) if pc else None
+        cur = float(pc.price_current) if pc else None
+        ret = (cur / px - 1.0) * 100.0 if cur and px else None
+        out.append({
+            'ticker': c.ticker_symbol, 'name': c.name, 'bought': bought,
+            'entry_px': px, 'cur_px': cur, 'ret_pct': ret,
+            'analysis_date': a.analysis_date, 'analysis_id': aid,
+        })
+    return sorted(out, key=lambda r: r['bought'])
+
+
+def _sector_stats(statuses: Optional[Tuple[str, ...]] = None) -> List[Dict]:
+    """n analyses / avg return / sigma per sector, optionally restricted to statuses."""
+    raw = db.session.query(
+        CompanySectorCache.sector,
+        PerformanceCalculation.return_pct,
+        Analysis.id,
+    ).join(Company, CompanySectorCache.company_id == Company.id) \
+     .join(Analysis, Analysis.company_id == Company.id) \
+     .join(PerformanceCalculation, PerformanceCalculation.analysis_id == Analysis.id)
+    if statuses:
+        raw = raw.filter(Analysis.status.in_(statuses))
+    grouped = {}
+    for sector, ret, aid in raw.all():
+        e = grouped.setdefault(sector, {'ids': set(), 'returns': []})
+        e['ids'].add(aid)
+        if ret is not None:
+            e['returns'].append(float(ret))
+    out = []
+    for sector, e in grouped.items():
+        rets = e['returns']
+        out.append({
+            'sector': sector, 'analyses': len(e['ids']),
+            'avg_return': (sum(rets) / len(rets)) if rets else None,
+            'stddev': (float(np.std(rets, ddof=1)) if len(rets) > 1 else 0.0),
+            'max': max(rets) if rets else None, 'min': min(rets) if rets else None,
+        })
+    return sorted(out, key=lambda s: -(s['avg_return'] or 0))
+
+
+def _pipeline_counts() -> Dict:
+    """Distinctions per month and status, so the deck can chart the factory."""
+    analyses = Analysis.query.all()
+    months, approved_m = {}, {}
+    for a in analyses:
+        if not a.analysis_date:
+            continue
+        key = a.analysis_date.strftime('%m/%y')
+        months[key] = months.get(key, 0) + 1
+        if a.status == 'On Watchlist':
+            approved_m[key] = approved_m.get(key, 0) + 1
+    keys = sorted(months)
+    return {
+        'keys': keys,
+        'total': [months[k] for k in keys],
+        'approved': [approved_m.get(k, 0) for k in keys],
+        'all_n': len(analyses),
+        'watchlist_n': sum(1 for a in analyses if a.status == 'On Watchlist'),
+        'purchases_n': PortfolioPurchase.query.count(),
+    }
+
+
+# ------------------------------------------------------------------
+# Extra copy for the tracker / research-factory slides (hand-written Czech)
+# ------------------------------------------------------------------
+
+_FT = {
+    'en': {
+        'book_kicker': 'LIVE BOOK', 'book_title': 'The live book',
+        'book_sub': 'The Patria export with quantities and average cost, exactly as the broker '
+                    'reports it. Invested dates come from the club purchase log.',
+        'h_qty': 'Qty', 'h_cost': 'Avg cost', 'h_mkt': 'Price', 'h_pnl': 'P&L',
+        'h_value_czk': 'Value (CZK)', 'h_invested': 'Invested',
+        'book_ret_title': 'Unrealised P&L by position',
+        'book_ret_sub': 'Percent since average cost, as reported by the broker.',
+        'nav_kicker': 'TRACK RECORD', 'nav_title': 'NAV, month by month',
+        'nav_sub': 'Recorded club statements; the May figure is also linked to the Patria export.',
+        'h_month': 'Month', 'h_nav': 'NAV (CZK)', 'h_pnlpct': 'Return',
+        'nav_chart': 'NAV (CZK)',
+        'alloc_kicker': 'ALLOCATION', 'alloc_title2': 'Where the money sits',
+        'alloc_sub2': 'Cash versus the seven operating positions, from the same export.',
+        'alloc_cash': 'Cash', 'alloc_pos': 'Positions',
+        'log_kicker': 'PURCHASE LOG', 'log_title': 'The full purchase log',
+        'log_sub': 'Every investment the club logged, entry price from the price database at the buy date.',
+        'live_paths_title': 'Live positions since invested',
+        'live_paths_sub': 'Each live position, indexed to 100 on the day the club actually bought.',
+        'bin_kicker': 'RESEARCH FACTORY', 'bin_title': 'The research factory',
+        'bin_title': 'The research factory',
+        'bin_sub': 'From every analysis to the positions the committee actually buys.',
+        'funnel_h_analysed': 'analyses', 'funnel_h_watch': 'committee-approved',
+        'funnel_h_bought': 'bought',
+        'per_title': 'Analyses per month', 'per_sub': 'New analyses each month versus committee approvals.',
+        'cum_title': 'Cumulative research output',
+        'cum_approved': 'approved', 'cum_total': 'analyses',
+        'sector_kicker': 'SECTOR CUTS', 'sector_title_all': 'Every analysis, by sector',
+        'sector_title_watch': 'Committee-approved, by sector',
+        'sector_sub_all': 'Return statistics across the whole research history of that sector.',
+        'sector_sub_watch': 'Same numbers, restricted to positions the committee approved.',
+        'h_sector': 'Sector', 'h_n': 'n', 'h_avg': 'Avg return', 'h_std': 'σ', 'h_min': 'Worst',
+        'sector_cmp_title': 'Picked by the committee, or just analysed?',
+        'sector_cmp_sub': 'Average return per sector: everything analysed versus what the committee approved.',
+        'sector_cmp_all': 'all analysed', 'sector_cmp_watch': 'committee-approved',
+        'analyst_title': 'The analyst bench', 'analyst_sub': 'Workload and results per analyst.',
+        'top_title': 'Ten best research calls', 'top_sub': 'Across every analysed company, by latest return.',
+        'bottom_title': 'Ten worst research calls',
+        'year_kicker': 'PER YEAR', 'year_title': 'Research volume per year',
+        'year_sub': 'Analyses written versus committee-approved, per calendar year.',
+        'excl_title': 'What stays out of the book',
+        'excl': [
+            ('Tobacco, weapons, gambling', 'and companies doing real environmental or social harm'),
+            ('"Cursed" sectors', 'chronically low-ROIC industries airlines-style'),
+            ('Honesty', 'any history of accounting fraud, integrity failure or governance red flags'),
+        ],
+    },
+    'cs': {
+        'book_kicker': 'ŽIVÁ KNIHA', 'book_title': 'Živá kniha (Patria)',
+        'book_sub': 'Export z Patrii s počty kusů a průměrnou pořizovací cenou, přesně tak, jak '
+                    'hlásí burza. Data nákupů jsou z klubového logu',
+        'h_qty': 'Ks', 'h_cost': 'Průměrná nákupní', 'h_mkt': 'Kurz', 'h_pnl': 'P&L',
+        'h_value_czk': 'Hodnota (CZK)', 'h_invested': 'Investováno',
+        'book_ret_title': 'Nerealizovaný zisk po pozicích',
+        'book_ret_sub': 'Procento od průměrné pořizovací ceny, jak ho hlásí Patria.',
+        'nav_kicker': 'TRACK RECORD', 'nav_title': 'NAV měsíc po měsíci',
+        'nav_sub': 'Zaznamenané výkazy klubu; květnová hodnota navazuje na Patria export.',
+        'h_month': 'Měsíc', 'h_nav': 'NAV (CZK)', 'h_pnlpct': 'Výnos',
+        'nav_chart': 'NAV (CZK)',
+        'alloc_kicker': 'ROZLOŽENÍ', 'alloc_title2': 'Kde leží peníze',
+        'alloc_sub2': 'Hotovost proti sedmi provozovaným pozicím, ze stejného exportu.',
+        'alloc_cash': 'Hotovost', 'alloc_pos': 'Pozice',
+        'log_kicker': 'LOG NÁKUPŮ', 'log_title': 'Kompletní log nákupů',
+        'log_sub': 'Každá investice, kterou klub zapsal; vstupní cena z databáze kurzů na nákupní datum.',
+        'live_paths_title': 'Živé pozice od investice',
+        'live_paths_sub': 'Každá živá pozice v procentech od svého nákupního dne.',
+        'bin_kicker': 'VZKUMNÁ TOVÁRNA', 'bin_title': 'Výzkumná továrna',
+        'bin_sub': 'Od každé analýzy až k pozicím, které výbor skutečně kupuje.',
+        'funnel_h_analysed': 'analýz celkem', 'funnel_h_watch': 'schváleno výborem',
+        'funnel_h_bought': 'nakoupeno',
+        'per_title': 'Analýzy po měsících', 'per_sub': 'Nové analýzy a výborem schválené pozice každý měsíc.',
+        'cum_title': 'Kumulativní výstup výzkumu',
+        'cum_approved': 'schváleno', 'cum_total': 'analýz',
+        'sector_kicker': 'SEKTOROVÝ ŘEZ', 'sector_title_all': 'Všechny analýzy podle sektorů',
+        'sector_title_watch': 'Výborem schválené, podle sektoru',
+        'sector_sub_all': 'Statistika výkonnosti napříč celou historii výzkumu daném sektoru.',
+        'sector_sub_watch': 'Tamtéž čísla, omezeno na pozice schválené výborem.',
+        'h_sector': 'Sektor', 'h_n': 'n', 'h_avg': 'Průměr výnos', 'h_std': 'σ', 'h_min': 'Nejhorší',
+        'sector_cmp_title': 'Prošlo výborem, nebo jen analýza?',
+        'sector_cmp_sub': 'Průměrný výnos sektoru: vše analyzované versus, co výbor schválil.',
+        'sector_cmp_all': 'vše analyzované', 'sector_cmp_watch': 'schváleno výborem',
+        'analyst_title': 'Analytická lavice', 'analyst_sub': 'Objem práce a výsledky jednotlivých analytiků.',
+        'top_title': 'Deset nejlepších analýz', 'top_sub': 'Napříč všemi analyzovanými firmami, podle nejnovější výnos.',
+        'bottom_title': 'Deset nejhorších výzev',
+        'year_kicker': 'PO ROCÍCH', 'year_title': 'Objem výzkumu leta', 'year_sub': 'Analyzováno a výborem schvalováno podle kalendářních let.',
+        'excl_title': 'Co do knihy nepatří',
+        'excl': [
+            ('Tabák, zbraně, hazard', 'a firmy, které výrazně škodí životnímu prostředí či společnosti'),
+            ('„Prokletá“ odvětví', 'chronicky nízká návratnost kapitálu, stylem aerolinky'),
+            ('Poctivost', 'jakákoli historie účetních podvodů, selhání integrity a governance'),
+        ],
+    },
+}
+
+
+def _ft(lang: str) -> dict:
+    return _FT['cs'] if lang == 'cs' else _FT['en']
+
+
+# ------------------------------------------------------------------
+# Live book slides (tracker)
+# ------------------------------------------------------------------
+
+def _invert_tracker_by_ticker(tracker: Dict) -> Dict[str, Dict]:
+    """Help live positions match the DB companies (NLB vs NLB.L, KAP vs KAP.IL)."""
+    out = {}
+    for p in tracker['positions']:
+        out[p['ticker']] = p
+    return out
+
+
+def _match_company(ticker: str) -> Optional[Company]:
+    for t in (ticker, ticker.split('.')[0]):
+        c = Company.query.filter(Company.ticker_symbol == t).first()
+        if c:
+            return c
+        c = Company.query.filter(Company.ticker_symbol.like(f'{t}%')).first()
+        if c:
+            return c
+    return None
+
+
+def _slide_live_book(prs, idx, txt, lang, data, tracker):
+    ft = _ft(lang)
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _page_chrome(slide, idx, ft['book_kicker'], ft['book_title'], ft['book_sub'], txt)
+    invested = {r['ticker'].split('.')[0]: r['bought'] for r in _invested_positions()}
+    rows = []
+    for p in tracker['positions']:
+        rows.append((p['ticker'], p['name'][:24], f"{p['qty']:g}", _px(p['avg_cost'], lang),
+                     _px(p['mkt_price'], lang), _p(p['unreal_pct'], lang, signed=True),
+                     _px(p['value_czk'], lang),
+                     _d(invested[p['ticker'].split('.')[0]], lang)
+                     if p['ticker'].split('.')[0] in invested else '—'))
+    _pptx_table(slide, MARGIN, Inches(2.25), Inches(8.6), (1.1, 2.0, 0.8, 1.15, 1.0, 0.9, 1.55, 1.15),
+                [txt['h_ticker'], txt['h_name'], ft['h_qty'], ft['h_cost'], ft['h_mkt'],
+                 ft['h_pnl'], ft['h_value_czk'], ft['h_invested']], rows,
+                row_h=Inches(0.42), size=9)
+    rail_x = MARGIN + Inches(8.9)
+    rail_w = SLIDE_W - MARGIN - rail_x
+    m = data['metrics']
+    chips = [
+        (ft['h_value_czk'] + ' · ' + ft['alloc_pos'], _px(tracker['sec_czk'], lang), INK, PAPER),
+        (ft['alloc_cash'], _px(tracker['cash_czk'], lang), INK, PAPER),
+        ('NAV', _px(tracker['nav_czk'], lang), GREEN_DARK, GREEN_PALE),
+        (txt['chip_total'] + ' (' + ft['alloc_pos'] + ')',
+         _p(sum(p['unreal_pct'] for p in tracker['positions']) / len(tracker['positions']), lang,
+            signed=True), GREEN_DARK, GREEN_PALE),
+    ]
+    ch, y = Inches(0.92), Inches(2.25)
+    for label, value, vcol, fill in chips:
+        _kpi(slide, rail_x, y, rail_w, ch, label, value, value_color=vcol, fill=fill,
+             value_size=15)
+        y += ch + Inches(0.11)
+    return slide
+
+
+def _slide_live_returns(prs, idx, txt, lang, data, tracker: Dict):
+    ft = _ft(lang)
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _page_chrome(slide, idx, ft['book_kicker'], ft['book_ret_title'], ft['book_ret_sub'], txt)
+    ps = sorted(tracker['positions'], key=lambda p: p['unreal_pct'], reverse=True)
+    cats = [p['ticker'] for p in ps]
+    vals = [float(p['unreal_pct']) for p in ps]
+    colors = [GREEN if v >= 0 else RED for v in vals]
+    _native_bar(slide, MARGIN, Inches(2.3), Inches(8.3), Inches(4.0), cats,
+                [(ft['h_pnl'], vals, GREEN)], horiz=True, labels=True, n_fmt='0.0',
+                per_point_colors=colors, gap_width=45, y_min=0.0, y_max=max(vals + [0]) * 1.2)
+    rail_x = MARGIN + Inches(8.6)
+    rail_w = SLIDE_W - MARGIN - rail_x
+    chips = [
+        (ft['h_pnl'] + ' — ' + (max(ps, key=lambda p: p['unreal_pct'])['ticker']),
+         _p(max(p['unreal_pct'] for p in ps), lang, signed=True), GREEN_DARK, GREEN_PALE),
+        (ft['h_pnl'] + ' — ' + (min(ps, key=lambda p: p['unreal_pct'])['ticker']),
+         _p(min(p['unreal_pct'] for p in ps), lang, signed=True), RED, RED_PALE),
+        (('Úspěšnost' if lang == 'cs' else 'Win rate'),
+         _p(data['live_win_rate'], lang), INK, PAPER),
+    ]
+    ch, y = Inches(0.95), Inches(2.3)
+    for label, value, vcol, fill in chips:
+        _kpi(slide, rail_x, y, rail_w, ch, label, value, value_color=vcol, fill=fill, value_size=16)
+        y += ch + Inches(0.16)
+    return slide
+
+
+def _slide_nav_track(prs, idx, txt, lang, data, tracker: Dict):
+    ft = _ft(lang)
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _page_chrome(slide, idx, ft['nav_kicker'], ft['nav_title'], ft['nav_sub'], txt)
+    nav = tracker['nav_series']
+    pnl = tracker.get('pnl_map', {})
+    rows = []
+    for mo, v in reversed(nav):
+        p = pnl.get(mo)
+        bad = p is None or (isinstance(p, float) and math.isnan(p))
+        rows.append((mo, _px(v, lang), '—' if bad else _p(p, lang, signed=True)))
+    _pptx_table(slide, MARGIN, Inches(2.3), Inches(4.6), (1.0, 1.4, 1.0),
+                [ft['h_month'], ft['h_nav'], ft['h_pnlpct']], rows,
+                row_h=Inches(0.4), size=10)
+    cats = [x[0] for x in nav]
+    vals = [x[1] for x in nav]
+    _native_line(slide, MARGIN + Inches(4.9), Inches(2.3), Inches(7.6), Inches(3.6), cats, [
+        (ft['nav_chart'], vals, GREEN),
+    ], num_fmt='#,##0')
+    if vals:
+        _kpi(slide, MARGIN + Inches(4.9), Inches(6.05), Inches(3.4), Inches(0.85),
+             txt['chip_total'], _p((vals[-1] / vals[0] - 1) * 100, lang),
+             fill=GREEN_PALE, value_color=GREEN_DARK, value_size=16)
+    return slide
+
+
+def _slide_alloc(prs, idx, txt, lang, data, tracker: Dict):
+    ft = _ft(lang)
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _page_chrome(slide, idx, ft['alloc_kicker'], ft['alloc_title2'], ft['alloc_sub2'], txt)
+    labels = [p['ticker'] for p in tracker['positions']] + [ft['alloc_cash']]
+    vals = [p['value_czk'] for p in tracker['positions']] + [tracker['cash_czk']]
+    palette = [GREEN, GREEN_DARK, GREEN_MID, NAVY, GOLD, GRAY_500, GREEN_SOFT, GRAY_400]
+    _native_donut(slide, MARGIN, Inches(2.35), Inches(5.2), Inches(4.4), labels, vals, palette)
+    grid_x = MARGIN + Inches(5.6)
+    grid_w = SLIDE_W - MARGIN - grid_x
+    equ = sum(p['value_czk'] for p in tracker['positions'])
+    chips = [
+        (ft['alloc_pos'], _px(equ, lang), INK, PAPER,
+         _p(equ / tracker['nav_czk'] * 100, lang, signed=False)),
+        (ft['alloc_cash'], _px(tracker['cash_czk'], lang), INK, PAPER,
+         _p(100 - equ / tracker['nav_czk'] * 100, lang, signed=False)),
+    ]
+    ch, y = Inches(1.05), Inches(2.35)
+    for label, value, vcol, fill, share in chips:
+        _rect(slide, grid_x, y, grid_w, ch, fill, radius=0.06)
+        tf = _tbox(slide, grid_x + Inches(0.2), y + Inches(0.14), grid_w - Inches(1.3), ch - Inches(0.24))
+        _para(tf, label, size=8, color=GRAY_500, bold=True, spc=120, first=True, space_after=2)
+        _para(tf, value + ' CZK', size=17, color=vcol, bold=True)
+        tf2 = _tbox(slide, grid_x + grid_w - Inches(1.15), y + Inches(0.3), Inches(1.0), Inches(0.5))
+        _para(tf2, share, size=15, color=GREEN_DARK, bold=True, align=PP_ALIGN.RIGHT, first=True)
+        y += ch + Inches(0.2)
+    # top positions by NAV share
+    top = sorted(tracker['positions'], key=lambda p: -p['value_czk'])[:4]
+    tf = _tbox(slide, grid_x, y + Inches(0.1), grid_w, Inches(2.2))
+    _para(tf, (ft['h_value_czk']), size=8, color=GRAY_500, bold=True, spc=120, first=True, space_after=4)
+    for p in top:
+        _para(tf, f"{p['ticker']:<7} {p['value_czk']:,.0f} CZK".replace(',', ' '),
+              size=10, color=INK, bold=True, space_after=2)
+    return slide
+
+
+def _slide_purchase_log(prs, idx, txt, lang, data):
+    ft = _ft(lang)
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _page_chrome(slide, idx, ft['log_kicker'], ft['log_title'], ft['log_sub'], txt)
+    invested = _invested_positions()
+    rows = [(inv['ticker'], (inv['name'] or '')[:26], _d(inv['bought'], lang),
+             _px(inv['entry_px'], lang), _px(inv['cur_px'], lang),
+             _p(inv['ret_pct'], lang, signed=True)) for inv in invested]
+    _pptx_table(slide, MARGIN, Inches(2.3), Inches(12.1),
+                (1.0, 2.0, 1.1, 1.0, 1.0, 0.9),
+                [txt['h_ticker'], txt['h_name'], ft['h_invested'], txt['h_px0'],
+                 txt['h_px1'], txt['h_ret']], rows, row_h=Inches(0.4), size=9.5,
+                align={2: PP_ALIGN.CENTER, 3: PP_ALIGN.RIGHT, 4: PP_ALIGN.RIGHT, 5: PP_ALIGN.RIGHT})
+    return slide
+
+
+def _slide_live_paths(prs, idx, txt, lang, data, tracker: Dict):
+    ft = _ft(lang)
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _page_chrome(slide, idx, ft['live_paths_kicker'] if 'live_paths_kicker' in ft else ft['book_kicker'],
+                 ft['live_paths_title'], ft['live_paths_sub'], txt)
+    invested = {r['ticker'].split('.')[0]: r for r in _invested_positions()}
+    palette = [GREEN, GREEN_DARK, GREEN_MID, NAVY, GOLD, GRAY_500, GREEN_SOFT]
+    series, cats_len = [], 0
+    for k, p in enumerate(tracker['positions']):
+        c = _match_company(p['ticker'])
+        if not c or not invested.get(p['ticker']):
+            continue
+        bought = invested[p['ticker']]['bought']
+        rows = StockPrice.query.filter(StockPrice.company_id == c.id,
+                                       StockPrice.date >= bought).order_by(StockPrice.date).all()
+        # monthly snapshot
+        seen, pts = {}, []
+        for r in rows:
+            key = (r.date.year, r.date.month)
+            if key not in seen:
+                seen[key] = float(r.close_price)
+        if not seen:
+            continue
+        base = float(rows[0].close_price)
+        by_month = {}
+        for r in rows:
+            by_month[(r.date.year, r.date.month)] = float(r.close_price)
+        first_d, last_d = rows[0].date, rows[-1].date
+        vals = []
+        dcur = first_d
+        while (dcur.year, dcur.month) <= (last_d.year, last_d.month):
+            key = (dcur.year, dcur.month)
+            v = by_month.get(key)
+            if v and base:
+                vals.append((key, (v / base - 1) * 100.0))
+            if dcur.month == 12:
+                dcur = dcur.replace(year=dcur.year + 1, month=1)
+            else:
+                dcur = dcur.replace(month=dcur.month + 1)
+        series.append((p['ticker'], vals, palette[k % len(palette)]))
+        cats_len = max(cats_len, len(vals))
+    # build a common monthly axis across all series
+    all_keys = sorted({k for _, vals, _ in series for k, _ in vals})
+    cats = [f'{k[0]}/{k[1] % 100}' for k in all_keys]
+    def series_vals(vals):
+        lookup = dict(vals)
+        return [lookup.get(k) for k in all_keys]
+    _native_line(slide, MARGIN, Inches(2.3), Inches(12.1), Inches(4.2), cats, [
+        (name, series_vals(vals), color) for name, vals, color in series
+    ], num_fmt='0')
+    return slide
+
+
+def _slide_funnel2(prs, idx, txt, lang, data):
+    return _slide_funnel_core(prs, idx, txt, lang, data, data['pipe'])
+
+
+def _slide_funnel(prs, idx, txt, lang, data, pipe: Dict = None):
+    return _slide_funnel_core(prs, idx, txt, lang, data, pipe)
+
+
+def _slide_funnel_core(prs, idx, txt, lang, data, pipe: Dict):
+    ft = _ft(lang)
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _page_chrome(slide, idx, ft['bin_kicker'], ft['bin_title'], ft['bin_sub'], txt)
+    band_h = Inches(1.1)
+    steps = [
+        (pipe['all_n'], ft['funnel_h_analysed'], INK, PAPER),
+        (pipe['watchlist_n'], ft['funnel_h_watch'], GREEN_DARK, GREEN_PALE),
+        (pipe['purchases_n'], ft['funnel_h_bought'], GREEN_DARK, GREEN_PALE),
+    ]
+    w = (CONTENT_W - Inches(0.2) * 2) / 3
+    x0 = MARGIN
+    for k, (num, label, col, fill) in enumerate(steps):
+        x = x0 + k * (w + Inches(0.2))
+        _rect(slide, x, Inches(2.3), w, band_h, fill, radius=0.08)
+        tf = _tbox(slide, x + Inches(0.28), Inches(2.46), w - Inches(0.5), band_h - Inches(0.3))
+        _para(tf, str(num), size=30, color=col, bold=True, first=True, space_after=2)
+        _para(tf, label.upper(), size=8.5, color=GRAY_500, bold=True, spc=140)
+        if k < 2:
+            ar = slide.shapes.add_shape(MSO_SHAPE.RIGHT_ARROW, x + w - Inches(0.08),
+                                        Inches(2.79), Inches(0.36), Inches(0.2))
+            ar.fill.solid()
+            ar.fill.fore_color.rgb = LINE
+            ar.line.fill.background()
+            ar.shadow.inherit = False
+    info = _tbox(slide, MARGIN, Inches(3.7), CONTENT_W, Inches(0.7))
+    _para(info, '', size=8, color=GRAY_400)
+    return slide
+
+
+# ------------------------------------------------------------------
+# Research factory slides
+# ------------------------------------------------------------------
+
+def _slide_factory_monthly(prs, idx, txt, lang, data, pipe: Dict):
+    ft = _ft(lang)
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _page_chrome(slide, idx, ft['bin_kicker'], ft['per_title'], ft['per_sub'], txt)
+    _native_bar(slide, MARGIN, Inches(2.3), Inches(6.2), Inches(4.0),
+                pipe['keys'][-14:], [(ft['funnel_h_analysed'], pipe['total'][-14:], GRAY_500)],
+                labels=False, n_fmt='0', gap_width=40)
+    _native_line(slide, MARGIN + Inches(6.5), Inches(2.3), Inches(5.9), Inches(4.0),
+                 pipe['keys'][-14:], [
+                     (ft['funnel_h_analysed'], pipe['total'][-14:], GREEN),
+                     (ft['funnel_h_watch'], pipe['approved'][-14:], GOLD),
+                 ], num_fmt='0')
+    return slide
+
+
+def _slide_factory_year(prs, idx, txt, lang, data):
+    ft = _ft(lang)
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _page_chrome(slide, idx, ft['year_kicker'], ft['year_title'], ft['year_sub'], txt)
+    years, year_approved = {}, {}
+    for a in Analysis.query.all():
+        if not a.analysis_date:
+            continue
+        years[a.analysis_date.year] = years.get(a.analysis_date.year, 0) + 1
+        if a.status == 'On Watchlist':
+            year_approved[a.analysis_date.year] = year_approved.get(a.analysis_date.year, 0) + 1
+    ks = sorted(years)
+    _native_bar(slide, MARGIN, Inches(2.3), Inches(12.1), Inches(3.9), [str(k) for k in ks], [
+        (ft['funnel_h_analysed'], [years[k] for k in ks], GREEN_SOFT),
+        (ft['funnel_h_watch'], [year_approved.get(k) for k in ks], GREEN),
+    ], labels=True, n_fmt='0', gap_width=70, y_min=0, y_max=max(years.values()) * 1.2)
+    return slide
+
+
+def _slide_sector_table(prs, idx, txt, lang, data, statuses, head, sub):
+    ft = _ft(lang)
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _page_chrome(slide, idx, ft['sector_kicker'], head, sub, txt)
+    stats = _sector_stats(statuses)
+    rows = []
+    fills = {}
+    for k, s in enumerate(stats[:14]):
+        rows.append((s['sector'][:26], str(s['analyses']),
+                     _p(s['avg_return'], lang, signed=False),
+                     f"{s['stddev']:.1f}".replace('.', ','),
+                     _p(s['min'], lang, signed=True)))
+        fills[(k, 2)] = RED_PALE if s['avg_return'] and s['avg_return'] < 0 else GREEN_PALE
+    headers = [ft['h_sector'], ft['h_n'], ft['h_avg'], ft['h_std'], ft['h_min']]
+    if not rows:
+        rows = [('—', '0', '—', '—', '—')]
+    _pptx_table(slide, MARGIN, Inches(2.3), Inches(12.1), (3.0, 0.7, 1.1, 0.9, 1.1),
+                headers, rows, row_h=Inches(0.32), size=9, cell_fills=fills,
+                align={1: PP_ALIGN.CENTER, 2: PP_ALIGN.RIGHT, 3: PP_ALIGN.RIGHT, 4: PP_ALIGN.RIGHT})
+    return slide
+
+
+def _slide_sector_compare(prs, idx, txt, lang, data):
+    ft = _ft(lang)
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _page_chrome(slide, idx, ft['sector_kicker'], ft['sector_cmp_title'], ft['sector_cmp_sub'], txt)
+    all_stats = {s['sector']: s for s in _sector_stats()}
+    watch_stats = {s['sector']: s for s in _sector_stats(('On Watchlist',))}
+    secs = [k for k in all_stats if k in watch_stats][:8]
+    secs = sorted(secs, key=lambda k: -(watch_stats[k]['avg_return'] or all_stats[k]['avg_return'] or 0))
+    cats = [k[:14] for k in secs]
+    s_all = [all_stats[k]['avg_return'] or 0 for k in secs]
+    s_watch = [watch_stats[k]['avg_return'] or 0 for k in secs]
+    _native_bar(slide, MARGIN, Inches(2.3), Inches(12.1), Inches(4.2), cats, [
+        (ft['sector_cmp_watch'], s_watch, GREEN),
+        (ft['sector_cmp_all'], s_all, GRAY_500),
+    ], labels=False, n_fmt='0.0', gap_width=60)
+    return slide
+
+
+def _slide_top_bottom(prs, idx, txt, lang, data, worst=False):
+    ft = _ft(lang)
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    head = ft['bottom_title'] if worst else ft['top_title']
+    _page_chrome(slide, idx, ft['sector_kicker'], head, ft['top_sub'], txt)
+    raw = db.session.query(
+        Analysis.id, Company.name, Company.ticker_symbol,
+        PerformanceCalculation.return_pct, Analysis.analysis_date
+    ).join(Analysis, Analysis.company_id == Company.id) \
+     .join(PerformanceCalculation, PerformanceCalculation.analysis_id == Analysis.id) \
+     .filter(Analysis.status == 'On Watchlist').all()
+    best = {}
+    for aid, name, tk, ret, adate in raw:
+        if ret is None:
+            continue
+        if aid not in best or float(ret) > best[aid][3]:
+            best[aid] = (aid, name[:24], tk or '—', float(ret), adate)
+    ranked = sorted(best.values(), key=lambda r: r[3], reverse=(not worst))[:10]
+    rows = [(r[2], r[1], _d(r[4], lang), _p(r[3], lang, signed=True)) for r in ranked]
+    if not rows:
+        rows = [('—', '—', '—', '—')]
+    _pptx_table(slide, MARGIN, Inches(2.3), Inches(12.1), (1.2, 2.6, 1.3, 1.0),
+                [txt['h_ticker'], txt['h_name'], (('Dat. analýzy' if lang == 'cs' else 'Analysis date')), txt['h_ret']], rows,
+                row_h=Inches(0.38), size=9.5,
+                align={2: PP_ALIGN.CENTER, 3: PP_ALIGN.RIGHT})
+    return slide
+
+
+def _slide_analysts_ft(prs, idx, txt, lang, data):
+    ft = _ft(lang)
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _page_chrome(slide, idx, ft['bin_kicker'], ft['analyst_title'], ft['analyst_sub'], txt)
+    at = get_analyst_summary_table()
+    rows = [(r['name'], str(r['total_analyses']), str(r['approved_analyses']),
+             str(r['investments']), _p(r['avg_return'], lang, signed=False)) for r in at['rows'][:9]]
+    if not rows:
+        rows = [('—', '—', '—', '—', '—')]
+    _pptx_table(slide, MARGIN, Inches(2.3), Inches(12.1), (2.6, 1, 1, 1, 1.2),
+                [ft['h_sector'][:0] + txt['h_name'], 'ANALÝZ' if lang == 'cs' else 'ANALYSES',
+                 ('SCHVÁLENO' if lang == 'cs' else 'APPROVED'), ('REALIZOVÁNO' if lang == 'cs' else 'REALISED'),
+                 ('PRŮM. VÝNOS' if lang == 'cs' else 'AVG RETURN')],
+                rows, row_h=Inches(0.4), size=10)
+    return slide
+
+
+def _slide_exclusions(prs, idx, txt, lang, data):
+    ft = _ft(lang)
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _page_chrome(slide, idx, txt['d2_kicker'], ft['excl_title'], '', txt)
+    col_w = (CONTENT_W - Inches(0.3)) / 2
+    items = [e for e in txt.get('limits', [])][:0] or ft['excl']
+    top = Inches(2.4)
+    for k, (head, body) in enumerate(items):
+        col = k % 2
+        x = MARGIN + col * (col_w + Inches(0.3))
+        y = top + (k // 2) * Inches(1.32)
+        _rect(slide, x, y, col_w, Inches(1.12), PAPER, radius=0.05)
+        _rule(slide, x, y + Inches(0.08), Inches(0.055), color=RED, thickness=0.3)
+        tf = _tbox(slide, x + Inches(0.22), y + Inches(0.16), col_w - Inches(0.44), Inches(0.9))
+        _para(tf, head, size=10.5, color=RED, bold=True, first=True, space_after=3)
+        _para(tf, body, size=9, color=GRAY_700, line=1.18)
     return slide
