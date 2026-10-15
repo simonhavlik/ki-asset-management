@@ -42,6 +42,23 @@ def index():
     return render_template('admin/presentation_exports.html')
 
 
+@presentation_bp.route('/deck/<lang>')
+@presentation_bp.route('/deck')
+@admin_required
+def deck(lang: str = 'cs'):
+    """Download the complete pitch deck as PPTX (en | cs)."""
+    from ..utils.pitchdeck import build_pitch_deck
+    if lang not in ('en', 'cs'):
+        lang = 'cs'
+    try:
+        stream, filename = build_pitch_deck(lang)
+        return send_file(stream, as_attachment=True, download_name=filename,
+                         mimetype='application/vnd.openxmlformats-officedocument.presentationml.presentation')
+    except Exception as e:
+        flash(f'Pitch deck export failed: {e}', 'danger')
+        return redirect(url_for('presentation.index'))
+
+
 @presentation_bp.route('/generate', methods=['POST'])
 @admin_required
 def generate():

@@ -34,6 +34,7 @@ pandas==2.3.3
 numpy==2.0.0
 openpyxl==3.1.5  # For Excel export
 matplotlib==3.9.0  # For presentation charts
+python-pptx==1.0.2  # For pitch deck PPTX export
 
 # Security
 bcrypt==4.1.2

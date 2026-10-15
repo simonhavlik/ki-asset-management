@@ -1108,7 +1108,11 @@ h1, h2, h3, h4, h5, h6 {
 
 .team-image-wrapper {
     position: relative;
-    height: 180px;
+    /* ratio-driven crop instead of a fixed 180px window: the portraits are
+       square with the face in the upper third, and a fixed-height box cut
+       through the forehead on wide cards */
+    height: auto;
+    aspect-ratio: 4 / 3;
     overflow: hidden;
     background: var(--color-gray-100);
 }
@@ -1117,6 +1121,7 @@ h1, h2, h3, h4, h5, h6 {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: 50% 12%;
     transition: transform var(--transition-slow);
 }
 

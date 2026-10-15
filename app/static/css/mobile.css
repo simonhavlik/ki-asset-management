@@ -67,6 +67,86 @@
         line-height: 1.42;
     }
 
+    /* ---------- light neumorphism (phone surface treatment) ---------- */
+    /* Soft-UI values tuned for the near-white theme: same-color surfaces sit on
+       a dual shadow (dark bottom-right, white top-left), no border. Corner
+       discipline: 0 seam grids, 6 rows, 8 buttons/icons, 10 panels, 12 capsule.
+       Nothing here changes vertical metrics - only how surfaces are lit. */
+    :root {
+        --nm-dark: rgba(23, 32, 38, 0.07);
+        --nm-light: rgba(255, 255, 255, 0.9);
+        --nm-raised: 4px 4px 10px var(--nm-dark), -4px -4px 10px var(--nm-light);
+        --nm-raised-sm: 2px 2px 6px rgba(23, 32, 38, 0.06), -2px -2px 6px var(--nm-light);
+        --nm-pressed: inset 2px 2px 5px rgba(23, 32, 38, 0.08), inset -2px -2px 5px rgba(255, 255, 255, 0.8);
+        --nm-dark-raised: 5px 5px 14px rgba(0, 0, 0, 0.4), -3px -3px 10px rgba(255, 255, 255, 0.05);
+    }
+
+    .feature-card,
+    .strategy-card,
+    .risk-card,
+    .allocation-chart,
+    .perk-card,
+    .performance-dashboard,
+    .research-mobile-cta {
+        border-color: transparent;
+        box-shadow: var(--nm-raised);
+    }
+
+    /* dark panels need a dark material */
+    .cta-content {
+        box-shadow: var(--nm-dark-raised);
+    }
+
+    /* the floating nav capsule and the section menu button */
+    .navbar {
+        border-color: transparent;
+        box-shadow: 4px 4px 12px rgba(23, 32, 38, 0.1), -4px -4px 12px var(--nm-light);
+    }
+
+    .secnav-toggle {
+        border-color: transparent;
+        box-shadow: var(--nm-raised);
+    }
+
+    .secnav-toggle:active {
+        box-shadow: var(--nm-pressed);
+        transform: scale(0.96);
+    }
+
+    /* light buttons read as raised; filled green ones keep their own glow */
+    .btn {
+        box-shadow: var(--nm-raised-sm);
+    }
+
+    .btn:active {
+        box-shadow: var(--nm-pressed);
+        transform: translateY(1px);
+    }
+
+    .btn-hero-primary,
+    .btn-cta,
+    .btn-success {
+        box-shadow: 0 2px 7px rgba(20, 122, 74, 0.3), -1px -1px 5px var(--nm-light);
+    }
+
+    .btn-hero-primary:active,
+    .btn-cta:active,
+    .btn-success:active {
+        box-shadow: inset 2px 2px 5px rgba(10, 60, 36, 0.35);
+        transform: translateY(1px);
+    }
+
+    /* analysis rows: soft chips in the browser-mock card, pressed while tapped */
+    .research-pick {
+        border-color: transparent;
+        box-shadow: var(--nm-raised-sm);
+    }
+
+    .research-pick:active {
+        box-shadow: var(--nm-pressed);
+        transform: scale(0.99);
+    }
+
     /* ---------- generic buttons: small, no giant tap slabs ---------- */
     .btn {
         font-size: 0.76rem;
@@ -130,6 +210,11 @@
     .hero-cta {
         gap: 0.35rem;
         margin-bottom: 0.4rem;
+        /* the base sheet turns the two CTAs into a stacked column below 992px,
+           which cost a full row for the small secondary button */
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
     }
 
     .btn-hero-primary,
@@ -138,7 +223,7 @@
         width: auto;
         padding: 0.45rem 0.75rem;
         font-size: 0.78rem;
-        border-radius: 9px;
+        border-radius: 8px;
     }
 
     .czech-note {
@@ -150,7 +235,7 @@
     /* ---------- live performance panel ---------- */
     .performance-dashboard {
         padding: 0.7rem;
-        border-radius: 12px;
+        border-radius: 10px;
     }
 
     .performance-header {
@@ -419,7 +504,8 @@
     }
 
     .team-image-wrapper {
-        height: 72px;
+        height: auto;
+        aspect-ratio: 4 / 3;
     }
 
     .team-content {
@@ -643,7 +729,7 @@
 
     .cta-content {
         padding: 1rem 0.8rem;
-        border-radius: 12px;
+        border-radius: 10px;
     }
 
     .cta-title {
@@ -769,6 +855,7 @@
         width: 38px;
         height: 38px;
         font-size: 0.92rem;
+        border-radius: 10px;
     }
 
     .secnav-panel {
@@ -785,7 +872,7 @@
         top: 0.4rem;
         width: calc(100% - 0.8rem);
         padding: 0.3rem 0.4rem;
-        border-radius: 1rem;
+        border-radius: 12px;
     }
 
     .navbar.scrolled {
