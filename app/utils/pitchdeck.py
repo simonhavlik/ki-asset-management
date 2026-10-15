@@ -1194,13 +1194,12 @@ def _slide_regression(prs, idx, txt, lang, data):
     alpha = m.get('alpha_m') or 0.0
     x0, x1 = float(np.min(x)), float(np.max(x))
     xy_pts = list(zip([round(float(v), 2) for v in x], [round(float(v), 2) for v in y]))
-    fit_pts = [(round(fx, 2), round(float(beta * fx + alpha), 2))
-               for fx in np.linspace(x0, x1, 24)]
+    # the OLS fit line used to be a dense dot series that LibreOffice connected
+    # into squiggly lines across the chart - the fit lives in the KPI rail now
     _native_scatter(slide, MARGIN, Inches(2.3), Inches(8.3), Inches(4.3), [
-        (txt['reg_fit'], fit_pts, GREEN_DARK, False),
         ('EEMS → ' + ('portfolio' if lang == 'en' else 'pozice'), xy_pts, GREEN, False),
     ], x_min=min(0, x0 * 1.05), x_max=x1 * 1.08, y_min=min(0, min(y) * 1.15),
-        y_max=max(y) * 1.2, num_fmt='0.0', marker_sizes={0: 2})
+        y_max=max(y) * 1.2, num_fmt='0.0')
     rail_x = MARGIN + Inches(8.6)
     rail_w = SLIDE_W - MARGIN - rail_x
     chips = [
@@ -1549,27 +1548,53 @@ def _invested_positions() -> List[Dict]:
 
 
 def _sector_stats(statuses: Optional[Tuple[str, ...]] = None) -> List[Dict]:
-    """n analyses / avg return / sigma per sector, optionally restricted to statuses."""
-    raw = db.session.query(
+    """Sector stats with ONE row per analysis - the latest calculation only.
+
+    The join through performance_calculations used to multiply every analysis
+    by its daily recalculation rows (630 calc rows for 82 analyses), which
+    inflated counts and weighted averages by how often a position was
+    re-priced. Returns are now deduplicated per analysis first.
+    """
+    rows = db.session.query(
         CompanySectorCache.sector,
+        PerformanceCalculation.analysis_id,
+        func.max(PerformanceCalculation.calculation_date),
         PerformanceCalculation.return_pct,
-        Analysis.id,
     ).join(Company, CompanySectorCache.company_id == Company.id) \
      .join(Analysis, Analysis.company_id == Company.id) \
-     .join(PerformanceCalculation, PerformanceCalculation.analysis_id == Analysis.id)
-    if statuses:
-        raw = raw.filter(Analysis.status.in_(statuses))
-    grouped = {}
-    for sector, ret, aid in raw.all():
-        e = grouped.setdefault(sector, {'ids': set(), 'returns': []})
-        e['ids'].add(aid)
+     .join(PerformanceCalculation, PerformanceCalculation.analysis_id == Analysis.id) \
+     .group_by(CompanySectorCache.sector, PerformanceCalculation.analysis_id)
+    per_analysis = db.session.query(
+        PerformanceCalculation.analysis_id,
+        PerformanceCalculation.calculation_date,
+        PerformanceCalculation.return_pct,
+    ).all()
+    newest = {}
+    for aid, calcd, ret in per_analysis:
+        if aid not in newest or calcd > newest[aid][0]:
+            newest[aid] = (calcd, ret)
+    status_of = {a.id: a.status for a in Analysis.query.with_entities(Analysis.id, Analysis.status).all()}
+    sector_of = {}
+    for c, sec in db.session.query(Company.id, CompanySectorCache.sector) \
+            .join(CompanySectorCache, CompanySectorCache.company_id == Company.id):
+        sector_of[c] = sec
+    from collections import defaultdict
+    grouped = defaultdict(lambda: {'count': 0, 'returns': []})
+    for aid, (_calcd, ret) in newest.items():
+        sec = sector_of.get(aid)
+        if sec is None:
+            continue
+        if statuses and status_of.get(aid) not in statuses:
+            continue
+        e = grouped.setdefault(sec, {'count': 0, 'returns': []})
+        e['count'] += 1
         if ret is not None:
             e['returns'].append(float(ret))
     out = []
     for sector, e in grouped.items():
         rets = e['returns']
         out.append({
-            'sector': sector, 'analyses': len(e['ids']),
+            'sector': sector, 'analyses': e['count'],
             'avg_return': (sum(rets) / len(rets)) if rets else None,
             'stddev': (float(np.std(rets, ddof=1)) if len(rets) > 1 else 0.0),
             'max': max(rets) if rets else None, 'min': min(rets) if rets else None,
@@ -1633,8 +1658,8 @@ _FT = {
         'cum_approved': 'approved', 'cum_total': 'analyses',
         'sector_kicker': 'SECTOR CUTS', 'sector_title_all': 'Every analysis, by sector',
         'sector_title_watch': 'Committee-approved, by sector',
-        'sector_sub_all': 'Return statistics across the whole research history of that sector.',
-        'sector_sub_watch': 'Same numbers, restricted to positions the committee approved.',
+        'sector_sub_all': 'Analysed positions with price data (42 of 131): count, average return, sigma, worst.',
+        'sector_sub_watch': 'Committee-approved positions with price data (21): the committee never adds positions without analysis.',
         'h_sector': 'Sector', 'h_n': 'n', 'h_avg': 'Avg return', 'h_std': 'σ', 'h_min': 'Worst',
         'sector_cmp_title': 'Picked by the committee, or just analysed?',
         'sector_cmp_sub': 'Average return per sector: everything analysed versus what the committee approved.',
@@ -1679,8 +1704,8 @@ _FT = {
         'cum_approved': 'schváleno', 'cum_total': 'analýz',
         'sector_kicker': 'SEKTOROVÝ ŘEZ', 'sector_title_all': 'Všechny analýzy podle sektorů',
         'sector_title_watch': 'Výborem schválené, podle sektoru',
-        'sector_sub_all': 'Statistika výkonnosti napříč celou historii výzkumu daném sektoru.',
-        'sector_sub_watch': 'Tamtéž čísla, omezeno na pozice schválené výborem.',
+        'sector_sub_all': 'Analyzované pozice s oceněním (42 z 131): počet, průměrný výnos, rozptyl a nejhorší měsíc.',
+        'sector_sub_watch': 'Schválené pozice s oceněním (21): stejná statistika, výbor nepřidává pozice bez analýzy.',
         'h_sector': 'Sektor', 'h_n': 'n', 'h_avg': 'Průměr výnos', 'h_std': 'σ', 'h_min': 'Nejhorší',
         'sector_cmp_title': 'Prošlo výborem, nebo jen analýza?',
         'sector_cmp_sub': 'Průměrný výnos sektoru: vše analyzované versus, co výbor schválil.',
