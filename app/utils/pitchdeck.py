@@ -786,10 +786,15 @@ def _native_bar(slide, l, t, w, h, cats, named_vals, horiz=False, labels=False, 
     plot = chart.plots[0]
     plot.vary_by_categories = False
     plot.gap_width = gap_width
+    for si, (_name, _vals, color_i) in enumerate(named_vals):
+        try:
+            s_i = chart.series[si]
+            s_i.format.fill.solid()
+            s_i.format.fill.fore_color.rgb = color_i
+            s_i.format.line.fill.background()
+        except Exception:
+            pass
     ser = chart.series[0]
-    ser.format.fill.solid()
-    ser.format.fill.fore_color.rgb = named_vals[0][2]
-    ser.format.line.fill.background()
     if per_point_colors:
         for pi, col in enumerate(per_point_colors):
             if col:
@@ -833,13 +838,20 @@ def _native_scatter(slide, l, t, w, h, series, x_min, x_max, y_min, y_max, num_f
             ser.marker.format.fill.fore_color.rgb = color
             ser.marker.format.line.color.rgb = WHITE
         ser.smooth = False
+    # snap the bounds to round multiples so gridlines and labels land on
+    # -20 / -10 / 0 / 10 rather than on 34.9 / 24.9 style offsets
+    import math as _math
     for axis, lo, hi in ((chart.value_axis, y_min, y_max), (chart.category_axis, x_min, x_max)):
         if lo is not None:
-            axis.minimum_scale = lo
+            axis.minimum_scale = _math.floor(lo / 10.0) * 10.0
         if hi is not None:
-            axis.maximum_scale = hi
+            axis.maximum_scale = _math.ceil(hi / 10.0) * 10.0
         axis.tick_labels.number_format = num_fmt
         axis.tick_labels.number_format_is_linked = False
+        try:
+            axis.major_unit = 10.0
+        except Exception:
+            pass
     return chart
 
 
@@ -1602,7 +1614,7 @@ def _pipeline_counts() -> Dict:
         months[key] = months.get(key, 0) + 1
         if a.status == 'On Watchlist':
             approved_m[key] = approved_m.get(key, 0) + 1
-    keys = sorted(months)
+    keys = sorted(months, key=lambda k: (int(k.split('/')[1]), int(k.split('/')[0])))
     return {
         'keys': keys,
         'total': [months[k] for k in keys],
@@ -1977,17 +1989,26 @@ def _slide_funnel_core(prs, idx, txt, lang, data, pipe: Dict):
 # ------------------------------------------------------------------
 
 def _slide_factory_monthly(prs, idx, txt, lang, data, pipe: Dict):
+    """One chart, two series: analyses made vs committee-approved, same months.
+
+    Categories are ordered chronologically; the study vs approval counts sit
+    side by side so the approved bar can never read larger than the total.
+    """
     ft = _ft(lang)
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     _page_chrome(slide, idx, ft['bin_kicker'], ft['per_title'], ft['per_sub'], txt)
-    _native_bar(slide, MARGIN, Inches(2.3), Inches(6.2), Inches(4.0),
-                pipe['keys'][-14:], [(ft['funnel_h_analysed'], pipe['total'][-14:], GRAY_500)],
-                labels=False, n_fmt='0', gap_width=40)
-    _native_line(slide, MARGIN + Inches(6.5), Inches(2.3), Inches(5.9), Inches(4.0),
-                 pipe['keys'][-14:], [
-                     (ft['funnel_h_analysed'], pipe['total'][-14:], GREEN),
-                     (ft['funnel_h_watch'], pipe['approved'][-14:], GOLD),
-                 ], num_fmt='0')
+    keys = pipe['keys'][-16:]
+    tot = pipe['total'][-16:]
+    appr = pipe['approved'][-16:]
+    chart = _native_bar(slide, MARGIN, Inches(2.3), Inches(12.1), Inches(4.35), keys, [
+        (ft['funnel_h_analysed'], tot, GRAY_500),
+        (ft['funnel_h_watch'], appr, GREEN),
+    ], labels=True, n_fmt='0', gap_width=45, y_min=0, y_max=max(tot) * 1.25)
+    plot = chart.plots[0]
+    try:
+        plot.overlap = -10
+    except Exception:
+        pass
     return slide
 
 
