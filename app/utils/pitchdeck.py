@@ -1360,57 +1360,46 @@ def build_pitch_deck(lang: str = 'cs', window_years: Optional[int] = None):
     data = _collect_full(lang, window_years)
     tracker = data['tracker']
     pipe = data['pipe']
-    m = data['metrics']
 
     prs = Presentation()
     prs.slide_width, prs.slide_height = SLIDE_W, SLIDE_H
 
-    # 01 LIVE THE BOOK
-    _slide_cover(prs, txt, lang, data)
-    _slide_live_book(prs, 2, txt, lang, data, tracker)
-    _slide_live_returns(prs, 3, txt, lang, data, tracker)
-    _slide_nav_track(prs, 4, txt, lang, data, tracker)
-    _slide_alloc(prs, 5, txt, lang, data, tracker)
-    _slide_purchase_log(prs, 6, txt, lang, data)
-    _slide_live_paths(prs, 7, txt, lang, data, tracker)
-
-    # 02 RESEARCH FACTORY
-    _slide_divider(prs, txt['d2_kicker'], txt['d2_title'], txt['d2_sub'])
-    _slide_funnel2(prs, 9, txt, lang, data)
-    _slide_factory_monthly(prs, 10, txt, lang, data, pipe)
-    _slide_factory_year(prs, 11, txt, lang, data)
-    _slide_sector_table(prs, 12, txt, lang, data, None, _ft(lang)['sector_title_all'],
-                        _ft(lang)['sector_sub_all'])
+    _slide_cover(prs, txt, lang, data)                            # 01
+    _slide_live_book(prs, 2, txt, lang, data, tracker)            # 02
+    _slide_live_returns(prs, 3, txt, lang, data, tracker)         # 03
+    _slide_nav_track(prs, 4, txt, lang, data, tracker)            # 04
+    _slide_alloc(prs, 5, txt, lang, data, tracker)                # 05
+    _slide_purchase_log(prs, 6, txt, lang, data)                  # 06
+    _slide_live_paths(prs, 7, txt, lang, data, tracker)           # 07
+    _slide_divider(prs, txt['d2_kicker'], txt['d2_title'], txt['d2_sub'])  # 08
+    _slide_funnel2(prs, 9, txt, lang, data)                       # 09
+    _slide_factory_monthly(prs, 10, txt, lang, data, pipe)        # 10
+    _slide_factory_year(prs, 11, txt, lang, data)                 # 11
+    _slide_sector_table(prs, 12, txt, lang, data, None,
+                        _ft(lang)['sector_title_all'], _ft(lang)['sector_sub_all'])   # 12
     _slide_sector_table(prs, 13, txt, lang, data, ('On Watchlist',),
-                        _ft(lang)['sector_title_watch'], _ft(lang)['sector_sub_watch'])
-    _slide_sector_compare(prs, 14, txt, lang, data)
-    _slide_analysts_ft(prs, 15, txt, lang, data)
-    _slide_top_bottom(prs, 16, txt, lang, data, worst=False)
-    _slide_top_bottom(prs, 17, txt, lang, data, worst=True)
-    _slide_exclusions(prs, 18, txt, lang, data)
-
-    # 03 PERFORMANCE (vote-approved simulation, labelled as such)
+                        _ft(lang)['sector_title_watch'], _ft(lang)['sector_sub_watch'])  # 13
+    _slide_sector_compare(prs, 14, txt, lang, data)               # 14
+    _slide_top_bottom(prs, 15, txt, lang, data, worst=False)       # 15
+    _slide_top_bottom(prs, 16, txt, lang, data, worst=True)        # 16
+    _slide_exclusions(prs, 17, txt, lang, data)                    # 17
     _slide_divider(prs, txt['d1_kicker'], txt['d1_title'],
                    ('Simulace hlasovacího portfolia; živé pozice jsou nahoře.' if lang == 'cs'
-                    else 'Simulation of the vote-approved book; live positions are above.'))
-    _slide_performance(prs, 20, txt, lang, data)
-    _slide_contributions(prs, 21, txt, lang, data)
-    _slide_paths(prs, 22, txt, lang, data)
-
-    # 04 RISK
-    _slide_divider(prs, txt['d2_kicker'], txt['d2_title'], txt['d2_sub'])
-    _slide_month_heat(prs, 24, txt, lang, data)
-    _slide_distribution(prs, 25, txt, lang, data)
-    _slide_drawdown(prs, 26, txt, lang, data)
-    _slide_rolling(prs, 27, txt, lang, data)
-    _slide_tails(prs, 28, txt, lang, data)
-    _slide_regression(prs, 29, txt, lang, data)
-    _slide_benchmarks(prs, 30, txt, lang, data)
-
-    # 05 FORWARD
-    _slide_divider(prs, txt['d3_kicker'], txt['d3_title'], txt['d3_sub'])
-    _slide_forward(prs, 32, txt, lang, data)
-    _slide_close(prs, 33, txt, lang, data)
+                    else 'Simulation of the vote-approved book; live positions above.'))  # 18
+    _slide_performance(prs, 19, txt, lang, data)                   # 19
+    _slide_contributions(prs, 20, txt, lang, data)                 # 20
+    _slide_paths(prs, 21, txt, lang, data)                         # 21
+    _slide_divider(prs, txt['d2_kicker'], txt['d2_title'], txt['d2_sub'])  # 22
+    _slide_month_heat(prs, 23, txt, lang, data)                    # 23
+    _slide_distribution(prs, 24, txt, lang, data)                  # 24
+    _slide_drawdown(prs, 25, txt, lang, data)                      # 25
+    _slide_rolling(prs, 26, txt, lang, data)                       # 26
+    _slide_tails(prs, 27, txt, lang, data)                         # 27
+    _slide_regression(prs, 28, txt, lang, data)                    # 28
+    _slide_benchmarks(prs, 29, txt, lang, data)                    # 29
+    _slide_forward(prs, 30, txt, lang, data)                       # 30
+    _slide_close(prs, 31, txt, lang, data)                         # 31
+    _slide_divider(prs, txt['d3_kicker'], txt['d3_title'], txt['d3_sub'])  # 32
 
     stream = io.BytesIO()
     prs.save(stream)
@@ -1713,12 +1702,12 @@ _FT = {
         'analyst_title': 'Analytická lavice', 'analyst_sub': 'Objem práce a výsledky jednotlivých analytiků.',
         'top_title': 'Deset nejlepších analýz', 'top_sub': 'Napříč všemi analyzovanými firmami, podle nejnovější výnos.',
         'bottom_title': 'Deset nejhorších výzev',
-        'year_kicker': 'PO ROCÍCH', 'year_title': 'Objem výzkumu leta', 'year_sub': 'Analyzováno a výborem schvalováno podle kalendářních let.',
+        'year_kicker': 'VÝSTUP', 'year_title': 'Objem výzkumu v letech', 'year_sub': 'Analýzy a výborem schválené pozice podle let.',
         'excl_title': 'Co do knihy nepatří',
         'excl': [
             ('Tabák, zbraně, hazard', 'a firmy, které výrazně škodí životnímu prostředí či společnosti'),
-            ('„Prokletá“ odvětví', 'chronicky nízká návratnost kapitálu, stylem aerolinky'),
-            ('Poctivost', 'jakákoli historie účetních podvodů, selhání integrity a governance'),
+            ('„Prokletá“ odvětví', 'chronicky nízká návratnost kapitálu, jako jsou aerolinky'),
+            ('Poctivost', 'žádnou historii účetních podvodů, selhání integrity nebo problémů ve správě'),
         ],
     },
 }
