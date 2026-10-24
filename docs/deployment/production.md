@@ -41,7 +41,7 @@ Public site: **https://ki.havliksimon.eu**
 |---|---|
 | Service type | Web Service (Python) |
 | Plan / region | Free / Frankfurt |
-| Repo / branch | `github.com/havliksimon/ki-asset-management` / `main` |
+| Repo / branch | `github.com/simonhavlik/ki-asset-management` / `main` |
 | Auto-deploy | Yes (every push to `main`) |
 | Build command | `pip install -r requirements.txt` |
 | Start command | `python render_start.py` |

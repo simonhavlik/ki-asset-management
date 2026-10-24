@@ -35,7 +35,7 @@ the network using `DATABASE_URL`.
 ## Step 1 — Create the web service
 
 1. [render.com](https://render.com) → **New +** → **Web Service**.
-2. Connect the GitHub repo `havliksimon/ki-asset-management`.
+2. Connect the GitHub repo `simonhavlik/ki-asset-management`.
 3. Configure:
 
 | Setting | Value |
