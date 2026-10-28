@@ -12,7 +12,7 @@ sys.modules["log_buffer"] = mod
 spec.loader.exec_module(mod)
 
 # 1. redaction
-sample = ("creating app: db=postgresql://***REMOVED*** "
+sample = ("creating app: db=postgresql://kiam:REDACTED@212.227.211.88:5432/kiam "
           "NOTION_API_KEY=ntn_abc123XYZ key=cfut_deadbeef Header: Bearer abc.def.ghi")
 red = mod.redact(sample)
 print("redacted:", red)
