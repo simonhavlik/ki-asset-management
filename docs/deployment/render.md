@@ -25,7 +25,7 @@ the network using `DATABASE_URL`.
 - A PostgreSQL database reachable from the public internet, on **version 17 or
   newer** (a dump taken from 17 cannot be restored into 15/16).
 - The connection string, in the form
-  `postgresql://USER:***REMOVED***@HOST:5432/DB?sslmode=require`.
+  `postgresql://USER:PASSWORD@HOST:5432/DB?sslmode=require`.
 - The database server must allow Render's connections. Render's **outbound IPs
   are dynamic** on the free plan, so you either allow `0.0.0.0/0` (with TLS +
   SCRAM enforced) or buy Render's static outbound IPs.

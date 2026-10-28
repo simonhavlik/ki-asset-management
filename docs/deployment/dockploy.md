@@ -283,7 +283,7 @@ Click **Environment** tab, add these variables:
 
 **For DATABASE_URL:**
 
-- **Option A (Dockploy DB):** `postgresql://analyst_user:***REMOVED***@ki-database:5432/analyst_db`
+- **Option A (Dockploy DB):** `postgresql://analyst_user:PASSWORD@ki-database:5432/analyst_db`
   - Use internal Docker network name `ki-database`
   
 - **Option B (Neon.tech):** `postgresql://user:pass@ep-xxx.neon.tech/analyst_db?sslmode=require`
