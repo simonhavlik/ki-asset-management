@@ -2,7 +2,12 @@
 
 {% block title %}KI Asset Management – Prague Club of Investors{% endblock %}
 
+{% block body_class %}index-page{% endblock %}
+{% block default_lang %}cs{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css', v='20261030') }}">{% endblock %}
 {% block content %}
+<div class="ki-atmosphere" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+<button class="motion-toggle" id="kiMotion" type="button" aria-pressed="false" data-i18n="polish.motion">Pause background</button>
 <!-- Hero Section - Corporate Professional -->
 <section class="hero-section" id="home">
     <div class="hero-bg"></div>
@@ -13,7 +18,7 @@
             <!-- Left Side - Company Info -->
             <div class="hero-left">
                 <div class="hero-badge">
-                    <span>Prague Club of Investors</span>
+                    <span data-i18n="polish.club">Prague Club of Investors / since 2024</span>
                 </div>
                 
                 <h1 class="hero-title display-1" data-i18n-html="home.ki_asset_management">
@@ -21,10 +26,7 @@
                     <span class="highlight">Management</span>
                 </h1>
                 
-                <p class="hero-subtitle" data-i18n="hero.subtitle">
-                    Student-driven investment management delivering institutional-grade research 
-                    and superior risk-adjusted returns through emerging market opportunities.
-                </p>
+                <p class="hero-subtitle" data-i18n="hero.subtitle">Students researching companies. Real capital. Decisions we can explain.</p>
                 
                 <div class="hero-stats-row">
                     <div class="hero-stat-compact">
@@ -73,35 +75,32 @@
                 {% if not current_user.is_authenticated %}
                 <div class="czech-note">
                     <i class="bi bi-info-circle-fill"></i>
-                    <span>
-                        <span data-i18n="hero.czech_note">Currently accepting analysts working in</span> 
-                        <strong data-i18n="hero.czech_lang">Czech language</strong> 
-                        <span data-i18n="hero.only">only</span>
-                    </span>
+                    <span data-i18n="polish.czech">Our working language is Czech.</span>
                 </div>
                 {% endif %}
             </div>
             
-            <!-- Right Side - Performance Dashboard -->
+            <!-- Portfolio terminal: precomputed results only -->
             <div class="hero-right">
                 {% if stats.portfolio_return is not none %}
                 <div class="performance-dashboard">
                     <div class="performance-header">
                         <h3 data-i18n-html="home.board_approved_portfolio"><i class="bi bi-graph-up-arrow"></i> Board-Approved Portfolio</h3>
-                        <span class="status">Live</span>
+                        <span class="status" data-i18n="polish.snapshot">Portfolio snapshot</span>
                     </div>
                     
                     <div class="performance-main">
                         <div class="return-value {% if stats.portfolio_return >= 0 %}positive{% else %}negative{% endif %}">
                             {{ "%.2f"|format(stats.portfolio_return) }}%
                         </div>
-                        <div class="return-label" data-i18n="home.total_return_since_inception">Total Return Since Inception</div>
+                        <div class="return-label" data-i18n="home.total_return_since_inception">Return since inception</div>
                         <div class="return-meta">
-                            <span>{{ stats.portfolio_positions }}</span> Active Positions &nbsp;|&nbsp; 
-                            Updated {{ stats.portfolio_updated.strftime('%Y-%m-%d') if stats.portfolio_updated else 'Recently' }}
+                            <span>{{ stats.portfolio_positions }}</span> <span data-i18n="polish.positions">positions</span> ·
+                            <span data-i18n="polish.updated">Updated</span> {{ stats.portfolio_updated.strftime('%d.%m.%Y') if stats.portfolio_updated else '—' }}
                         </div>
                     </div>
                     
+
                     <!-- Risk-Adjusted Metrics Grid -->
                     <div class="risk-metrics">
                         <div class="risk-metric">
@@ -116,7 +115,7 @@
                             <div class="metric-value {% if stats.sharpe_ratio is not none and stats.sharpe_ratio >= 1 %}positive{% endif %}">
                                 {% if stats.sharpe_ratio is not none %}{{ "%.2f"|format(stats.sharpe_ratio) }}{% else %}--{% endif %}
                             </div>
-                            <div class="metric-subtext">Risk-Adjusted</div>
+                            <div class="metric-subtext" data-i18n="polish.risk_adjusted">Risk-adjusted</div>
                         </div>
                         <div class="risk-metric">
                             <div class="metric-label" data-i18n="home.max_drawdown">Max Drawdown</div>
@@ -126,11 +125,11 @@
                             <div class="metric-subtext" data-i18n="home.peak_to_trough">Peak to Trough</div>
                         </div>
                         <div class="risk-metric">
-                            <div class="metric-label">Volatility</div>
+                            <div class="metric-label" data-i18n="polish.volatility">Volatility</div>
                             <div class="metric-value">
                                 {% if stats.volatility is not none %}{{ "%.1f"|format(stats.volatility) }}%{% else %}--{% endif %}
                             </div>
-                            <div class="metric-subtext">Annualized</div>
+                            <div class="metric-subtext" data-i18n="polish.annualized">Annualized</div>
                         </div>
                         <div class="risk-metric">
                             <div class="metric-label">Beta</div>
@@ -180,50 +179,46 @@
             </div>
         </div>
     </div>
+<section class="market-tape" aria-label="Market moves" data-i18n-aria-label="polish.market_title">
+<div class="market-tape-meta"><span data-i18n="polish.market_title">Market moves</span><span data-i18n="polish.delayed">Delayed quotes</span>{% if market_tape.as_of %}<time datetime="{{ market_tape.as_of }}"><span data-i18n="polish.collected">Retrieved</span> {{ market_tape.display_as_of }}</time>{% endif %}</div>
+{% if market_tape.quotes %}<div class="market-tape-window" tabindex="0"><div class="market-tape-track">
+{% for copy in [1, 2] %}<div class="market-tape-group" {% if copy == 2 %}aria-hidden="true"{% endif %}>
+{% for q in market_tape.quotes %}<span class="market-quote"><b>{{ q.label }}</b><span class="{{ 'up' if q.change_pct >= 0 else 'down' }}">{% if q.display_value %}{{ q.display_value }}{% else %}{{ '%+.2f'|format(q.change_pct) }}%{% endif %}</span></span>{% endfor %}
+</div>{% endfor %}</div></div>
+{% else %}<p class="market-tape-empty" data-i18n="polish.market_pending">The next scheduled market snapshot will appear here.</p>{% endif %}
 </section>
+</section>
+
+
 
 <!-- About / Mission Section -->
 <section class="section" id="about">
     <div class="container">
         <div class="section-header reveal">
             <span class="section-label" data-i18n="section.mission">Our Mission</span>
-            <h2 class="section-title" data-i18n-html="home.institutional_grade_research_student_driven_exce">Institutional-Grade Research.<br>Student-Driven Excellence.</h2>
-            <p class="section-subtitle" data-i18n="mission.subtitle">
-                Founded with a clear purpose: to bridge the gap between academic theory and real-world 
-                investment management. We operate on par with the finest Czech investment institutions.
-            </p>
+            <h2 class="section-title" data-i18n-html="home.institutional_grade_research_student_driven_exce">Research with conviction.<br>Experience that counts.</h2>
+            <p class="section-subtitle" data-i18n="mission.subtitle">Since August 2024, we have connected company research with managing the club’s capital.</p>
         </div>
         
         <div class="row align-items-center">
             <div class="col-lg-6 reveal">
                 <div class="pe-lg-5">
-                    <h3 class="mb-4" data-i18n="ambition.title">KI AM Ambition</h3>
+                    <h3 class="mb-4" data-i18n="ambition.title">Why KI AM exists</h3>
                     <blockquote class="border-start border-4 ps-4 mb-4" style="border-color: var(--primary-green) !important;">
-                        <p class="mb-2 fst-italic" style="color: var(--color-gray-700);" data-i18n="home.umo_nit_motivovan_m_student_m_z_skat_re_lnou_zku">
-                            "Umožnit motivovaným studentům získat reálnou zkušenost se správou kapitálu 
-                            & zhodnocovat prostředky spolku"
-                        </p>
-                        <footer class="blockquote-footer" style="color: var(--color-gray-500);">
-                            Enable motivated students to gain real capital management experience 
-                            & grow the club's assets
-                        </footer>
+                        <p class="mb-2 fst-italic" style="color: var(--color-gray-700);" data-i18n="home.umo_nit_motivovan_m_student_m_z_skat_re_lnou_zku">Enable motivated students to gain real capital management experience and grow the club’s assets.</p>
                     </blockquote>
                     
-                    <p class="text-muted mb-4" data-i18n="home.our_primary_objective_is_to_outperform_the_eems">
-                        Our primary objective is to outperform the EEMS index through disciplined 
-                        fundamental analysis and a concentrated portfolio of 15-25 carefully selected positions.
-                    </p>
+                    <p class="text-muted mb-4" data-i18n="home.our_primary_objective_is_to_outperform_the_eems">15–25 selected companies. Fundamental analysis. A long horizon. Our primary comparison is EEMS.</p>
                     
+
                     {% if chart_data %}
                     <!-- Portfolio Performance Chart -->
-                    <div class="card border-0 shadow-sm">
+                    <div class="mission-chart card border-0">
                         <div class="card-body p-4">
                             <div class="d-flex align-items-center justify-content-between mb-3">
                                 <div>
-                                    <h5 class="mb-1" style="color: var(--primary-green);" data-i18n-html="home.portfolio_performance">
-                                        <i class="bi bi-graph-up-arrow"></i> Portfolio Performance
-                                    </h5>
-                                    <p class="text-muted small mb-0" data-i18n="home.since_inception_vs_benchmarks">Since Inception vs Benchmarks</p>
+                                    <h5 class="mb-1" style="color: var(--primary-green);" data-i18n-html="home.portfolio_performance"><i class="bi bi-graph-up-arrow"></i> Model portfolio</h5>
+                                    <p class="text-muted small mb-0" data-i18n="home.since_inception_vs_benchmarks">Incremental simulation · methodology below</p>
                                 </div>
                             </div>
                             <div style="height: 200px;">
@@ -256,7 +251,7 @@
                             <i class="bi bi-lightbulb"></i>
                         </div>
                         <h4 class="feature-title" data-i18n="values.patience">Patience</h4>
-                        <p class="feature-text" data-i18n="values.patience.desc">Long-term thinking over short-term speculation. We believe in the power of compound growth and disciplined capital allocation.</p>
+                        <p class="feature-text" data-i18n="values.patience.desc">We wait for the price to match our thesis.</p>
                     </div>
                     
                     <div class="feature-card mb-3">
@@ -264,15 +259,15 @@
                             <i class="bi bi-eye"></i>
                         </div>
                         <h4 class="feature-title" data-i18n="values.foresight">Foresight</h4>
-                        <p class="feature-text" data-i18n="values.foresight.desc">Anticipating market trends before they materialize through rigorous fundamental analysis and industry research.</p>
+                        <p class="feature-text" data-i18n="values.foresight.desc">We examine the business, its market and what could change.</p>
                     </div>
                     
                     <div class="feature-card">
                         <div class="feature-icon accent">
                             <i class="bi bi-shield-check"></i>
                         </div>
-                        <h4 class="feature-title" data-i18n="values.integrity">Integrity</h4>
-                        <p class="feature-text" data-i18n="values.integrity.desc">Transparent analysis and honest reporting. We hold ourselves to the highest ethical standards in everything we do.</p>
+                        <h4 class="feature-title" data-i18n="values.integrity">Discipline</h4>
+                        <p class="feature-text" data-i18n="values.integrity.desc">We document the thesis, monitor risk and revisit assumptions.</p>
                     </div>
                 </div>
             </div>
@@ -280,38 +275,42 @@
     </div>
 </section>
 
+<section class="initiative-strip" aria-label="September 2026 update" data-i18n-aria-label="polish.status_date">
+<div class="container"><div class="initiative-date" data-i18n="polish.status_date">Status / September 2026</div><div class="initiative-items">
+<p><b data-i18n="polish.own_title">Club capital</b><span data-i18n="polish.own_copy">Portfolio allocation started in May 2026.</span></p>
+<p><b data-i18n="polish.jt_title">Committee reporting</b><span data-i18n="polish.jt_copy">Monthly records explain portfolio changes and how the Committee voted.</span></p>
+<p><b data-i18n="polish.su_title">Analytical team</b><span data-i18n="polish.su_copy">Core analysts and contributors. At least three activities per semester.</span></p>
+</div></div></section>
+
 <!-- Investment Process Section -->
 <section class="section process-section" id="process">
     <div class="container">
         <div class="section-header reveal">
-            <span class="section-label" style="background: rgba(26, 156, 94, 0.2); color: #2cce7e;">Our Process</span>
+            <span class="section-label" style="background: rgba(26, 156, 94, 0.2); color: #2cce7e;" data-i18n="polish.process">Our process</span>
             <h2 class="section-title" data-i18n="home.investment_process">Investment Process</h2>
-            <p class="section-subtitle" data-i18n="home.a_rigorous_multi_stage_approach_ensuring_thoroug">
-                A rigorous, multi-stage approach ensuring thorough due diligence 
-                and consensus-driven investment decisions.
-            </p>
+            <p class="section-subtitle" data-i18n="home.a_rigorous_multi_stage_approach_ensuring_thoroug">From the first idea to a position we continue to follow.</p>
         </div>
         
         <div class="process-flow reveal">
             <div class="process-step">
                 <div class="step-number">1</div>
-                <div class="step-title">Screening</div>
-                <div class="step-desc" data-i18n="home.initial_screening_using_quantitative_metrics_roi">Initial screening using quantitative metrics (ROIC, margins, growth) and qualitative factors</div>
+                <div class="step-title" data-i18n="polish.screening">Screening</div>
+                <div class="step-desc" data-i18n="home.initial_screening_using_quantitative_metrics_roi">Revenue growth, ROIC, margins and valuation. Then the business behind the numbers.</div>
             </div>
             <div class="process-step">
                 <div class="step-number">2</div>
-                <div class="step-title">Analysis</div>
-                <div class="step-desc" data-i18n="home.in_depth_20_page_write_up_covering_business_mode">In-depth 20-page write-up covering business model, competitive advantages, and valuation</div>
+                <div class="step-title" data-i18n="polish.analysis">Analysis</div>
+                <div class="step-desc" data-i18n="home.in_depth_20_page_write_up_covering_business_mode">A structured write-up, valuation and peer review.</div>
             </div>
             <div class="process-step">
                 <div class="step-number">3</div>
-                <div class="step-title" data-i18n="home.peer_review">Peer Review</div>
-                <div class="step-desc" data-i18n="home.internal_discussion_and_critique_by_fellow_analy">Internal discussion and critique by fellow analysts to challenge assumptions</div>
+                <div class="step-title" data-i18n="home.peer_review">Watchlist</div>
+                <div class="step-desc" data-i18n="home.internal_discussion_and_critique_by_fellow_analy">The analyst team votes. The responsible analyst tracks fundamentals and valuation.</div>
             </div>
             <div class="process-step">
                 <div class="step-number">4</div>
-                <div class="step-title" data-i18n="home.committee_vote">Committee Vote</div>
-                <div class="step-desc" data-i18n="home.presentation_to_investment_committee_with_absolu">Presentation to Investment Committee with absolute consensus required for approval</div>
+                <div class="step-title" data-i18n="home.committee_vote">Investment</div>
+                <div class="step-desc" data-i18n="home.presentation_to_investment_committee_with_absolu">The Investment Committee decides on entry, followed by monitoring and monthly reporting.</div>
             </div>
         </div>
     </div>
@@ -323,35 +322,20 @@
         <div class="section-header reveal">
             <span class="section-label" data-i18n="section.strategy">Investment Approach</span>
             <h2 class="section-title" data-i18n="strategy.title">Our Strategy Pillars</h2>
-            <p class="section-subtitle" data-i18n="strategy.subtitle">
-                A disciplined approach combining emerging markets exposure with small-mid cap opportunities 
-                and compelling equity stories.
-            </p>
+            <p class="section-subtitle" data-i18n="strategy.subtitle">Three complementary pillars. One portfolio of 15–25 companies.</p>
         </div>
         
         <div class="row g-4">
             <div class="col-lg-7 reveal">
                 <div class="strategy-grid">
                     <div class="strategy-card">
-                        <h4 style="color: #c53030;" data-i18n-html="home.no_leverage">
-                            <i class="bi bi-x-octagon"></i>
-                            No Leverage
-                        </h4>
-                        <p class="mb-0" data-i18n="home.we_avoid_leverage_to_prevent_increased_volatilit">
-                            We avoid leverage to prevent increased volatility and drawdowns. 
-                            Asymmetric risk with unlimited loss potential has no place in our strategy.
-                        </p>
+                        <h4 style="color: #c53030;" data-i18n-html="home.no_leverage"><i class="bi bi-x-octagon"></i> No leverage</h4>
+                        <p class="mb-0" data-i18n="home.we_avoid_leverage_to_prevent_increased_volatilit">We invest without leverage to limit additional volatility and drawdowns.</p>
                     </div>
                     
                     <div class="strategy-card">
-                        <h4 style="color: #c53030;" data-i18n-html="home.no_shorts">
-                            <i class="bi bi-x-octagon"></i>
-                            No Shorts
-                        </h4>
-                        <p class="mb-0" data-i18n="home.short_selling_introduces_margin_call_risks_and_b">
-                            Short selling introduces margin call risks and borrow costs. 
-                            We prefer allocating time to finding winners rather than speculating on losers.
-                        </p>
+                        <h4 style="color: #c53030;" data-i18n-html="home.no_shorts"><i class="bi bi-x-octagon"></i> No shorts</h4>
+                        <p class="mb-0" data-i18n="home.short_selling_introduces_margin_call_risks_and_b">We focus on finding companies to own, without stock-borrow costs or margin calls.</p>
                     </div>
                     
                     <div class="strategy-card">
@@ -359,21 +343,12 @@
                             <i class="bi bi-x-octagon"></i>
                             No Hedging
                         </h4>
-                        <p class="mb-0" data-i18n="home.we_don_t_hedge_currencies_as_they_provide_natura">
-                            We don't hedge currencies as they provide natural diversification. 
-                            FX risk is monitored during high volatility periods.
-                        </p>
+                        <p class="mb-0" data-i18n="home.we_don_t_hedge_currencies_as_they_provide_natura">We diversify across currencies and monitor FX exposure.</p>
                     </div>
                     
                     <div class="strategy-card">
-                        <h4 style="color: var(--primary-green);" data-i18n-html="home.non_replicable_strategy">
-                            <i class="bi bi-check-circle"></i>
-                            Non-Replicable Strategy
-                        </h4>
-                        <p class="mb-0" data-i18n="home.our_portfolio_cannot_be_replicated_by_standard_e">
-                            Our portfolio cannot be replicated by standard ETFs. We actively select 
-                            and manage 15-25 positions for true diversification, not "di-worse-ification".
-                        </p>
+                        <h4 style="color: var(--primary-green);" data-i18n-html="home.non_replicable_strategy"><i class="bi bi-check-circle"></i> Active selection</h4>
+                        <p class="mb-0" data-i18n="home.our_portfolio_cannot_be_replicated_by_standard_e">We select companies individually across SMID caps, emerging markets and specific equity stories.</p>
                     </div>
                 </div>
             </div>
@@ -385,37 +360,32 @@
                     <div class="allocation-item">
                         <div class="allocation-color" style="background: #1a9c5e;"></div>
                         <div class="allocation-info">
-                            <div class="allocation-label" data-i18n="allocation.smid">SMID Caps</div>
-                            <div class="allocation-desc" data-i18n="allocation.smid.desc">Small-Mid Cap Opportunities</div>
+                            <div class="allocation-label" data-i18n="allocation.smid">SMID caps</div>
+                            <div class="allocation-desc" data-i18n="allocation.smid.desc">Small and mid-cap companies</div>
                         </div>
-                        <div class="allocation-percent">60%</div>
+                        <div class="allocation-percent">40%</div>
                     </div>
                     
                     <div class="allocation-item">
                         <div class="allocation-color" style="background: #147a4a;"></div>
                         <div class="allocation-info">
                             <div class="allocation-label" data-i18n="allocation.em">Emerging Markets</div>
-                            <div class="allocation-desc" data-i18n="allocation.em.desc">EM Exposure</div>
+                            <div class="allocation-desc" data-i18n="allocation.em.desc">CEE, Latin America and Asia</div>
                         </div>
-                        <div class="allocation-percent">30%</div>
+                        <div class="allocation-percent">50%</div>
                     </div>
                     
                     <div class="allocation-item">
                         <div class="allocation-color" style="background: #b8860b;"></div>
                         <div class="allocation-info">
-                            <div class="allocation-label" data-i18n="allocation.stories">Equity Stories</div>
-                            <div class="allocation-desc" data-i18n="allocation.stories.desc">Special Situations & Themes</div>
+                            <div class="allocation-label" data-i18n="allocation.stories">Equity stories</div>
+                            <div class="allocation-desc" data-i18n="allocation.stories.desc">Specific catalysts and special situations</div>
                         </div>
                         <div class="allocation-percent">10%</div>
                     </div>
                     
                     <div class="mt-4 pt-4 border-top">
-                        <p class="small text-muted mb-0" data-i18n-html="home.developed_markets_are_at_highs_while_retail_inve">
-                            <i class="bi bi-info-circle me-1"></i>
-                            Developed markets are at highs while retail investors fear EM. 
-                            Our unique composition of three complementary pillars provides 
-                            uncorrelated alpha opportunities.
-                        </p>
+                        <p class="small text-muted mb-0" data-i18n-html="home.developed_markets_are_at_highs_while_retail_inve"><i class="bi bi-info-circle me-1"></i> Long-term target weights at cost; cash allocation reflects available opportunities.</p>
                     </div>
                 </div>
             </div>
@@ -427,46 +397,35 @@
 <section class="section" id="risk">
     <div class="container">
         <div class="section-header reveal">
-            <span class="section-label">Risk Framework</span>
+            <span class="section-label" data-i18n="polish.risk">Risk framework</span>
             <h2 class="section-title" data-i18n="home.risk_management">Risk Management</h2>
-            <p class="section-subtitle" data-i18n="home.robust_risk_controls_ensuring_capital_preservati">
-                Robust risk controls ensuring capital preservation and sustainable returns 
-                through disciplined position sizing and continuous monitoring.
-            </p>
+            <p class="section-subtitle" data-i18n="home.robust_risk_controls_ensuring_capital_preservati">Position limits, diversification and independent thesis reviews.</p>
         </div>
         
+        <p class="policy-note" data-i18n="polish.policy_note">September 2026 deck: original limits and proposed changes are shown separately; the proposal is not presented as adopted policy.</p>
         <div class="risk-grid">
             <div class="risk-card reveal">
                 <div class="risk-header">
                     <div class="risk-icon"><i class="bi bi-layers"></i></div>
                     <h4 class="risk-title" data-i18n="home.position_sizing">Position Sizing</h4>
                 </div>
-                <p class="risk-desc" data-i18n="home.maximum_10_of_portfolio_per_position_at_cost_bas">
-                    Maximum 10% of portfolio per position at cost basis. 
-                    Growth tolerance up to 20% before trimming. Gradual entry with max 5% initial allocation.
-                </p>
+                <p class="risk-desc" data-i18n="home.maximum_10_of_portfolio_per_position_at_cost_bas">Original: 5% at cost, trim above 10%; initial entry up to 2.5%. Proposal: 7.5% at cost, trim above 15%, remove the initial-entry cap.</p>
             </div>
             
             <div class="risk-card reveal reveal-delay-1">
                 <div class="risk-header">
                     <div class="risk-icon"><i class="bi bi-grid-3x3"></i></div>
-                    <h4 class="risk-title">Diversification</h4>
+                    <h4 class="risk-title" data-i18n="polish.diversification">Diversification</h4>
                 </div>
-                <p class="risk-desc" data-i18n="home.maximum_20_exposure_per_sector_and_30_per_region">
-                    Maximum 20% exposure per sector and 30% per region. 
-                    Portfolio of 15-25 positions for optimal diversification without over-concentration.
-                </p>
+                <p class="risk-desc" data-i18n="home.maximum_20_exposure_per_sector_and_30_per_region">Up to 20% in one sector. A target of 15–25 portfolio companies.</p>
             </div>
             
             <div class="risk-card reveal reveal-delay-2">
                 <div class="risk-header">
                     <div class="risk-icon"><i class="bi bi-shield-exclamation"></i></div>
-                    <h4 class="risk-title" data-i18n="home.stop_loss_policy">Stop-Loss Policy</h4>
+                    <h4 class="risk-title" data-i18n="home.stop_loss_policy">Thesis review</h4>
                 </div>
-                <p class="risk-desc" data-i18n="home.soft_stop_loss_at_20_decline_triggers_thesis_rev">
-                    Soft stop-loss at 20% decline triggers thesis review by independent analyst. 
-                    Regular revalidation of all portfolio positions on monthly basis.
-                </p>
+                <p class="risk-desc" data-i18n="home.soft_stop_loss_at_20_decline_triggers_thesis_rev">Each 20% decline from the average purchase price prompts a review by another analyst.</p>
             </div>
             
             <div class="risk-card reveal reveal-delay-3">
@@ -474,10 +433,7 @@
                     <div class="risk-icon"><i class="bi bi-droplet"></i></div>
                     <h4 class="risk-title" data-i18n="home.liquidity_control">Liquidity Control</h4>
                 </div>
-                <p class="risk-desc" data-i18n="home.position_size_limited_to_5x_average_daily_tradin">
-                    Position size limited to 5x average daily trading volume. 
-                    Preference for dual-listed securities to minimize currency and liquidity risk.
-                </p>
+                <p class="risk-desc" data-i18n="home.position_size_limited_to_5x_average_daily_tradin">Position size no greater than five times daily trading volume. Preference for dual listings.</p>
             </div>
             
             <div class="risk-card reveal">
@@ -485,21 +441,15 @@
                     <div class="risk-icon"><i class="bi bi-cash-stack"></i></div>
                     <h4 class="risk-title" data-i18n="home.cash_management">Cash Management</h4>
                 </div>
-                <p class="risk-desc" data-i18n="home.excess_cash_held_in_interest_bearing_accounts_cz">
-                    Excess cash held in interest-bearing accounts (CZK, EUR, USD). 
-                    Higher cash allocation during elevated valuations, deployment during corrections.
-                </p>
+                <p class="risk-desc" data-i18n="home.excess_cash_held_in_interest_bearing_accounts_cz">More cash when valuations are high. Disciplined deployment when opportunities emerge.</p>
             </div>
             
             <div class="risk-card reveal reveal-delay-1">
                 <div class="risk-header">
                     <div class="risk-icon"><i class="bi bi-check2-circle"></i></div>
-                    <h4 class="risk-title" data-i18n="home.consensus_requirement">Consensus Requirement</h4>
+                    <h4 class="risk-title" data-i18n="home.consensus_requirement">Investment decisions</h4>
                 </div>
-                <p class="risk-desc" data-i18n="home.absolute_consensus_required_for_all_investment_d">
-                    Absolute consensus required for all investment decisions. 
-                    Any dissenting vote blocks position entry until concerns are addressed.
-                </p>
+                <p class="risk-desc" data-i18n="home.absolute_consensus_required_for_all_investment_d">Original: unanimous Committee approval. Proposal: majority approval; the chair retains a veto.</p>
             </div>
         </div>
     </div>
@@ -509,12 +459,9 @@
 <section class="section section-alt" id="universe">
     <div class="container">
         <div class="section-header reveal">
-            <span class="section-label">Investment Universe</span>
+            <span class="section-label" data-i18n="polish.universe">Investment universe</span>
             <h2 class="section-title" data-i18n="home.where_we_invest">Where We Invest</h2>
-            <p class="section-subtitle" data-i18n="home.focused_on_market_segments_where_our_student_dri">
-                Focused on market segments where our student-driven approach 
-                provides genuine competitive advantage.
-            </p>
+            <p class="section-subtitle" data-i18n="home.focused_on_market_segments_where_our_student_dri">Less coverage. Local sources. Room for original research.</p>
         </div>
         
         <div class="row g-4 universe-cards">
@@ -524,10 +471,7 @@
                         <i class="bi bi-building"></i>
                     </div>
                     <h4 class="feature-title" data-i18n="home.small_mid_caps">Small/Mid Caps</h4>
-                    <p class="feature-text" data-i18n="home.market_capitalization_under_25b_under_covered_by">
-                        Market capitalization under $25B. Under-covered by analysts, too small for hedge funds. 
-                        Structural inefficiencies create mispricing opportunities for diligent researchers.
-                    </p>
+                    <p class="feature-text" data-i18n="home.market_capitalization_under_25b_under_covered_by">Market capitalisation below $25bn, strong revenue growth and a durable competitive advantage.</p>
                 </div>
             </div>
             
@@ -537,10 +481,7 @@
                         <i class="bi bi-globe"></i>
                     </div>
                     <h4 class="feature-title" data-i18n="home.emerging_markets">Emerging Markets</h4>
-                    <p class="feature-text" data-i18n="home.cee_latam_and_asia_exposure_our_regional_experti">
-                        CEE, LATAM, and Asia exposure. Our regional expertise, language skills, 
-                        and Erasmus network provide local insights overlooked by Western investors.
-                    </p>
+                    <p class="feature-text" data-i18n="home.cee_latam_and_asia_exposure_our_regional_experti">CEE, Latin America and Asia. We use local sources, language skills and regional contacts.</p>
                 </div>
             </div>
             
@@ -550,10 +491,7 @@
                         <i class="bi bi-lightning"></i>
                     </div>
                     <h4 class="feature-title" data-i18n="home.equity_stories">Equity Stories</h4>
-                    <p class="feature-text" data-i18n="home.special_situations_thematic_investments_and_cont">
-                        Special situations, thematic investments, and contrarian opportunities. 
-                        Market skepticism or neglect creating asymmetric risk/reward profiles.
-                    </p>
+                    <p class="feature-text" data-i18n="home.special_situations_thematic_investments_and_cont">Specific catalysts, changing market expectations and asymmetric potential.</p>
                 </div>
             </div>
         </div>
@@ -571,7 +509,7 @@
                                 <div class="d-flex align-items-start gap-2">
                                     <i class="bi bi-x-circle-fill" style="color: #c53030; margin-top: 2px;"></i>
                                     <div>
-                                        <strong style="font-size: 0.9rem;">Harmful Industries</strong>
+                                        <strong style="font-size: 0.9rem;" data-i18n="polish.harmful">Harmful businesses</strong>
                                         <p class="text-muted small mb-0" data-i18n="home.tobacco_weapons_gambling_and_companies_causing_s">Tobacco, weapons, gambling, and companies causing significant environmental or social harm</p>
                                     </div>
                                 </div>
@@ -580,7 +518,7 @@
                                 <div class="d-flex align-items-start gap-2">
                                     <i class="bi bi-x-circle-fill" style="color: #c53030; margin-top: 2px;"></i>
                                     <div>
-                                        <strong style="font-size: 0.9rem;">"Cursed" Sectors</strong>
+                                        <strong style="font-size: 0.9rem;" data-i18n="polish.sectors">Structurally weak sectors</strong>
                                         <p class="text-muted small mb-0" data-i18n="home.chronically_low_roic_industries_like_airlines_wi">Chronically low ROIC industries like airlines with structural profitability challenges</p>
                                     </div>
                                 </div>
@@ -589,7 +527,7 @@
                                 <div class="d-flex align-items-start gap-2">
                                     <i class="bi bi-x-circle-fill" style="color: #c53030; margin-top: 2px;"></i>
                                     <div>
-                                        <strong style="font-size: 0.9rem;">Dishonest Management</strong>
+                                        <strong style="font-size: 0.9rem;" data-i18n="polish.management">Dishonest management</strong>
                                         <p class="text-muted small mb-0" data-i18n="home.any_history_of_accounting_fraud_integrity_failur">Any history of accounting fraud, integrity failures, or governance red flags</p>
                                     </div>
                                 </div>
@@ -602,39 +540,13 @@
     </div>
 </section>
 
-<!-- Stats Section -->
-<section class="stats-section" id="stats">
-    <div class="container">
-        <div class="stats-grid">
-            <div class="stat-item reveal">
-                <div class="stat-number" data-count="{{ stats.total_meetings }}">0</div>
-                <div class="stat-label" data-i18n="stats.meetings">Analytical Meetings</div>
-            </div>
-            <div class="stat-item reveal reveal-delay-1">
-                <div class="stat-number" data-count="{{ stats.total_users }}">0</div>
-                <div class="stat-label" data-i18n="stats.members">Team Members</div>
-            </div>
-            <div class="stat-item reveal reveal-delay-2">
-                <div class="stat-number" data-count="{{ stats.approved_analyses }}">0</div>
-                <div class="stat-label" data-i18n="stats.approved">Approved Analyses</div>
-            </div>
-            <div class="stat-item reveal reveal-delay-3">
-                <div class="stat-number" data-count="{{ stats.portfolio_positions }}">0</div>
-                <div class="stat-label" data-i18n="stats.stocks">Stocks in Portfolio</div>
-            </div>
-        </div>
-    </div>
-</section>
-
 <!-- Platform Perks Section (for analysts) -->
 <section class="section perks-section" id="platform">
     <div class="container">
         <div class="section-header reveal">
             <span class="section-label" data-i18n="section.platform">For Our Analysts</span>
             <h2 class="section-title" data-i18n="perks.title">Platform Perks</h2>
-            <p class="section-subtitle" data-i18n="perks.subtitle">
-                Exclusive tools and features available to KI Asset Management analysts.
-            </p>
+            <p class="section-subtitle" data-i18n="perks.subtitle">A shared workspace for research, portfolio monitoring and reporting.</p>
         </div>
         
         <div class="row g-4 perks-cards">
@@ -643,11 +555,8 @@
                     <div class="perk-icon primary">
                         <i class="bi bi-graph-up-arrow"></i>
                     </div>
-                    <h4 data-i18n="perks.tracking.title">Real-Time Tracking</h4>
-                    <p class="text-muted" data-i18n="perks.tracking.desc">
-                        Automatic price fetching from Yahoo Finance ensures our performance 
-                        data is always current and accurate.
-                    </p>
+                    <h4 data-i18n="perks.tracking.title">Portfolio monitoring</h4>
+                    <p class="text-muted" data-i18n="perks.tracking.desc">Centrally refreshed prices and performance, with the data date shown.</p>
                 </div>
             </div>
             
@@ -657,10 +566,7 @@
                         <i class="bi bi-bar-chart-line"></i>
                     </div>
                     <h4 data-i18n="perks.benchmark.title">Benchmark Comparison</h4>
-                    <p class="text-muted" data-i18n="perks.benchmark.desc">
-                        Compare our portfolio against SPY, FTSE All-World, and EEMS 
-                        with normalized starting points for fair comparison.
-                    </p>
+                    <p class="text-muted" data-i18n="perks.benchmark.desc">Portfolio returns alongside S&P 500, FTSE All-World and EEMS.</p>
                 </div>
             </div>
             
@@ -670,10 +576,7 @@
                         <i class="bi bi-file-earmark-spreadsheet"></i>
                     </div>
                     <h4 data-i18n="perks.reports.title">Detailed Reports</h4>
-                    <p class="text-muted" data-i18n="perks.reports.desc">
-                        Export comprehensive CSV reports with individual analyst performance, 
-                        portfolio breakdown, and historical data.
-                    </p>
+                    <p class="text-muted" data-i18n="perks.reports.desc">Analyst results, portfolio breakdowns and historical data in downloadable reports.</p>
                 </div>
             </div>
         </div>
@@ -692,7 +595,7 @@
                             {% if growth_data and growth_data.summary %}
                             <div class="text-end">
                                 <div class="h4 mb-0" style="color: var(--primary-green);">{{ growth_data.summary.total }}</div>
-                                <small class="text-muted">Total Analyses</small>
+                                <small class="text-muted" data-i18n="polish.analyses">Total analyses</small>
                             </div>
                             {% endif %}
                         </div>
@@ -725,9 +628,9 @@
                             <table class="table table-sm table-hover mb-0">
                                 <thead>
                                     <tr>
-                                        <th>Sector</th>
+                                        <th data-i18n="polish.sector">Sector</th>
                                         <th class="text-center">#</th>
-                                        <th class="text-end">Return</th>
+                                        <th class="text-end" data-i18n="polish.return">Return</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -763,10 +666,7 @@
         <div class="section-header reveal">
             <span class="section-label" data-i18n="section.team">Leadership</span>
             <h2 class="section-title" data-i18n="team.title">Meet the Team</h2>
-            <p class="section-subtitle" data-i18n="team.subtitle">
-                Guided by experienced leaders and driven by passionate students, 
-                our team combines academic excellence with practical expertise.
-            </p>
+            <p class="section-subtitle" data-i18n="team.subtitle">The people behind the research and portfolio decisions.</p>
         </div>
         
         <div class="team-photo reveal">
@@ -792,11 +692,7 @@
                     <div class="team-edu" data-i18n-html="home.ctu_wu_alumni">
                         <i class="bi bi-mortarboard"></i> CTU & WU Alumni
                     </div>
-                    <p class="team-quote" data-i18n="home.leading_strategic_vision_and_investment_decision">
-                        "Leading strategic vision and investment decisions for the Prague Club of Investors. 
-                        Our mission is to provide students with real capital management experience while 
-                        delivering superior risk-adjusted returns."
-                    </p>
+                    <p class="team-quote" data-i18n="home.leading_strategic_vision_and_investment_decision">Investment direction, Committee leadership and development of the analytical team.</p>
                     <a href="https://www.linkedin.com/in/adam-kolomaznik/" target="_blank" class="btn btn-sm btn-outline-primary">
                         <i class="bi bi-linkedin"></i> LinkedIn
                     </a>
@@ -819,16 +715,20 @@
                     <div class="team-edu" data-i18n-html="home.v_e_economics_student">
                         <i class="bi bi-mortarboard"></i> VŠE Economics Student
                     </div>
-                    <p class="team-quote" data-i18n="home.join_us_and_gain_real_world_investment_experienc">
-                        "Join us and gain real-world investment experience while building production-grade 
-                        financial technology. Here, you'll learn equity research, portfolio management, 
-                        and software development—all while managing real capital."
-                    </p>
+                    <p class="team-quote" data-i18n="home.join_us_and_gain_real_world_investment_experienc">Company research and development of the tools used to follow our portfolio.</p>
                     <a href="https://www.linkedin.com/in/simonhavlik/" target="_blank" class="btn btn-sm btn-outline-primary">
                         <i class="bi bi-linkedin"></i> LinkedIn
                     </a>
                 </div>
             </div>
+            {% for slot in [3, 4] %}
+            <div class="team-card team-placeholder reveal">
+                <div class="quote-slot"><span>{{ "%02d"|format(slot) }}</span><i class="bi bi-quote" aria-hidden="true"></i></div>
+                <div class="team-content"><div class="team-role" data-i18n="polish.placeholder_label">Team perspective / to be added</div>
+                <h3 class="team-name" data-i18n="polish.placeholder_name">Another perspective</h3>
+                <p class="team-quote" data-i18n="polish.placeholder_copy">Space for a name, role, photo and approved comment.</p></div>
+            </div>
+            {% endfor %}
         </div>
     </div>
 </section>
@@ -840,7 +740,7 @@
     <div class="research-glow research-glow-b" aria-hidden="true"></div>
 
     <div class="container-fluid px-3 px-lg-5">
-        <h2 class="visually-hidden" data-i18n="home.featured_research">Featured Research</h2>
+        <div class="research-heading"><h2 class="section-title" data-i18n="home.featured_research">Featured Research</h2><a href="{{ url_for('blog.index') }}" data-i18n-html="home.view_all_research"><i class="bi bi-journal-text"></i> View All Research</a></div>
 
         <div class="browser reveal">
             <!-- window chrome -->
@@ -974,9 +874,7 @@
                         </div>
                         <div class="research-mobile-body">
                             <div class="research-mobile-title" id="featuredResearchMobileTitle">{{ first_doc.title }}</div>
-                            <p class="research-mobile-hint" data-i18n="home.pdf_mobile_hint">
-                                Phones cannot scroll an embedded PDF. Open it here to read it full screen.
-                            </p>
+                            <p class="research-mobile-hint" data-i18n="home.pdf_mobile_hint">Open the full document to read comfortably on your phone.</p>
                             <div class="research-mobile-actions">
                                 <a id="featuredResearchOpenMobile"
                                    href="{{ first_doc.pdf_url }}"
@@ -1007,26 +905,29 @@
 </section>
 {% endif %}
 
+{% if partners or current_user.is_admin %}
+<section class="section partners-section" id="partners"><div class="container">
+<div class="partners-heading"><div><span class="section-label" data-i18n="polish.partner_kicker">The club’s partners</span><h2 class="section-title" data-i18n="polish.partners">Partners of Klub investorů</h2></div>
+{% if current_user.is_authenticated and current_user.is_admin %}<a class="partner-edit" href="{{ url_for('admin.site_partners') }}" data-i18n="polish.edit_partners">Edit partners</a>{% endif %}</div>
+<div class="partners-grid">{% for partner in partners %}<div class="partner-logo">
+{% if partner.website %}<a href="{{ partner.website }}" target="_blank" rel="noopener noreferrer">{% endif %}
+{% if partner.logo %}<img src="{{ partner.logo }}" alt="{{ partner.name }}" loading="lazy" decoding="async">{% else %}<span>{{ partner.name }}</span>{% endif %}
+{% if partner.website %}</a>{% endif %}</div>{% endfor %}</div>
+<a class="partner-source" href="https://www.klubinvestoru.com/" target="_blank" rel="noopener" data-i18n="polish.partner_source">Club partners · current list at klubinvestoru.com</a>
+</div></section>{% endif %}
+
 <!-- CTA Section -->
 <section class="cta-section" id="join">
     <div class="container">
         <div class="cta-content reveal">
-            <h2 class="cta-title" data-i18n="cta.title">Ready to Start Your Journey?</h2>
-            <p class="cta-text" data-i18n="cta.subtitle">
-                Join the Prague Club of Investors and gain hands-on experience in investment management. 
-                Work with real capital, learn from industry professionals, and build your track record.
-            </p>
+            <h2 class="cta-title" data-i18n="cta.title">Bring your own thesis.</h2>
+            <p class="cta-text" data-i18n="cta.subtitle">We meet every Monday at 20:00. Join through the Prague Club of Investors.</p>
             {% if not current_user.is_authenticated %}
                 <a href="https://www.klubinvestoru.com/clenstvi" target="_blank" class="btn-cta" data-i18n-html="btn.apply">
                     <i class="bi bi-person-plus"></i>
                     Apply to Join
                 </a>
-                <div class="czech-note mt-3" style="background: rgba(26, 156, 94, 0.15); border-color: rgba(26, 156, 94, 0.3); color: rgba(255,255,255,0.8);" data-i18n-html="home.currently_accepting_analysts_working_in_czech_la">
-                    <i class="bi bi-info-circle-fill"></i>
-                    <span>
-                        Currently accepting analysts working in <strong>Czech language</strong> only
-                    </span>
-                </div>
+                <div class="czech-note mt-3" style="background: rgba(26, 156, 94, 0.15); border-color: rgba(26, 156, 94, 0.3); color: rgba(255,255,255,0.8);" data-i18n-html="home.currently_accepting_analysts_working_in_czech_la"><i class="bi bi-info-circle-fill"></i> Our working language is Czech.</div>
             {% else %}
                 {% if current_user.is_admin %}
                     <a href="{{ url_for('analyst.dashboard') }}" class="btn-cta" data-i18n-html="btn.dashboard">
@@ -1064,7 +965,7 @@
             {% for sid, label, icon in secnav_items %}
             <button type="button" class="secnav-item" data-target="{{ sid }}" role="menuitem">
                 <span class="secnav-ico"><i class="bi bi-{{ icon }}"></i></span>
-                <span class="secnav-label">{{ label }}</span>
+{% if sid == "home" %}<span class="secnav-label" data-i18n="polish.nav_home">Home</span>{% endif %}{% if sid == "about" %}<span class="secnav-label" data-i18n="polish.nav_about">About</span>{% endif %}{% if sid == "process" %}<span class="secnav-label" data-i18n="polish.nav_process">Process</span>{% endif %}{% if sid == "strategy" %}<span class="secnav-label" data-i18n="polish.nav_strategy">Strategy</span>{% endif %}{% if sid == "risk" %}<span class="secnav-label" data-i18n="polish.nav_risk">Risk</span>{% endif %}{% if sid == "universe" %}<span class="secnav-label" data-i18n="polish.nav_universe">Universe</span>{% endif %}{% if sid == "platform" %}<span class="secnav-label" data-i18n="polish.nav_platform">Platform</span>{% endif %}{% if sid == "team" %}<span class="secnav-label" data-i18n="polish.nav_team">Team</span>{% endif %}{% if sid == "research" %}<span class="secnav-label" data-i18n="polish.nav_research">Research</span>{% endif %}{% if sid == "join" %}<span class="secnav-label" data-i18n="polish.nav_join">Join</span>{% endif %}
                 <span class="secnav-dot"></span>
             </button>
             {% endfor %}
@@ -1092,6 +993,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/landing.js', v='20261030') }}"></script>
 <script>
 // Section navigation: bottom-right "Jump to" menu + left vertical rail.
 (function () {
@@ -1120,11 +1022,10 @@
 
     if (nav) {
         toggle.addEventListener('click', function () { setExpanded(!expanded); });
-        nav.addEventListener('mouseenter', function () { if (window.matchMedia('(hover: hover)').matches) setExpanded(true); });
-        nav.addEventListener('mouseleave', function () { if (window.matchMedia('(hover: hover)').matches) setExpanded(false); });
         var topBtn = nav.querySelector('.secnav-top');
         if (topBtn) topBtn.addEventListener('click', function () { window.scrollTo({ top: 0, behavior: 'smooth' }); setExpanded(false); });
     }
+    document.addEventListener('click', function (e) { if (nav && !nav.contains(e.target)) setExpanded(false); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setExpanded(false); });
     items.concat(dots).forEach(function (b) { b.addEventListener('click', function () { goTo(b.dataset.target); }); });
 

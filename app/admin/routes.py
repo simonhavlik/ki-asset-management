@@ -11,8 +11,9 @@ from datetime import datetime, date, timedelta
 from sqlalchemy import desc, func
 
 from ..extensions import db
-from ..models import User, ActivityLog, CsvUpload, Analysis, Company, PerformanceCalculation, AnalystMapping, CompanyTickerMapping, Vote, PortfolioPurchase, Idea, IdeaComment, BenchmarkPrice, StockPrice, analysis_analysts, CompanySectorCache
-from .forms import UserEditForm, CreateUserForm, CsvUploadForm, AnalystMappingForm, CompanyTickerForm
+from ..models import User, ActivityLog, CsvUpload, Analysis, Company, PerformanceCalculation, AnalystMapping, CompanyTickerMapping, Vote, PortfolioPurchase, Idea, IdeaComment, BenchmarkPrice, StockPrice, analysis_analysts, CompanySectorCache, SystemSettings
+from .forms import UserEditForm, CreateUserForm, CsvUploadForm, AnalystMappingForm, CompanyTickerForm, SitePartnersForm
+from ..utils.site_content import get_partners
 from ..utils.csv_import import CsvImporter
 from ..utils.performance import PerformanceCalculator, get_vote_counts_for_analyses
 from ..utils.email_normalization import normalize_email
@@ -2070,3 +2071,27 @@ def resolve_missing_tickers():
     
     flash(f'Ticker resolution: {stats["resolved"]} resolved, {stats["other"]} marked as Other, {stats["failed"]} failed.', 'success')
     return redirect(url_for('admin.unified_update'))
+
+
+@admin_bp.route('/site-partners', methods=['GET', 'POST'])
+@admin_required
+def site_partners():
+    """Edit only the public club-partners block; changes are visible immediately."""
+    form = SitePartnersForm()
+    if request.method == 'GET':
+        for partner in get_partners():
+            form.partners.append_entry(partner)
+    if form.validate_on_submit():
+        partners = []
+        for entry in form.partners:
+            values = {key: (entry[key].data or '').strip()
+                      for key in ('name', 'website', 'logo')}
+            if not values['name'] and (values['website'] or values['logo']):
+                entry.form.name.errors = list(entry.form.name.errors) + ['Enter a partner name.']
+                break
+            if values['name']:
+                partners.append(values)
+        else:
+            SystemSettings.set('site_partners', partners, value_type='json')
+            return redirect(url_for('main.index') + '#partners')
+    return render_template('admin/site_partners.html', form=form)

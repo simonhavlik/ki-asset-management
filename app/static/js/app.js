@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Custom Inverted Cursor with Color Inversion Sphere
 function initCustomCursor() {
+    if (document.body.classList.contains("index-page")) return;
     // Only on non-touch devices
     if (window.matchMedia('(pointer: coarse)').matches) return;
     
