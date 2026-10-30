@@ -26,6 +26,8 @@ from functools import wraps
 from typing import Optional, Any, Callable
 from flask import current_app
 
+from .calculation_snapshots import snapshot, empty_main_stats
+
 logger = logging.getLogger(__name__)
 
 # Cache timeouts (in seconds)
@@ -228,6 +230,7 @@ def invalidate_cache(prefix: Optional[str] = None):
 # Cached Data Fetchers - These wrap DB calls with caching
 # =============================================================================
 
+@snapshot(default=empty_main_stats)
 def get_cached_main_stats(force_refresh: bool = False) -> Optional[dict]:
     """Get cached dashboard stats for main page."""
     from ..main.routes import get_dashboard_stats
@@ -255,6 +258,7 @@ def get_cached_main_stats(force_refresh: bool = False) -> Optional[dict]:
     return stats
 
 
+@snapshot(default=None)
 def get_cached_portfolio_chart(force_refresh: bool = False, method: str = 'incremental') -> Optional[dict]:
     """
     Get cached portfolio chart data.
@@ -288,6 +292,7 @@ def get_cached_portfolio_chart(force_refresh: bool = False, method: str = 'incre
     return chart_data
 
 
+@snapshot(default=None)
 def get_cached_growth_timeline(force_refresh: bool = False) -> Optional[dict]:
     """Get cached growth timeline data."""
     cache = get_cache()
@@ -307,7 +312,7 @@ def get_cached_growth_timeline(force_refresh: bool = False) -> Optional[dict]:
         growth_data = get_growth_timeline_for_chart()
     except Exception as e:
         logger.warning(f"Error loading growth timeline: {e}")
-        growth_data = None
+        raise
     
     if cache and NEON_OPTIMIZE:
         try:
@@ -318,6 +323,7 @@ def get_cached_growth_timeline(force_refresh: bool = False) -> Optional[dict]:
     return growth_data
 
 
+@snapshot(default=None)
 def get_cached_top_sectors(force_refresh: bool = False) -> Optional[list]:
     """Get cached top sectors data."""
     cache = get_cache()
@@ -338,7 +344,7 @@ def get_cached_top_sectors(force_refresh: bool = False) -> Optional[list]:
         top_sectors = sector_data.get('best_sectors')
     except Exception as e:
         logger.warning(f"Error loading sector data: {e}")
-        top_sectors = None
+        raise
     
     if cache and NEON_OPTIMIZE:
         try:
@@ -1018,7 +1024,7 @@ def invalidate_all_public_cache():
 # Cache Warming - Pre-populate caches
 # =============================================================================
 
-def warm_public_caches():
+def warm_public_caches(strict=False):
     """Pre-populate all public-facing caches."""
     logger.info("=" * 60)
     logger.info("Warming public caches for Neon optimization...")
@@ -1026,62 +1032,81 @@ def warm_public_caches():
     
     start_time = datetime.now()
     warmed = []
+    failures = []
     
     try:
         # Warm main page data
         get_cached_main_stats(force_refresh=True)
         warmed.append('main_stats')
     except Exception as e:
+        failures.append(str(e))
         logger.warning(f"Failed to warm main_stats: {e}")
     
     try:
         get_cached_portfolio_chart(force_refresh=True)
         warmed.append('portfolio_chart')
     except Exception as e:
+        failures.append(str(e))
         logger.warning(f"Failed to warm portfolio_chart: {e}")
     
     try:
         get_cached_growth_timeline(force_refresh=True)
         warmed.append('growth_timeline')
     except Exception as e:
+        failures.append(str(e))
         logger.warning(f"Failed to warm growth_timeline: {e}")
     
     try:
         get_cached_top_sectors(force_refresh=True)
         warmed.append('top_sectors')
     except Exception as e:
+        failures.append(str(e))
         logger.warning(f"Failed to warm top_sectors: {e}")
     
     try:
         get_cached_latest_blog_posts(limit=3, force_refresh=True)
         warmed.append('latest_blog_posts')
     except Exception as e:
+        failures.append(str(e))
         logger.warning(f"Failed to warm latest_blog_posts: {e}")
 
     try:
         get_cached_featured_research(limit=6, force_refresh=True)
         warmed.append('featured_research')
     except Exception as e:
+        failures.append(str(e))
         logger.warning(f"Failed to warm featured_research: {e}")
     
     try:
         get_cached_rss_posts(force_refresh=True)
         warmed.append('rss_posts')
     except Exception as e:
+        failures.append(str(e))
         logger.warning(f"Failed to warm rss_posts: {e}")
     
     try:
         get_cached_sitemap_posts(force_refresh=True)
         warmed.append('sitemap_posts')
     except Exception as e:
+        failures.append(str(e))
         logger.warning(f"Failed to warm sitemap_posts: {e}")
     
+    # Board payloads must be published by the same central job as the homepage.
+    for purchased in (False, True):
+        get_cached_board_portfolio_performance(purchased_only=purchased, force_refresh=True)
+        for years in (None, 1):
+            get_cached_board_portfolio_series(purchased_only=purchased, years=years,
+                                              force_refresh=True)
+    warmed.append('board')
+
     elapsed = (datetime.now() - start_time).total_seconds()
     logger.info("=" * 60)
     logger.info(f"Cache warming completed in {elapsed:.1f}s")
     logger.info(f"Warmed: {', '.join(warmed)}")
     logger.info("=" * 60)
     
+    if strict and failures:
+        raise RuntimeError("Snapshot publishing failed: " + "; ".join(failures))
     return warmed
 
 
@@ -1110,6 +1135,7 @@ def get_cache_stats() -> dict:
 # Board Page Caching - Performance Optimization
 # =============================================================================
 
+@snapshot(default=None)
 def get_cached_board_portfolio_performance(purchased_only: bool = False, force_refresh: bool = False):
     """
     Get cached portfolio performance for Board page.
@@ -1147,8 +1173,8 @@ def get_cached_board_portfolio_performance(purchased_only: bool = False, force_r
             purchased_only,
             e,
         )
-        result = None
-    
+        raise
+
     if result is None:
         logger.warning(
             "board cache: portfolio performance is None for purchased_only=%s "
@@ -1166,6 +1192,7 @@ def get_cached_board_portfolio_performance(purchased_only: bool = False, force_r
     return result
 
 
+@snapshot(default=None)
 def get_cached_board_portfolio_series(purchased_only: bool = False, years: int = None, force_refresh: bool = False):
     """
     Get cached portfolio series data for Board page charts.
@@ -1206,8 +1233,8 @@ def get_cached_board_portfolio_series(purchased_only: bool = False, years: int =
             years,
             e,
         )
-        result = None
-    
+        raise
+
     if result is None:
         logger.warning(
             "board cache: portfolio SERIES is None for purchased_only=%s years=%s "

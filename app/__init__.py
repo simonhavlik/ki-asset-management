@@ -301,15 +301,9 @@ def create_app(config_name=None):
         from .scheduler import _ensure_job_runs_table
         _ensure_job_runs_table(app)
         
-        # Warm caches for Neon.tech optimization (pre-populate in-memory cache)
-        if (os.environ.get('NEON_OPTIMIZE', 'true').lower() == 'true'
-                and os.environ.get('KI_SKIP_WARM') != '1'):
-            try:
-                from .utils.neon_cache import warm_public_caches
-                warm_public_caches()
-            except Exception as e:
-                app.logger.warning(f"Cache warming failed (non-critical): {e}")
-    
+        # Calculated results live in PostgreSQL. Boot only reads them; the
+        # central scheduled/explicit refresh owns all expensive cache warming.
+
     # Initialize background scheduler for weekly updates
     from .scheduler import init_scheduler, shutdown_scheduler
     init_scheduler(app)

@@ -693,7 +693,7 @@ def get_analyst_rankings():
     }
 
 
-def _compute_dashboard_data(user_id):
+def _compute_dashboard_data(user_id, team_performance=None):
     """Everything the dashboard needs except the (cheap) recent-analyses query."""
     from ..models import User as _User, Company as _Company
 
@@ -707,7 +707,8 @@ def _compute_dashboard_data(user_id):
     approved = [a for a in my_analyses if a.status == 'On Watchlist']
 
     perf = calculator.get_analyst_performance(user_id)
-    all_perfs = calculator.get_all_analysts_performance()
+    all_perfs = (team_performance if team_performance is not None
+                 else calculator.get_all_analysts_performance())
 
     returns = [p['avg_return'] for p in all_perfs if p['avg_return'] is not None]
     team_avg_return = sum(returns) / len(returns) if returns else 0
@@ -787,8 +788,8 @@ def _load_dashboard_from_db(user_id, generation=None):
     Keying the *read* on the generation meant every refresh that did not finish
     its warming pass (a deploy, Render's idle spin-down, a crash) left every row
     stale - and then every analyst paid the full ~19s recomputation on login.
-    Stale-but-instant beats fresh-and-7-seconds: the data refresh warms these
-    rows, and a missing row is the only thing that triggers a computation.
+    These rows are replaced by the central publisher. Missing rows produce a
+    pending state; page reads never trigger a computation.
     """
     import json
     from ..models import AnalystDashboardCache
@@ -828,50 +829,31 @@ def _store_dashboard_in_db(user_id, generation, data):
         logger.warning(f'Dashboard DB cache write failed for user {user_id}: {e}')
 
 
-def get_dashboard_data(user_id, force=False):
-    """Dashboard payload for a user, cached in the database (and memory).
+def _empty_dashboard_data():
+    primary = get_coverage_benchmark([])
+    return {
+        'total_analyses': None, 'approved_analyses': None,
+        'performance': dict.fromkeys(['avg_return', 'win_rate', 'num_analyses',
+                                      'median_return', 'best_return', 'worst_return']),
+        'team_avg_return': None, 'best_analyst_return': None,
+        'analyst_rank': None, 'total_analysts': None,
+        'primary_index': primary, 'performance_chart': None, 'risk_metrics': None,
+        'benchmark_comparison': {'primary_ticker': primary['ticker'],
+            'primary_label': primary['label'], 'primary_return': None,
+            'portfolio_return': None, 'primary_diff': None, 'spy_diff': None, 'vt_diff': None},
+        'ai_insights': [], 'stock_impacts': [],
+        'club': dict.fromkeys(['members', 'analyses', 'approved', 'companies']),
+    }
 
-    Two layers on purpose:
-      L1  in-process cache  - avoids a ~30ms database round trip per page load
-      L2  analyst_dashboard_cache table - survives deploys and Render's idle
-          spin-down, which is what makes the first login after either instant
-          instead of a ~19s recomputation
-    Both are keyed by the 'dash' generation, so a data refresh invalidates them
-    without deleting anything (full_recalc._warm_dashboards re-fills them).
-    """
-    from ..utils.neon_cache import get_cache, get_cache_key, _cache_generation, PUBLIC_DATA_TIMEOUT
 
-    generation = _cache_generation('dash')
-    cache = get_cache()
-    key = None
-    if cache:
-        try:
-            key = get_cache_key('dashboard', generation, user_id)
-            if not force:
-                hit = cache.get(key)
-                if hit is not None:
-                    return hit
-        except Exception:
-            key = None
-
+def get_dashboard_data(user_id, force=False, team_performance=None):
+    """Read the central snapshot; only the publisher may compute a new one."""
     if not force:
-        stored = _load_dashboard_from_db(user_id, generation)
-        if stored is not None:
-            if cache and key:
-                try:
-                    cache.set(key, stored, timeout=PUBLIC_DATA_TIMEOUT)
-                except Exception:
-                    pass
-            return stored
-
-    data = _compute_dashboard_data(user_id)
-    _store_dashboard_in_db(user_id, generation, data)
-
-    if cache and key:
-        try:
-            cache.set(key, data, timeout=PUBLIC_DATA_TIMEOUT)
-        except Exception as e:
-            logger.warning(f'Could not cache dashboard for {user_id}: {e}')
+        stored = _load_dashboard_from_db(user_id)
+        return stored if stored is not None else _empty_dashboard_data()
+    data = (_compute_dashboard_data(user_id) if team_performance is None
+            else _compute_dashboard_data(user_id, team_performance))
+    _store_dashboard_in_db(user_id, 'central', data)
     return data
 
 
@@ -1032,22 +1014,10 @@ def performance():
             'annualized_return': annualized_return
         })
     
-    # Terminal data (closest index, portfolio vs benchmark, risk metrics) -
-    # the same panel as the dashboard, so both pages share one design.
-    my_analyses_all = db.session.query(Analysis).join(
-        analysis_analysts, Analysis.id == analysis_analysts.c.analysis_id
-    ).filter(
-        analysis_analysts.c.user_id == current_user.id,
-        analysis_analysts.c.role == 'analyst'
-    ).all()
-    term = build_performance_terminal(my_analyses_all, analyses)
-
-    all_perfs = calculator.get_all_analysts_performance()
-    analyst_rank, total_analysts = 1, len(all_perfs)
-    for i, p in enumerate(all_perfs, 1):
-        if p['analyst_id'] == current_user.id:
-            analyst_rank = i
-            break
+    # Charts/risk/rank come from the central dashboard snapshot.
+    term = get_dashboard_data(current_user.id)
+    analyst_rank = term['analyst_rank']
+    total_analysts = term['total_analysts']
 
     return render_template('analyst/performance.html',
                            performance=perf,
@@ -1066,32 +1036,25 @@ def performance():
 def overview():
     """
     Overview page with portfolio charts, sector statistics, and analyst rankings.
-    Uses 7-day caching for fast filter switching with smart view hierarchy.
-    Auto-refreshes if cache is older than 7 days.
+    Reads the last centrally published view for fast filter switching.
+    Refreshes belong to the scheduler and explicit POST actions.
     Supports two calculation methods:
     - incremental: Realistic portfolio simulation with rebalancing
     - equal: Simple equal-weighted average
     """
-    from ..utils.overview_cache import (
-        get_cached_overview_data, save_overview_cache,
-        get_cache_status, should_use_cache, get_cache_age_days,
-        get_overview_cache_any, refresh_overview_async, overview_refresh_in_progress,
-        BACKGROUND_REFRESH_AFTER_DAYS
-    )
-    from ..utils.unified_calculator import UnifiedDataCalculator, recalculate_all_unified
-    
+    from ..utils.overview_cache import get_cache_status, get_overview_cache_any
+
     # Get filter and method from request
     current_filter = request.args.get('filter', 'board_approved')
     calc_method = request.args.get('method', 'incremental')
-    force_refresh = request.args.get('refresh') == 'true' and current_user.is_admin
+    force_refresh = False  # Refresh is an explicit POST action, never a page GET.
     
     # Validate method parameter
     if calc_method not in ['incremental', 'equal']:
         calc_method = 'incremental'
     
-    # Stale-while-revalidate: never recompute inside the request. Serve whatever
-    # is cached (even if it is old) and, when it is more than a day old, refresh
-    # it in a background thread so the page never freezes on load.
+    # Page reads never launch calculations, including when a snapshot is old.
+    # The central scheduler/explicit POST refresh replaces these stored views.
     cache_key = f"{current_filter}_{calc_method}"
     cache_data = None
     cache_age_days = None
@@ -1111,12 +1074,8 @@ def overview():
         positive_ratio = cache_data['positive_ratio']
         total_with_perf = cache_data.get('total_positions', 0)
         from_cache = True
-        if cache_age_days is None or cache_age_days >= BACKGROUND_REFRESH_AFTER_DAYS:
-            refresh_overview_async(current_app._get_current_object(), current_filter, calc_method)
     elif not force_refresh:
-        # Nothing cached at all: warm it in the background and render the empty
-        # state instead of blocking the first visitor for minutes.
-        refresh_overview_async(current_app._get_current_object(), current_filter, calc_method)
+        # No snapshot yet: show the empty state until the central job publishes.
         portfolio_performance = {'num_positions': 0}
         series_all = None
         series_1y = None
@@ -1125,32 +1084,6 @@ def overview():
         positive_ratio = 0
         total_with_perf = 0
         from_cache = False
-    else:
-        # Need to calculate fresh data (only when explicitly requested)
-        logger.info("Recalculating overview data (explicit refresh requested)")
-        
-        # Use unified calculator
-        calculator = UnifiedDataCalculator()
-        all_views_data = calculator.recalculate_all(force=force_refresh)
-        
-        # Get data for current view (cache keys now include method)
-        view_cache_key = f"{current_filter}_{calc_method}"
-        view_data = all_views_data.get(view_cache_key, {})
-        
-        portfolio_performance = view_data.get('portfolio_performance', {})
-        series_all = view_data.get('series_all')
-        series_1y = view_data.get('series_1y')
-        sector_stats = view_data.get('sector_stats', {})
-        analyst_rankings = view_data.get('analyst_rankings', {})
-        positive_ratio = view_data.get('positive_ratio', 0)
-        total_with_perf = view_data.get('total_positions', 0)
-        
-        # Save all views to cache (keys already include method from calculator)
-        for view_cache_key, view_data in all_views_data.items():
-            save_overview_cache(view_cache_key, view_data)
-        
-        from_cache = False
-    
     # Get cache status for admin
     cache_status = get_cache_status() if current_user.is_admin else None
     
@@ -1195,7 +1128,7 @@ def overview():
                            total_positions=total_with_perf,
                            club_risk=club_risk,
                            club_alpha=club_alpha,
-                           refreshing=overview_refresh_in_progress(current_filter, calc_method),
+                           refreshing=False,
                            from_cache=from_cache,
                            cache_status=cache_status,
                            needs_refresh=needs_refresh,

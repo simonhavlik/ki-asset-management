@@ -210,28 +210,10 @@ def get_dashboard_stats():
             'benchmark_eems': round(benchmark_eems, 2),
             **portfolio_metrics
         }
-    except Exception as e:
-        current_app.logger.error(f"Error fetching dashboard stats: {e}")
-        # Return default values if database is not available
-        return {
-            'total_users': 0,
-            'total_analyses': 0,
-            'approved_analyses': 0,
-            'portfolio_positions': 0,
-            'total_meetings': 60,
-            'portfolio_return': None,
-            'portfolio_return_inception': None,
-            'portfolio_updated': None,
-            'benchmark_spy': 15.0,
-            'benchmark_ftse': 12.0,
-            'benchmark_eems': 8.0,
-            'max_drawdown': None,
-            'volatility': None,
-            'beta': None,
-            'alpha_spy': None,
-            'sharpe_ratio': None,
-            'win_rate': None
-        }
+    except Exception:
+        # Only the central publisher calls this; retain the previous snapshot
+        # when the data source fails instead of publishing fabricated defaults.
+        raise
 
 
 def calculate_portfolio_metrics(approved_analysis_ids, portfolio_return):
@@ -430,7 +412,7 @@ def get_portfolio_chart_data(method='incremental'):
         }
     except Exception as e:
         current_app.logger.warning(f"Error generating portfolio chart data: {e}")
-        return None
+        raise
 
 
 def _get_benchmark_return_for_date(ticker: str, start_date: date, end_date: date) -> float:

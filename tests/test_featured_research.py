@@ -105,3 +105,25 @@ def test_home_page_renders_inline_viewer_and_serves_pdf():
             assert "inline" in pdf.headers.get("Content-Disposition", "")
         finally:
             _cleanup()
+
+
+def test_listing_metadata_does_not_load_pdf_bytes():
+    """Research cards/links must not transfer all documents from PostgreSQL."""
+    from sqlalchemy import inspect
+    from sqlalchemy.orm import defer
+    from app.utils.neon_cache import _serialize_blog_post
+
+    app = create_app()
+    with app.app_context():
+        _cleanup()
+        post = _make_post(_make_user(), 'featured-test-metadata', featured=True)
+        db.session.add(post)
+        db.session.commit()
+        post_id = post.id
+        db.session.remove()
+        post = BlogPost.query.options(defer(BlogPost.pdf_binary, raiseload=True)).get(post_id)
+        assert post.has_pdf_binary
+        assert post.is_pdf_post
+        assert post.pdf_url == f'/blog/pdf/{post_id}'
+        assert _serialize_blog_post(post)['is_pdf_post']
+        assert 'pdf_binary' in inspect(post).unloaded

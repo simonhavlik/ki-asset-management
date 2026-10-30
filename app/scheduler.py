@@ -322,135 +322,59 @@ def weekly_data_refresh():
         return refresh_all_cached_data(run_type='scheduled')
 
 
-def refresh_all_cached_data(run_type='scheduled'):
-    """
-    Refresh all cached data.
-    Called automatically by scheduler or manually.
-    
-    Args:
-        run_type: Type of run ('scheduled', 'manual', 'automated')
-    """
+def scheduled_recalc_if_due():
+    """Overnight catch-up if a restart missed the weekly slot; never a page hook."""
+    from zoneinfo import ZoneInfo
     from .models import RecalculationLog
-    from .utils.overview_cache import save_overview_cache
+    settings = get_scheduler_settings()
+    if not settings['enabled']:
+        return
+    now = datetime.now(ZoneInfo(TIMEZONE))
+    weekday = {'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3,
+               'fri': 4, 'sat': 5, 'sun': 6}.get(settings['day_of_week'], 0)
+    due = (now - timedelta(days=(now.weekday() - weekday) % 7)).replace(
+        hour=settings['hour'], minute=settings['minute'], second=0, microsecond=0)
+    if due > now:
+        due -= timedelta(days=7)
+    latest = RecalculationLog.query.filter_by(status='completed').order_by(
+        RecalculationLog.started_at.desc()).first()
+    due_utc = due.astimezone(timezone.utc).replace(tzinfo=None)
+    if latest is None or latest.started_at < due_utc:
+        return weekly_data_refresh()
+
+
+def refresh_all_cached_data(run_type='scheduled'):
+    """Use the same complete publisher as an explicit central refresh."""
+    from .utils.full_recalc import _run_full_recalculation
+    result = _run_full_recalculation(run_type)
+    if result is not None and not result.get('skipped'):
+        try:
+            _refresh_presentation_exports()
+        except Exception as exc:
+            logger.warning('Presentation export warming failed: %s', exc)
+    return result
+
+
+def _refresh_presentation_exports():
+    """Preserve scheduled export warming after the page snapshots are published."""
+    from flask import current_app
     from .utils.presentation_export import get_growth_timeline, get_sector_analysis
     from .utils.export_helper import generate_comprehensive_export
-    from .utils.neon_cache import warm_public_caches, invalidate_all_public_cache
-    from .utils.performance import PerformanceCalculator
-    from .utils.unified_calculator import recalculate_all_unified
-    from .extensions import db
-    
-    logger.info("=" * 60)
-    logger.info(f"Starting {run_type} data refresh...")
-    logger.info("=" * 60)
-    
-    start_time = datetime.now()
-    
-    # Create log entry
-    log_entry = RecalculationLog(run_type=run_type)
-    db.session.add(log_entry)
-    db.session.commit()
-    
-    stats = {
-        'analyses_processed': 0,
-        'prices_updated': 0,
-        'calculations_updated': 0,
-        'errors_count': 0
-    }
-    
-    try:
-        # Step 1: Update benchmarks - incrementally. Only the missing tail per
-        # index is downloaded and stored; never a full 5-year re-download.
-        logger.info("Updating benchmark prices (incremental)...")
-        from .utils.yahooquery_helper import update_benchmark_prices
-        bm = update_benchmark_prices()
-        stats['prices_updated'] += bm.get('new_records', 0)
-        stats['errors_count'] += bm.get('errors', 0)
-        logger.info(f"  benchmarks: {bm}")
-        
-        # Step 2: Recalculate all performance
-        logger.info("Recalculating performance metrics...")
-        calculator = PerformanceCalculator()
-        perf_stats = calculator.recalculate_all()
-        stats['analyses_processed'] = perf_stats.get('total_analyses', 0)
-        stats['calculations_updated'] = perf_stats.get('calculated', 0)
-        stats['errors_count'] += len(perf_stats.get('errors', []))
-        
-        if perf_stats.get('errors'):
-            for err in perf_stats['errors'][:5]:
-                logger.warning(f"  Performance error: {err}")
-        
-        # Step 3: Unified recalculation
-        logger.info("Running unified recalculation...")
+
+    get_growth_timeline(use_cache=False)
+    get_sector_analysis(use_cache=False)
+    app = current_app._get_current_object()
+
+    def build():
         try:
-            all_views = recalculate_all_unified(force=True) or {}
-            # SAVE the results. This job used to recompute everything and then
-            # throw the data away, before deleting the overview cache outright -
-            # so every scheduled run left the overview page blank until some
-            # other code path happened to repopulate it. Saving is the caller's
-            # job: recalculate_all_unified() only computes.
-            for cache_key, view_data in all_views.items():
-                save_overview_cache(cache_key, view_data)
-            logger.info(f"Saved {len(all_views)} overview view(s) to cache")
-        except Exception as e:
-            stats['errors_count'] += 1
-            logger.error(f"Unified recalculation error: {e}")
-        
-        # Step 4: Invalidate the derived caches only. NEVER the overview rows:
-        # those hold the page's data and were just written above.
-        logger.info("Invalidating caches...")
-        invalidate_all_public_cache()
-        
-        # Step 5: Warm caches
-        logger.info("Warming caches...")
-        warmed = warm_public_caches()
-        logger.info(f"Warmed caches: {', '.join(warmed)}")
-        
-        # Step 6: Refresh presentation exports
-        logger.info("Refreshing growth timeline...")
-        growth_data = get_growth_timeline(use_cache=False)
-        
-        logger.info("Refreshing sector analysis...")
-        sector_data = get_sector_analysis(use_cache=False)
-        
-        logger.info("Refreshing comprehensive export...")
-        # Best-effort, bounded: the comprehensive Excel is a downloadable artifact,
-        # not needed by any page. On the 512 MB instance it can be slow, so run it
-        # detached and never let it block the recalculation from completing.
-        import threading as _threading
-
-        def _build_export():
-            try:
+            with app.app_context():
                 generate_comprehensive_export(force_new=True)
-            except Exception as exc:  # noqa: BLE001 - an artifact must not fail the job
-                logger.warning("Comprehensive export failed: %s", exc)
+        except Exception as exc:
+            logger.warning('Comprehensive export failed: %s', exc)
 
-        _export_thread = _threading.Thread(target=_build_export, daemon=True, name='recalc-export')
-        _export_thread.start()
-        _export_thread.join(timeout=180)
-        if _export_thread.is_alive():
-            logger.warning(
-                "Comprehensive export exceeded 180s; recalculation completes without it "
-                "(the export will finish in the background or be rebuilt on demand)"
-            )
-        
-        elapsed = (datetime.now() - start_time).total_seconds()
-        stats['duration_seconds'] = elapsed
-        
-        # Mark log as completed
-        log_entry.mark_completed(stats)
-        
-        logger.info("=" * 60)
-        logger.info(f"{run_type.title()} refresh completed in {elapsed:.1f}s")
-        logger.info(f"  Analyses: {stats['analyses_processed']}")
-        logger.info(f"  Prices: {stats['prices_updated']}")
-        logger.info(f"  Calculations: {stats['calculations_updated']}")
-        logger.info(f"  Errors: {stats['errors_count']}")
-        logger.info("=" * 60)
-        
-    except Exception as e:
-        logger.error(f"Error during {run_type} refresh: {e}")
-        logger.exception(f"{run_type.title()} refresh failed")
-        log_entry.mark_failed(str(e))
+    thread = threading.Thread(target=build, daemon=True, name='recalc-export')
+    thread.start()
+    thread.join(timeout=180)
 
 
 def retry_queued_emails():
@@ -518,6 +442,13 @@ def _register_jobs(app):
             misfire_grace_time=600,
         )
 
+        scheduler.add_job(
+            func=_tracked('recalc_catchup', _with_app_context(scheduled_recalc_if_due)),
+            trigger=CronTrigger(hour='0-5', minute=15, timezone=TIMEZONE),
+            id='recalc_catchup', name='Overnight recalculation safety net',
+            replace_existing=True, coalesce=True, misfire_grace_time=3600,
+        )
+
         settings = get_scheduler_settings()
 
         if settings['enabled']:
@@ -539,13 +470,10 @@ def _register_jobs(app):
                 id='automated_recalc',
                 name='Automated Data Refresh',
                 replace_existing=True,
-                # A missed Monday slot is DROPPED, never caught up: the jobstore is
-                # in-memory, so a restarted/asleep instance simply schedules the next
-                # Monday. Starting a multi-minute full recalculation on boot or on
-                # wake is far worse than skipping one week - the 04:00 slot (and the
-                # manual /api/recalculate endpoint) is the only place it may start.
+                # Allow a short scheduler delay; missed runs also have an
+                # overnight-only catch-up job, never a page-load fallback.
                 coalesce=True,
-                misfire_grace_time=1,
+                misfire_grace_time=3600,
             )
 
             logger.info(f"Automated recalculation scheduled for "
@@ -778,9 +706,9 @@ def update_scheduler_settings():
         id='automated_recalc',
         name='Automated Data Refresh',
         replace_existing=True,
-        # Same policy as init_scheduler: a missed slot is dropped, never caught up.
+        # Allow short delays, with the overnight catch-up as a safety net.
         coalesce=True,
-        misfire_grace_time=1,
+        misfire_grace_time=3600,
     )
     
     logger.info(f"Scheduler updated: {settings['day_of_week']} at {settings['hour']:02d}:{settings['minute']:02d} {TIMEZONE}")

@@ -91,7 +91,7 @@ def test_second_read_does_not_recompute(app, monkeypatch):
         monkeypatch.setattr('app.utils.neon_cache.get_cache_key', lambda *a, **k: 'key')
         monkeypatch.setattr('app.utils.neon_cache._cache_generation', lambda *a, **k: 'gen-test')
 
-        first = ar.get_dashboard_data(user.id)
+        first = ar.get_dashboard_data(user.id, force=True)
         second = ar.get_dashboard_data(user.id)
 
         assert first == second

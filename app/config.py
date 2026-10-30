@@ -66,11 +66,11 @@ def _engine_options(uri: str) -> dict:
     """
     if not uri or uri.startswith('sqlite'):
         return {'pool_pre_ping': True}
-    # PostgreSQL: keep 5 connections ready, allow 10 more under load, recycle
-    # hourly to reduce connection churn.
+    # The shared PostgreSQL host allows only 20 connections. Bound each web
+    # worker's pool so readers, the publisher and other club services coexist.
     return {
-        'pool_size': 5,
-        'max_overflow': 10,
+        'pool_size': int(os.environ.get('DB_POOL_SIZE', '2')),
+        'max_overflow': int(os.environ.get('DB_MAX_OVERFLOW', '2')),
         'pool_recycle': 3600,
         'pool_pre_ping': True,
         'pool_timeout': 30,
