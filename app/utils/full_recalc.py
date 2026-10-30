@@ -87,80 +87,113 @@ def start_full_recalculation(run_type: str = 'manual'):
 
 
 def _run_full_recalculation(run_type: str):
+    from flask import current_app, has_app_context
     from .. import create_app
-    app = create_app()
+    app = current_app._get_current_object() if has_app_context() else create_app()
     with app.app_context():
-        from ..extensions import db
-        from ..models import RecalculationLog
-        from .neon_cache import (invalidate_all_public_cache, invalidate_board_cache,
-                                 warm_public_caches)
-        from .overview_cache import save_overview_cache
-        from .yahooquery_helper import fetch_benchmark_prices
-        from .unified_calculator import recalculate_all_unified
+        return _publish_with_lock(run_type)
 
-        log_entry = RecalculationLog(run_type=run_type)
-        db.session.add(log_entry)
-        db.session.commit()
 
-        stats = {'analyses_processed': 0, 'prices_updated': 0,
-                 'calculations_updated': 0, 'errors_count': 0}
+def _publish_with_lock(run_type):
+    """One publisher across web workers and the scheduler, including warm-up."""
+    from ..extensions import db
+    connection = None
+    try:
+        if db.engine.dialect.name == 'postgresql':
+            connection = db.engine.raw_connection()
+            cursor = connection.cursor()
+            cursor.execute('SELECT pg_try_advisory_lock(%s)', (0x6B6963616C63,))
+            acquired = cursor.fetchone()[0]
+            cursor.close()
+            if not acquired:
+                return {'skipped': 'A central refresh is already running'}
+        return _publish_results(run_type)
+    finally:
+        if connection is not None:
+            try:
+                cursor = connection.cursor()
+                cursor.execute('SELECT pg_advisory_unlock(%s)', (0x6B6963616C63,))
+                cursor.close()
+            finally:
+                connection.close()
+
+
+def _publish_results(run_type):
+    # Retain old snapshots until each replacement is safely committed.
+    from ..extensions import db
+    from ..models import RecalculationLog
+    from .neon_cache import (invalidate_all_public_cache, invalidate_board_cache,
+                             warm_public_caches)
+    from .overview_cache import save_overview_cache
+    from .yahooquery_helper import fetch_benchmark_prices
+    from .unified_calculator import recalculate_all_unified
+
+    log_entry = RecalculationLog(run_type=run_type)
+    db.session.add(log_entry)
+    db.session.commit()
+
+    stats = {'analyses_processed': 0, 'prices_updated': 0,
+             'calculations_updated': 0, 'errors_count': 0}
+    try:
+        end_date = date.today()
+        start_date = end_date - timedelta(days=1825)
+        for ticker in BENCHMARK_TICKERS:
+            try:
+                df = fetch_benchmark_prices(ticker, start_date, end_date)
+                if df is not None and not df.empty:
+                    stats['prices_updated'] += len(df)
+            except Exception as e:
+                stats['errors_count'] += 1
+                logger.warning(f'Benchmark {ticker} refresh failed: {e}')
+
+        # Compute FIRST, destroy nothing until the new data is safely saved.
+        #
+        # The refresh used to invalidate the caches up front, then recompute.
+        # The recompute takes minutes (76 companies and benchmarks over the
+        # network) and runs in a thread inside a free 0.1-CPU instance that
+        # sleeps when idle and restarts on every deploy - so it was routinely
+        # killed before saving. The caches had already been emptied, leaving
+        # the overview blank and stuck on "refreshing" with no way back. A
+        # refresh that dies must now leave the previous data in place.
         try:
-            end_date = date.today()
-            start_date = end_date - timedelta(days=1825)
-            for ticker in BENCHMARK_TICKERS:
-                try:
-                    df = fetch_benchmark_prices(ticker, start_date, end_date)
-                    if df is not None and not df.empty:
-                        stats['prices_updated'] += len(df)
-                except Exception as e:
-                    stats['errors_count'] += 1
-                    logger.warning(f'Benchmark {ticker} refresh failed: {e}')
-
-            # Compute FIRST, destroy nothing until the new data is safely saved.
-            #
-            # The refresh used to invalidate the caches up front, then recompute.
-            # The recompute takes minutes (76 companies and benchmarks over the
-            # network) and runs in a thread inside a free 0.1-CPU instance that
-            # sleeps when idle and restarts on every deploy - so it was routinely
-            # killed before saving. The caches had already been emptied, leaving
-            # the overview blank and stuck on "refreshing" with no way back. A
-            # refresh that dies must now leave the previous data in place.
-            try:
-                all_views = recalculate_all_unified(force=True) or {}
-                for cache_key, view_data in all_views.items():
-                    save_overview_cache(cache_key, view_data)
-                stats['calculations_updated'] = len(all_views)
-            except Exception as e:
-                stats['errors_count'] += 1
-                logger.error(f'Unified recalculation failed: {e}')
-
-            # Only now drop the derived caches. NOT the overview rows: those were
-            # just refreshed above and invalidate_cache() deletes them.
-            try:
-                invalidate_all_public_cache()
-                invalidate_board_cache()
-            except Exception as e:
-                stats['errors_count'] += 1
-                logger.error(f'Cache invalidation failed: {e}')
-
-            # Warm the public caches, then the per-analyst dashboards.
-            try:
-                warm_public_caches()
-            except Exception as e:
-                stats['errors_count'] += 1
-                logger.error(f'Cache warming failed: {e}')
-
-            _warm_dashboards(stats)
-
-            log_entry.mark_completed(stats)
-            logger.info(f'Full recalculation finished: {stats}')
+            all_views = recalculate_all_unified(force=True) or {}
+            for cache_key, view_data in all_views.items():
+                save_overview_cache(cache_key, view_data)
+            stats['calculations_updated'] = len(all_views)
         except Exception as e:
-            logger.error(f'Full recalculation failed: {e}')
-            try:
-                log_entry.mark_failed(str(e))
-                db.session.commit()
-            except Exception:
-                pass
+            stats['errors_count'] += 1
+            logger.error(f'Unified recalculation failed: {e}')
+            raise
+
+        # Only now drop the derived caches. NOT the overview rows: those were
+        # just refreshed above and invalidate_cache() deletes them.
+        try:
+            invalidate_all_public_cache()
+            invalidate_board_cache()
+        except Exception as e:
+            stats['errors_count'] += 1
+            logger.error(f'Cache invalidation failed: {e}')
+
+        # Warm the public caches, then the per-analyst dashboards.
+        try:
+            warm_public_caches(strict=True)
+        except Exception as e:
+            stats['errors_count'] += 1
+            logger.error(f'Cache warming failed: {e}')
+            raise
+
+        _warm_dashboards(stats)
+
+        log_entry.mark_completed(stats)
+        logger.info(f'Full recalculation finished: {stats}')
+        return stats
+    except Exception as e:
+        logger.error(f'Full recalculation failed: {e}')
+        try:
+            log_entry.mark_failed(str(e))
+            db.session.commit()
+        except Exception:
+            pass
 
 
 def _warm_dashboards(stats=None):
@@ -171,21 +204,27 @@ def _warm_dashboards(stats=None):
     a refresh fast instead of paying ~15s of portfolio/pandas work.
     """
     from ..extensions import db
-    from ..models import analysis_analysts
+    from .performance import PerformanceCalculator
     from ..analyst.routes import get_dashboard_data
 
     try:
-        user_ids = [row[0] for row in db.session.query(analysis_analysts.c.user_id)
-                    .filter(analysis_analysts.c.role == 'analyst').distinct().all()]
+        from ..models import User
+        user_ids = [row[0] for row in db.session.query(User.id)
+                    .filter(User.is_active == True).all()]
     except Exception as e:
         logger.warning(f'Could not list analysts to warm: {e}')
         return
 
+    failures = []
+    team_performance = PerformanceCalculator().get_all_analysts_performance()
     for uid in user_ids:
         try:
-            get_dashboard_data(uid, force=True)
+            get_dashboard_data(uid, force=True, team_performance=team_performance)
         except Exception as e:
             if stats is not None:
                 stats['errors_count'] += 1
+            failures.append(uid)
             logger.warning(f'Dashboard warm failed for user {uid}: {e}')
+    if failures:
+        raise RuntimeError(f'Dashboard snapshots failed for {len(failures)} users')
     logger.info(f'Dashboard caches warmed for {len(user_ids)} analysts')

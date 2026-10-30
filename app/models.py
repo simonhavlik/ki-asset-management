@@ -721,3 +721,12 @@ class AnalystDashboardCache(db.Model):
 
     def __repr__(self):
         return f'<AnalystDashboardCache user={self.user_id} gen={self.generation}>'
+
+
+class CalculationSnapshot(db.Model):
+    """Last successful scheduled calculation, shared across workers/restarts."""
+    __tablename__ = 'calculation_snapshots'
+
+    key = db.Column(db.String(255), primary_key=True)
+    payload = db.Column(db.Text, nullable=False)
+    cached_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)

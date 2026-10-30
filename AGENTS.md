@@ -311,7 +311,11 @@ Left deliberately undone, with context:
    hallucinated symbol that *does* trade would pass and be attached to the wrong
    company. There is no cross-check between the resolved ticker's name and the
    requested name.
-4. **`i18n.js` is ~120 KB** and loads on every page including the dashboard.
-5. **Only 4 Vote rows exist in production**, so just 3 of 28 "On Watchlist"
+4. **Calculated page payloads** are durable PostgreSQL snapshots. Ordinary page
+   loads and startup must never compute them or start refresh threads. Scheduled
+   and explicit POST refreshes share `full_recalc._run_full_recalculation`; see
+   `docs/operations/calculation-snapshots.md`.
+5. **`i18n.js` is ~120 KB** and loads on every page including the dashboard.
+6. **Only 4 Vote rows exist in production**, so just 3 of 28 "On Watchlist"
    analyses count as Board-approved. The Board 1-year chart is empty because of
    that, not because of a bug.
