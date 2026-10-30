@@ -1,8 +1,9 @@
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileRequired, FileAllowed
-from wtforms import StringField, PasswordField, BooleanField, SelectField, SubmitField, TextAreaField
+from wtforms import StringField, PasswordField, BooleanField, SelectField, SubmitField, TextAreaField, Form, FieldList, FormField
 from wtforms.validators import DataRequired, Email, Length, Optional, ValidationError
 import re
+from urllib.parse import urlsplit
 
 class UserEditForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email()])
@@ -49,3 +50,27 @@ class AnalystMappingForm(FlaskForm):
 class CompanyTickerForm(FlaskForm):
     ticker_symbol = StringField('Ticker Symbol', validators=[DataRequired()])
     submit = SubmitField('Save Ticker')
+
+
+def _public_url(form, field):
+    value = (field.data or '').strip()
+    if not value:
+        return
+    if field.short_name == 'logo' and value.startswith('/static/'):
+        if '..' not in value and re.fullmatch(r'/static/[A-Za-z0-9_./-]+', value):
+            return
+    parsed = urlsplit(value)
+    if (parsed.scheme != 'https' or not parsed.hostname or parsed.username
+            or parsed.password or any(c.isspace() for c in value)):
+        raise ValidationError('Use an HTTPS address (or /static/ for a logo).')
+
+
+class PartnerEntryForm(Form):
+    name = StringField('Partner name', validators=[Optional(), Length(max=100)])
+    website = StringField('Website', validators=[Optional(), Length(max=1000), _public_url])
+    logo = StringField('Logo URL', validators=[Optional(), Length(max=1000), _public_url])
+
+
+class SitePartnersForm(FlaskForm):
+    partners = FieldList(FormField(PartnerEntryForm), min_entries=0, max_entries=12)
+    submit = SubmitField('Save partners')

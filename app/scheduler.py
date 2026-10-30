@@ -449,6 +449,14 @@ def _register_jobs(app):
             replace_existing=True, coalesce=True, misfire_grace_time=3600,
         )
 
+        from .utils.site_content import refresh_market_tape
+        scheduler.add_job(
+            func=_tracked('market_tape', _with_app_context(refresh_market_tape)),
+            trigger=IntervalTrigger(minutes=15), id='market_tape',
+            name='Market quote snapshot', replace_existing=True,
+            coalesce=True, misfire_grace_time=300, max_instances=1,
+        )
+
         settings = get_scheduler_settings()
 
         if settings['enabled']:

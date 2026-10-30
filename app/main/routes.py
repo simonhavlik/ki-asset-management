@@ -469,13 +469,17 @@ def index():
     growth_data = get_cached_growth_timeline()
     top_sectors = get_cached_top_sectors()
     featured_research = get_cached_featured_research(limit=6)
+    from ..utils.site_content import get_partners, get_market_tape
+    partners = get_partners()
+    market_tape = get_market_tape()
     
     return render_template('main/index.html', 
                          stats=stats, 
                          chart_data=chart_data,
                          growth_data=growth_data,
                          top_sectors=top_sectors,
-                         featured_research=featured_research)
+                         featured_research=featured_research, partners=partners,
+                         market_tape=market_tape)
 
 
 @main_bp.route('/about')

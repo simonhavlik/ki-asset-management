@@ -1,0 +1,12 @@
+/* Shared flat masthead across the public site and authenticated pages. */
+.navbar,.navbar.scrolled{top:0!important;left:0!important;right:0!important;width:100%!important;max-width:none!important;transform:none!important;border:0!important;border-bottom:1px solid #dce7df!important;border-radius:0!important;box-shadow:none!important;background:rgba(255,255,255,.97)!important;padding:16px 0!important;}
+.navbar>.container{max-width:1400px!important;padding-left:24px!important;padding-right:24px!important;}
+.navbar-brand{display:flex;align-items:center;gap:12px;margin-right:28px;color:#172d25!important;}
+.brand-mark{font-size:25px;letter-spacing:-.075em;font-weight:650;line-height:1;}
+.brand-mark b{color:#1a9c5e;font-weight:500;}
+.brand-caption{font:8px/1.55 ui-monospace,monospace;letter-spacing:.1em;border-left:1px solid #c8d9ce;padding-left:12px;color:#5f7467;}
+.navbar .btn{border-radius:2px!important;}
+.navbar-toggler{border-radius:2px;border-color:#dbe6de;font-size:.9rem;}
+@media(max-width:767px){.navbar,.navbar.scrolled{padding:12px 0!important}.brand-mark{font-size:24px}.brand-caption{font-size:7px}.navbar-brand{margin-right:15px}}
+.dashboard-page .navbar .nav-link{display:flex;align-items:center;gap:6px;white-space:nowrap;font-size:.75rem;padding:.4rem .5rem!important;}
+.dashboard-page .navbar-brand .brand-caption{display:none;}
