@@ -383,7 +383,9 @@ class BlogPost(db.Model):
     content = db.Column(db.Text, nullable=False)  # Main content (HTML/Markdown)
     content_type = db.Column(db.String(20), default='html')  # 'html' or 'markdown'
     pdf_path = db.Column(db.String(500), nullable=True)  # Path to PDF file for PDF blog posts
-    pdf_binary = db.Column(db.LargeBinary, nullable=True)  # PDF stored in DB for Render deployment
+    pdf_binary = db.deferred(db.Column(db.LargeBinary, nullable=True))
+    # Listing pages need only existence, never the whole document payload.
+    has_pdf_binary = db.column_property(db.func.length(pdf_binary) > 0)
     pdf_content_type = db.Column(db.String(100), nullable=True)  # MIME type of stored PDF
     pdf_filename_db = db.Column(db.String(255), nullable=True)  # Original filename for download
     additional_pdfs = db.Column(db.JSON, nullable=True)  # List of additional PDFs [{name, path, type, desc}]
@@ -430,6 +432,13 @@ class BlogPost(db.Model):
         return base.rsplit('.', 1)[-1] if '.' in base else ''
 
     @property
+    def has_stored_pdf(self):
+        # Respect uploads/removals not flushed yet without forcing a blob load.
+        if 'pdf_binary' in self.__dict__:
+            return bool(self.__dict__['pdf_binary'])
+        return bool(self.has_pdf_binary)
+
+    @property
     def is_pdf_post(self):
         """True only when the primary file is an inline-viewable PDF.
 
@@ -440,7 +449,7 @@ class BlogPost(db.Model):
         if ext and ext != 'pdf':
             return False
         # Database PDF always works
-        if self.pdf_binary:
+        if self.has_stored_pdf:
             return True
         # Filesystem PDF - check if file exists
         if self.pdf_path:
@@ -466,7 +475,7 @@ class BlogPost(db.Model):
     def pdf_url(self):
         """Get the URL to serve the PDF (from database or filesystem)."""
         # Priority 1: Database storage (preferred for Render/Neon)
-        if self.pdf_binary:
+        if self.has_stored_pdf:
             return f"/blog/pdf/{self.id}"
         
         # Priority 2: Filesystem (legacy) - only if file actually exists
