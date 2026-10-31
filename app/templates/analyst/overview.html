@@ -203,7 +203,7 @@
                             {% endfor %}
                         </div>
                         <div>
-                            <div class="lead-title" data-i18n="scoring.analyst_approved_companies">Analyst-approved companies</div>
+                            <div class="lead-title" data-i18n="scoring.analyst_approved_companies">Companies approved by vote</div>
                             {% for a in scoring.approved_companies %}
                             <div class="lead-row"><span>{{ a.rank }}. {{ a.name }}</span><span class="muted">{{ a.value_display }}</span></div>
                             {% else %}
