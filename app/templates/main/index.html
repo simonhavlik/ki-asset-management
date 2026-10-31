@@ -4,7 +4,7 @@
 
 {% block body_class %}index-page{% endblock %}
 {% block default_lang %}cs{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css', v='20261031g') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css', v='20261031h') }}">{% endblock %}
 {% block content %}
 <div class="ki-atmosphere" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
 <button class="motion-toggle" id="kiMotion" type="button" aria-pressed="false" data-i18n="polish.motion">Pause background</button>
@@ -91,7 +91,8 @@
                         <span class="status" data-i18n="polish.snapshot">Portfolio snapshot</span>
                     </div>
                     
-                    <div class="performance-main">
+                    <div class="performance-main{% if chart_data %} has-hero-chart{% endif %}">
+                        <div class="hero-return-summary">
                         <div class="return-value {% if stats.portfolio_return >= 0 %}positive{% else %}negative{% endif %}">
                             {{ "%.2f"|format(stats.portfolio_return) }}%
                         </div>
@@ -100,6 +101,13 @@
                             <span>{{ stats.portfolio_positions }}</span> <span data-i18n="polish.positions">positions</span> ·
                             <span data-i18n="polish.updated">Updated</span> {{ stats.portfolio_updated.strftime('%d.%m.%Y') if stats.portfolio_updated else '—' }}
                         </div>
+                        </div>
+                        {% if chart_data %}
+                        <div class="hero-return-chart">
+                            <div class="hero-chart-caption" data-i18n="hero.chart_caption">Purchased positions</div>
+                            <div class="hero-chart-canvas"><canvas id="heroPortfolioChart" role="img" aria-label="Performance of purchased positions and market indices" data-i18n-aria-label="hero.chart_label"></canvas></div>
+                        </div>
+                        {% endif %}
                     </div>
                     
 
@@ -184,7 +192,7 @@
                             <img class="hero-story-photo" data-src="{{ url_for('static', filename='images/team-hero-1280.webp') }}" data-srcset="{{ url_for('static', filename='images/team-hero-768.webp') }} 768w, {{ url_for('static', filename='images/team-hero-1280.webp') }} 1280w" sizes="(max-width: 767px) 100vw, 65vw" width="1280" height="853" alt="KI Asset Management team" loading="lazy" decoding="async">
                             <div class="hero-team-copy">
                                 <h3>KI Asset Management</h3>
-                                <p data-i18n="home.umo_nit_motivovan_m_student_m_z_skat_re_lnou_zku">Enable motivated students to gain real capital management experience and grow the club’s assets.</p>
+                                <p data-i18n="home.umo_nit_motivovan_m_student_m_z_skat_re_lnou_zku">We enable motivated students to gain real capital management experience and grow the club’s assets.</p>
                                 <a href="#team" class="hero-story-link"><span data-i18n="hero.story.meet" >Meet our team →</span></a>
                             </div>
                         </section>
@@ -350,7 +358,7 @@
                 <div class="pe-lg-5">
                     <h3 class="mb-4" data-i18n="ambition.title">Why KI AM exists</h3>
                     <blockquote class="border-start border-4 ps-4 mb-4" style="border-color: var(--primary-green) !important;">
-                        <p class="mb-2 fst-italic" style="color: var(--color-gray-700);" data-i18n="home.umo_nit_motivovan_m_student_m_z_skat_re_lnou_zku">Enable motivated students to gain real capital management experience and grow the club’s assets.</p>
+                        <p class="mb-2 fst-italic" style="color: var(--color-gray-700);" data-i18n="home.umo_nit_motivovan_m_student_m_z_skat_re_lnou_zku">We enable motivated students to gain real capital management experience and grow the club’s assets.</p>
                     </blockquote>
                     
                     <p class="text-muted mb-4" data-i18n="home.our_primary_objective_is_to_outperform_the_eems">15–25 selected companies. Fundamental analysis. A long horizon. Our primary comparison is EEMS.</p>
@@ -1279,7 +1287,7 @@
 {% if partner.website %}<a href="{{ partner.website }}" target="_blank" rel="noopener noreferrer">{% endif %}
 {% if partner.logo %}<img src="{{ partner.logo }}" alt="{{ partner.name }}" loading="lazy" decoding="async">{% else %}<span>{{ partner.name }}</span>{% endif %}
 {% if partner.website %}</a>{% endif %}</div>{% endfor %}</div>
-<a class="partner-source" href="https://www.klubinvestoru.com/" target="_blank" rel="noopener" data-i18n="polish.partner_source">Club partners · current list at klubinvestoru.com</a>
+<a class="partner-source" href="https://www.klubinvestoru.com/partneri" target="_blank" rel="noopener" data-i18n="polish.partner_source">Club partners · current list at klubinvestoru.com</a>
 </div></section>{% endif %}
 
 <!-- CTA Section -->
@@ -1361,7 +1369,7 @@
 
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/landing.js', v='20261031g') }}"></script>
-<script defer src="{{ url_for('static', filename='js/hero-stories.js', v='20261031g') }}"></script>
+<script defer src="{{ url_for('static', filename='js/hero-stories.js', v='20261031h') }}"></script>
 <script>
 // Section navigation: bottom-right "Jump to" menu + left vertical rail.
 (function () {
@@ -1577,12 +1585,19 @@ function selectFeaturedResearch(button) {
 }
 </script>
 
+{% if chart_data or (growth_data and growth_data.labels) %}
+<!-- One shared, deferred chart library for the existing and opening charts. -->
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endif %}
 {% if chart_data %}
-<!-- Chart.js for portfolio performance -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const ctx = document.getElementById('ambitionPortfolioChart').getContext('2d');
+    ['ambitionPortfolioChart', 'heroPortfolioChart'].forEach(function(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const compact = canvasId === 'heroPortfolioChart';
+    const mobileCompact = compact && window.matchMedia('(max-width: 767px)').matches;
+    const ctx = canvas.getContext('2d');
     
     // Create gradient for portfolio line
     const gradientPortfolio = ctx.createLinearGradient(0, 0, 0, 200);
@@ -1643,6 +1658,7 @@ document.addEventListener('DOMContentLoaded', function() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: compact ? false : undefined,
             interaction: {
                 mode: 'index',
                 intersect: false
@@ -1660,7 +1676,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     padding: 10,
                     callbacks: {
                         label: function(context) {
-                            return context.dataset.label + ': ' + context.raw.toFixed(1) + '%';
+                            return context.dataset.label + ': ' + (typeof context.raw === 'number' ? context.raw.toFixed(1) + '%' : '—');
                         }
                     }
                 }
@@ -1671,14 +1687,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     grid: { display: false }
                 },
                 y: {
-                    display: true,
+                    display: !mobileCompact,
                     grid: {
                         color: 'rgba(0, 0, 0, 0.03)',
                         drawBorder: false
                     },
                     ticks: {
                         color: 'rgba(0, 0, 0, 0.4)',
-                        font: { size: 10 },
+                        font: { size: compact ? 8 : 10 },
+                        maxTicksLimit: compact ? 4 : undefined,
                         padding: 5,
                         callback: function(value) {
                             return value + '%';
@@ -1688,13 +1705,13 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
+    });
 });
 </script>
 {% endif %}
 
 {% if growth_data and growth_data.labels %}
 <!-- Growth Timeline Chart -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const ctx = document.getElementById('growthChart');
