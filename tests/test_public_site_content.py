@@ -90,7 +90,9 @@ def test_homepage_uses_published_purchased_positions(application, monkeypatch):
 
 
 def test_quote_publication_and_failed_refresh_preserve_snapshot(application,monkeypatch):
-    from app.utils.site_content import refresh_market_tape,get_market_tape,MARKETS
+    from datetime import datetime,timedelta,timezone
+    from app.utils.site_content import (MARKET_STALE_ALERT_HOURS,refresh_market_tape,
+                                        get_market_tape,MARKETS)
     class Quotes:
         def __init__(self,*a,**kw):pass
         price={symbol:{'regularMarketPrice':110,'regularMarketPreviousClose':100} for symbol,_ in MARKETS}
@@ -99,9 +101,19 @@ def test_quote_publication_and_failed_refresh_preserve_snapshot(application,monk
     stored=get_market_tape()
     assert stored['quotes'][0]['change_pct']==pytest.approx(10)
     assert stored['as_of'].endswith('+00:00')
+
+    # Provider outage with a fresh snapshot is a skip: the tape keeps serving and
+    # the job is not marked failed (a failed run is what pages the health check).
     Quotes.price={}
-    with pytest.raises(RuntimeError):refresh_market_tape()
+    assert refresh_market_tape()['skipped']=='upstream'
     assert get_market_tape()==stored
+
+    # Once the published snapshot itself is stale, the outage is a real incident.
+    stale=dict(stored)
+    stale['as_of']=(datetime.now(timezone.utc)-timedelta(hours=MARKET_STALE_ALERT_HOURS+1)).isoformat()
+    SystemSettings.set('site_market_tape',stale,value_type='json')
+    with pytest.raises(RuntimeError):refresh_market_tape()
+    assert get_market_tape()['as_of']==stale['as_of']
 
 
 def test_admin_csrf_is_required(application):
