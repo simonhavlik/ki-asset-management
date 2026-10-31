@@ -4,7 +4,7 @@
 
 {% block body_class %}index-page{% endblock %}
 {% block default_lang %}cs{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css', v='20261031i') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css', v='20261031j') }}">{% endblock %}
 {% block content %}
 <div class="ki-atmosphere" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
 <button class="motion-toggle" id="kiMotion" type="button" aria-pressed="false" data-i18n="polish.motion">Pause background</button>
@@ -349,7 +349,7 @@
 <div class="mission-story reveal"><div class="section-header reveal">
             <span class="section-label" data-i18n="section.mission">Our Mission</span>
             <h2 class="section-title" data-i18n-html="home.institutional_grade_research_student_driven_exce">Institutional-Grade Research.<br>Student-Driven Excellence.</h2>
-            <p class="section-subtitle" data-i18n="mission.subtitle">Since August 2024, we have connected company research with managing the club’s capital.</p>
+            <p class="section-subtitle" data-i18n="mission.subtitle">We have worked as a team since August 2024. Since the start of 2026, we have combined company research with managing the club’s capital.</p>
         </div><h3 class="mb-4" data-i18n="ambition.title">Why KI AM exists</h3>
                     <blockquote class="border-start border-4 ps-4 mb-4" style="border-color: var(--primary-green) !important;">
                         <p class="mb-2 fst-italic" style="color: var(--color-gray-700);" data-i18n="home.umo_nit_motivovan_m_student_m_z_skat_re_lnou_zku">We enable motivated students to gain real capital management experience and grow the club’s assets.</p>
@@ -627,7 +627,7 @@
             <p class="section-subtitle" data-i18n="home.robust_risk_controls_ensuring_capital_preservati">Position limits, diversification and independent thesis reviews.</p>
         </div>
         
-        <p class="policy-note" data-i18n="polish.policy_note">September 2026 deck: original limits and proposed changes are shown separately; the proposal is not presented as adopted policy.</p>
+        <p class="policy-note" data-i18n="polish.policy_note">With a still modest amount of capital under management and Patria being the only provider with which we could open an investment account as a registered association, we face high fees. We have therefore had to relax some of our original limits.</p>
         <div class="risk-grid">
             <div class="risk-card reveal">
                 <div class="risk-header">
@@ -712,9 +712,7 @@
      A strong competitive moat.
     </li>
    </ul>
-   <p class="universe-examples" data-i18n="deck.universe.examples1">
-    Deck examples: CCReB, Kaspi.kz.
-   </p>
+   <p class="universe-examples" data-i18n="deck.universe.examples1">Portfolio examples: MongoDB (MDB), Descartes (DSGX).</p>
   </div>
  </div>
  <div class="col-md-4 reveal">
@@ -739,9 +737,7 @@
      Diversification beyond developed markets.
     </li>
    </ul>
-   <p class="universe-examples" data-i18n="deck.universe.examples2">
-    Deck examples: Grab, dLocal.
-   </p>
+   <p class="universe-examples" data-i18n="deck.universe.examples2">Portfolio examples: NLB, Kaspi.kz (KSPI), dLocal (DLO). We have also analysed Bilibili (BILI).</p>
   </div>
  </div>
  <div class="col-md-4 reveal">
@@ -766,9 +762,7 @@
      Strong catalysts for change.
     </li>
    </ul>
-   <p class="universe-examples" data-i18n="deck.universe.examples3">
-    Deck examples: Aquestive Therapeutics, Advance Auto Parts.
-   </p>
+   <p class="universe-examples" data-i18n="deck.universe.examples3">Portfolio example: Advance Auto Parts (AAP) — a business turnaround.</p>
   </div>
  </div>
 </div>
@@ -1007,7 +1001,8 @@
                 </div>
                 </div>
                 <div class="team-content">
-                    <p class="team-quote" data-i18n="team.tomas_quote">“I enjoy helping build KI AM, a project that helps young talent deepen their knowledge of global markets and investing.”</p>
+                    <p class="team-quote" data-i18n="team.tomas_quote">“I enjoy actively helping build KI AM, which gives young talent the opportunity to deepen their knowledge of global markets and investing. I value the chance it offers them to analyse companies, discuss their conclusions and gain practical experience as a team.”</p>
+                    <a href="https://www.linkedin.com/in/tomascverna/" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary"><i class="bi bi-linkedin"></i> LinkedIn</a>
                 </div>
             </div>
 
@@ -1216,15 +1211,10 @@
 <section class="section section-alt cooperation-section" id="cooperation">
  <div class="container">
   <div class="section-header reveal">
-   <span class="section-label" data-i18n="deck.cooperation.status">
-    Proposal / September 2026
-   </span>
+   <span class="section-label" data-i18n="deck.cooperation.status">Partnerships</span>
    <h2 class="section-title" data-i18n="deck.cooperation.title">
     Potential sponsorship of the KI AM portfolio
    </h2>
-   <p class="section-subtitle" data-i18n="deck.cooperation.intro">
-    The deck proposes cooperation with J&amp;T IS and a talent pipeline for a pooling fund as an alternative to the paused ZISIF 15 project.
-   </p>
   </div>
   <div class="cooperation-grid">
    <article class="cooperation-item reveal">
@@ -1245,9 +1235,7 @@
     <h3 data-i18n="deck.cooperation.heading2">
      Young investment talent
     </h3>
-    <p data-i18n="deck.cooperation.copy2">
-     Direct contact with motivated students interested in investing: a source of candidates for junior roles and internships at J&amp;T and the pooling fund.
-    </p>
+    <p data-i18n="deck.cooperation.copy2">Direct contact with motivated students interested in investing: a source of candidates for partners’ junior roles and internships.</p>
    </article>
    <article class="cooperation-item reveal">
     <span class="universe-number">
@@ -1364,8 +1352,8 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/landing.js', v='20261031i') }}"></script>
-<script defer src="{{ url_for('static', filename='js/hero-stories.js', v='20261031i') }}"></script>
+<script src="{{ url_for('static', filename='js/landing.js', v='20261031j') }}"></script>
+<script defer src="{{ url_for('static', filename='js/hero-stories.js', v='20261031j') }}"></script>
 <script>
 // Section navigation: bottom-right "Jump to" menu + left vertical rail.
 (function () {
@@ -1588,6 +1576,11 @@ function selectFeaturedResearch(button) {
 {% if chart_data %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const portfolioHistory = {{ chart_data|tojson|safe }};
+    const values = ['portfolio_series', 'spy_series', 'vt_series', 'eems_series']
+        .flatMap(key => portfolioHistory[key] || []).filter(value => typeof value === 'number' && Number.isFinite(value));
+    const minimum = Math.floor(Math.min(0, ...values) / 10) * 10;
+    const maximum = Math.max(minimum + 10, Math.ceil(Math.max(0, ...values) / 10) * 10);
     ['ambitionPortfolioChart', 'heroPortfolioChart'].forEach(function(canvasId) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
@@ -1603,11 +1596,11 @@ document.addEventListener('DOMContentLoaded', function() {
     new Chart(ctx, {
         type: 'line',
         data: {
-            labels: {{ chart_data.dates|tojson|safe }},
+            labels: portfolioHistory.dates,
             datasets: [
                 {
                     label: 'Portfolio',
-                    data: {{ chart_data.portfolio_series|tojson|safe }},
+                    data: portfolioHistory.portfolio_series,
                     borderColor: '#1a9c5e',
                     backgroundColor: gradientPortfolio,
                     borderWidth: 2.5,
@@ -1618,7 +1611,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 {
                     label: 'S&P 500',
-                    data: {{ chart_data.spy_series|tojson|safe }},
+                    data: portfolioHistory.spy_series,
                     borderColor: '#b8860b',
                     backgroundColor: 'transparent',
                     borderWidth: 2,
@@ -1629,7 +1622,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 {
                     label: 'FTSE All-World',
-                    data: {{ chart_data.vt_series|tojson|safe }},
+                    data: portfolioHistory.vt_series,
                     borderColor: '#2b6cb0',
                     backgroundColor: 'transparent',
                     borderWidth: 2,
@@ -1640,7 +1633,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 {
                     label: 'EEMS',
-                    data: {{ chart_data.eems_series|tojson|safe }},
+                    data: portfolioHistory.eems_series,
                     borderColor: '#6b7682',
                     backgroundColor: 'transparent',
                     borderWidth: 2,
@@ -1684,6 +1677,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 y: {
                     display: !mobileCompact,
+                    min: minimum,
+                    max: maximum,
                     grid: {
                         color: 'rgba(0, 0, 0, 0.03)',
                         drawBorder: false
@@ -1691,7 +1686,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     ticks: {
                         color: 'rgba(0, 0, 0, 0.4)',
                         font: { size: compact ? 8 : 10 },
-                        maxTicksLimit: compact ? 4 : undefined,
+                        stepSize: 10,
+                        maxTicksLimit: compact ? 5 : undefined,
                         padding: 5,
                         callback: function(value) {
                             return value + '%';

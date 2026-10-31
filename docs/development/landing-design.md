@@ -72,3 +72,25 @@ the right. The team context uses the same responsive WebP as the hero, loaded
 lazily, above the three complete profiles. Phone density uses smaller gutters,
 compact cards and two-column process/rule grids; no quotes or process details are
 truncated. Tomáš's MSc studies at UGent are supplied by the site owner.
+
+Owner corrections (31 October 2026): the club has worked as a team since August
+2024 and combined research with capital management since the start of 2026. The
+risk introduction explains the owner's actual Patria/fee constraints. Public copy
+must describe the club, not narrate a pitch deck. Do not reintroduce the removed
+J&T/ZISIF cooperation claim. Potential partners are described without naming an
+unconfirmed arrangement.
+
+Universe examples were selected from existing published analysis-to-date returns
+(30 October, with older 27 September snapshots for some purchased positions):
+MongoDB/Descartes for SMID, NLB/Kaspi.kz/dLocal for regional exposure, and Advance
+Auto Parts for a turnaround. Bilibili is explicitly an analysed company, without
+claiming it is purchased. These are editorial examples, not a live ranking or a
+new page-load calculation. The companies' own [MongoDB annual report](https://investors.mongodb.com/2025-Annual-Report-and-Proxy-Statement),
+[Descartes results](https://www.descartes.com/resources/news/descartes-announces-fiscal-2026-fourth-quarter-and-annual-financial-results),
+[NLB regional overview](https://www.nlbgroup.com/int-en/about-nlb-group/nlb-group-markets)
+and [Advance Auto Parts strategic update](https://ir.advanceautoparts.com/investors/news-and-events/press-releases/press-release-details/2025/Advance-Auto-Parts-Reports-Fourth-Quarter-and-Full-Year-2024-Results/default.aspx)
+were checked for the qualitative fit.
+
+Both portfolio canvases use one payload and explicit identical percentage bounds:
+round the minimum down and maximum up to multiples of ten, including zero and at
+least one ten-point interval. Compact tick density must not change those bounds.
