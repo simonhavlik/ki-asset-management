@@ -4,7 +4,7 @@
 
 {% block body_class %}index-page{% endblock %}
 {% block default_lang %}cs{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css', v='20261031c') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css', v='20261031d') }}">{% endblock %}
 {% block content %}
 <div class="ki-atmosphere" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
 <button class="motion-toggle" id="kiMotion" type="button" aria-pressed="false" data-i18n="polish.motion">Pause background</button>
@@ -217,8 +217,8 @@
                         <div class="card-body p-4">
                             <div class="d-flex align-items-center justify-content-between mb-3">
                                 <div>
-                                    <h5 class="mb-1" style="color: var(--primary-green);" data-i18n-html="home.portfolio_performance"><i class="bi bi-graph-up-arrow"></i> Model portfolio</h5>
-                                    <p class="text-muted small mb-0" data-i18n="home.since_inception_vs_benchmarks">Incremental simulation · methodology below</p>
+                                    <h5 class="mb-1" style="color: var(--primary-green);" data-i18n-html="home.portfolio_performance"><i class="bi bi-graph-up-arrow"></i> Invested portfolio performance</h5>
+                                    <p class="text-muted small mb-0" data-i18n="home.since_inception_vs_benchmarks">Purchased positions since their purchase dates · compared with market indices</p>
                                 </div>
                             </div>
                             <div style="height: 200px;">
@@ -803,6 +803,7 @@
 <!-- Team Section -->
 <section class="section" id="team">
     <div class="container">
+        <div class="team-intro">
         <div class="section-header reveal">
             <span class="section-label" data-i18n="section.team">Leadership</span>
             <h2 class="section-title" data-i18n="team.title">Meet the Team</h2>
@@ -814,9 +815,12 @@
             <span class="team-photo-caption" data-i18n="team.photo_caption">The KI Asset Management team</span>
         </div>
 
+        </div>
+
         <div class="team-grid">
             <!-- Adam Kolomazník -->
             <div class="team-card reveal">
+                <div class="team-profile-head">
                 <div class="team-image-wrapper">
                     <img src="{{ url_for('static', filename='images/team-leader.jpg') }}" 
                          alt="Adam Kolomazník" 
@@ -825,12 +829,15 @@
                          onerror="this.style.display='none'">
                     <div class="team-image-overlay"></div>
                 </div>
-                <div class="team-content">
+                <div class="team-details">
                     <h3 class="team-name" data-i18n="home.adam_kolomazn_k">Adam Kolomazník</h3>
                     <div class="team-role" data-i18n="home.president_of_the_investment_committee">President of the Investment Committee</div>
                     <div class="team-edu" data-i18n-html="home.ctu_wu_alumni">
                         <i class="bi bi-mortarboard"></i> CTU & WU Alumni
                     </div>
+                </div>
+                </div>
+                <div class="team-content">
                     <p class="team-quote" data-i18n="home.leading_strategic_vision_and_investment_decision">“Leading strategic vision and investment decisions for the Prague Club of Investors. Our mission is to provide students with real capital management experience while delivering superior risk-adjusted returns.”</p>
                     <a href="https://www.linkedin.com/in/adam-kolomaznik/" target="_blank" class="btn btn-sm btn-outline-primary">
                         <i class="bi bi-linkedin"></i> LinkedIn
@@ -840,6 +847,7 @@
             
             <!-- Tomáš Cverna -->
             <div class="team-card reveal reveal-delay-1">
+                <div class="team-profile-head">
                 <div class="team-image-wrapper">
                     <img src="{{ url_for('static', filename='images/tomas-cverna.jpg') }}"
                          alt="Tomáš Cverna"
@@ -848,15 +856,19 @@
                          loading="lazy" decoding="async">
                     <div class="team-image-overlay"></div>
                 </div>
-                <div class="team-content">
+                <div class="team-details">
                     <h3 class="team-name" data-i18n="team.tomas_name">Tomáš Cverna</h3>
                     <div class="team-role" data-i18n="team.committee_member">Investment Committee member</div>
+                </div>
+                </div>
+                <div class="team-content">
                     <p class="team-quote" data-i18n="team.tomas_quote">“I enjoy helping build KI AM, a project that helps young talent deepen their knowledge of global markets and investing.”</p>
                 </div>
             </div>
 
             <!-- Šimon Havlík -->
             <div class="team-card reveal reveal-delay-2">
+                <div class="team-profile-head">
                 <div class="team-image-wrapper">
                     <img src="{{ url_for('static', filename='images/team-member.jpg') }}" 
                          alt="Šimon Havlík" 
@@ -865,12 +877,15 @@
                          onerror="this.style.display='none'">
                     <div class="team-image-overlay"></div>
                 </div>
-                <div class="team-content">
+                <div class="team-details">
                     <h3 class="team-name" data-i18n="home.imon_havl_k">Šimon Havlík</h3>
                     <div class="team-role" data-i18n="home.analyst_lead_developer">Analyst & Lead Developer</div>
                     <div class="team-edu" data-i18n-html="home.v_e_economics_student">
                         <i class="bi bi-mortarboard"></i> VŠE Economics Student
                     </div>
+                </div>
+                </div>
+                <div class="team-content">
                     <p class="team-quote" data-i18n="home.join_us_and_gain_real_world_investment_experienc">“Join us and gain real-world investment experience while building production-grade financial technology. Here, you'll learn equity research, portfolio management, and software development—all while managing real capital.”</p>
                     <a href="https://www.linkedin.com/in/simonhavlik/" target="_blank" class="btn btn-sm btn-outline-primary">
                         <i class="bi bi-linkedin"></i> LinkedIn
@@ -1204,7 +1219,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/landing.js', v='20261031b') }}"></script>
+<script src="{{ url_for('static', filename='js/landing.js', v='20261031d') }}"></script>
 <script>
 // Section navigation: bottom-right "Jump to" menu + left vertical rail.
 (function () {

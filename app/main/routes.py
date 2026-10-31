@@ -458,14 +458,14 @@ def index():
     # Use cached data to avoid DB calls (Neon optimization)
     from ..utils.neon_cache import (
         get_cached_main_stats,
-        get_cached_portfolio_chart,
+        get_cached_board_portfolio_series,
         get_cached_growth_timeline,
         get_cached_top_sectors,
         get_cached_featured_research
     )
     
     stats = get_cached_main_stats()
-    chart_data = get_cached_portfolio_chart()
+    chart_data = get_cached_board_portfolio_series(purchased_only=True, years=None)
     growth_data = get_cached_growth_timeline()
     top_sectors = get_cached_top_sectors()
     featured_research = get_cached_featured_research(limit=6)

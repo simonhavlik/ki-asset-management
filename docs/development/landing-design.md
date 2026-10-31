@@ -31,8 +31,10 @@ The September 2026 pitch deck is the editorial reference:
 The native cursor is used throughout the application. The former cursor overlay,
 animation loop, hover listeners and CSS hiding the native cursor were removed.
 
-The hero retains the existing portfolio metrics. The separate chart is labelled
-as an incremental model simulation so it is not mistaken for the headline metric.
+The hero retains the existing Board-approved portfolio metrics. The invested
+portfolio chart reads the already-published Board series with purchased_only=True
+and years=None. It follows recorded purchase dates; it must never fall back to the
+legacy chart of all approved analyses or calculate anything during a page load.
 Research selection, inline PDF viewing, phone open/download actions, charts,
 section navigation and authenticated navigation retain their existing behavior.
 Opening a page must never start a calculation; see calculation-snapshots.md in
