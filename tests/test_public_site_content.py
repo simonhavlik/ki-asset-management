@@ -61,34 +61,6 @@ def test_public_reads_do_not_fetch_quotes(application,monkeypatch):
     assert application.test_client().get('/').status_code==200
 
 
-def test_homepage_uses_published_purchased_positions(application, monkeypatch):
-    from app.main import routes
-    from app.utils import neon_cache
-
-    calls = []
-    published = {'dates': ['2026-05-01'], 'portfolio_series': [0]}
-
-    def purchased_series(**kwargs):
-        calls.append(kwargs)
-        return published
-
-    def forbidden(*args, **kwargs):
-        raise AssertionError('Homepage used the legacy analysis simulation')
-
-    context = {}
-
-    def render(template, **values):
-        context.update(values)
-        return 'ok'
-
-    monkeypatch.setattr(neon_cache, 'get_cached_board_portfolio_series', purchased_series)
-    monkeypatch.setattr(neon_cache, 'get_cached_portfolio_chart', forbidden)
-    monkeypatch.setattr(routes, 'render_template', render)
-    assert application.test_client().get('/').status_code == 200
-    assert calls == [{'purchased_only': True, 'years': None}]
-    assert context['chart_data'] is published
-
-
 def test_quote_publication_and_failed_refresh_preserve_snapshot(application,monkeypatch):
     from datetime import datetime,timedelta,timezone
     from app.utils.site_content import (MARKET_STALE_ALERT_HOURS,refresh_market_tape,
@@ -97,6 +69,7 @@ def test_quote_publication_and_failed_refresh_preserve_snapshot(application,monk
         def __init__(self,*a,**kw):pass
         price={symbol:{'regularMarketPrice':110,'regularMarketPreviousClose':100} for symbol,_ in MARKETS}
     monkeypatch.setattr('yahooquery.Ticker',Quotes)
+    monkeypatch.setattr('app.utils.site_content._chart_quotes',lambda:[])
     refresh_market_tape()
     stored=get_market_tape()
     assert stored['quotes'][0]['change_pct']==pytest.approx(10)

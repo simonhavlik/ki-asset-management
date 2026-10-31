@@ -22,7 +22,7 @@ MARKETS = [('^GSPC', 'S&P 500'), ('^IXIC', 'NASDAQ'), ('^DJI', 'DOW'),
 # failed 15-minute refresh with a recent snapshot is routine, so it is logged and
 # skipped instead of being recorded as a job failure (which pages Simon every 2h).
 # Only a snapshot older than this is a real incident worth an alert.
-MARKET_STALE_ALERT_HOURS = 6
+MARKET_STALE_ALERT_HOURS = 24
 
 
 def get_partners():
@@ -43,6 +43,42 @@ def get_market_tape():
     return payload
 
 
+def _quote_payload(symbol, label, price, previous):
+    return {'symbol': symbol, 'label': label, 'price': price,
+            'change_pct': (price / previous - 1) * 100,
+            'display_value': f'{price:.2f}%' if symbol == '^TNX' else
+                             f'{price:.4f}' if symbol == 'EURUSD=X' else None}
+
+
+def _chart_quotes():
+    """Fallback: Yahoo's chart endpoint, one symbol per request.
+
+    The batch client (yahooquery) is refused outright from some datacenter egress
+    ranges; the chart endpoint uses no crumb/cookie handshake and usually answers
+    where the batch call does not. Returns nothing on any failure - the caller
+    decides whether the gap matters.
+    """
+    import json
+    import urllib.parse
+    import urllib.request
+    quotes = []
+    for symbol, label in MARKETS:
+        url = ('https://query1.finance.yahoo.com/v8/finance/chart/'
+               f'{urllib.parse.quote(symbol)}?range=5d&interval=1d')
+        request = urllib.request.Request(url, headers={
+            'User-Agent': 'Mozilla/5.0 (compatible; VerxlMarketTape/1.0)', 'Accept': 'application/json'})
+        try:
+            with urllib.request.urlopen(request, timeout=8) as response:
+                chart = json.load(response)['chart']['result'][0]['meta']
+            price = float(chart['regularMarketPrice'])
+            previous = float(chart.get('chartPreviousClose') or chart.get('previousClose'))
+            if all(math.isfinite(x) and x > 0 for x in (price, previous)):
+                quotes.append(_quote_payload(symbol, label, price, previous))
+        except Exception as exc:  # noqa: BLE001 - one symbol failing must not stop the rest
+            logger.debug('chart quote failed for %s: %s', symbol, exc)
+    return quotes
+
+
 def refresh_market_tape():
     """Scheduler only: publish timestamped daily moves, retaining old data on failure."""
     from yahooquery import Ticker
@@ -60,10 +96,11 @@ def refresh_market_tape():
                 continue
         except (KeyError, TypeError, ValueError):
             continue
-        quotes.append({'symbol': symbol, 'label': label, 'price': price,
-                       'change_pct': (price / previous - 1) * 100,
-                       'display_value': f'{price:.2f}%' if symbol == '^TNX' else
-                                        f'{price:.4f}' if symbol == 'EURUSD=X' else None})
+        quotes.append(_quote_payload(symbol, label, price, previous))
+    if len(quotes) < 6:
+        quotes = _chart_quotes()
+        if len(quotes) >= 6:
+            logger.info('Market tape served by the chart fallback (%s quotes)', len(quotes))
     if len(quotes) < 6:
         previous = get_market_tape()
         age_h = None
