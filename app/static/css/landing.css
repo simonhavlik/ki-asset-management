@@ -177,7 +177,6 @@ body.index-page {--ink:#172d25;--muted:#60776b;--line:#dbe8df;--mint:#e9f5ed;--p
  .index-page .czech-note{justify-content:flex-start;margin-top:13px;}
  .index-page .hero-title{font-size:clamp(2.65rem,12vw,3.8rem);}
 }
-.index-page .browser-chrome,.index-page .browser-bar{display:none;}
 .index-page .research-heading{display:flex;align-items:end;justify-content:space-between;gap:20px;margin-bottom:26px;}
 .index-page .research-heading>a{font:10px ui-monospace,monospace;color:#1a9c5e;text-decoration:none;border-bottom:1px solid #a7cdb5;padding-bottom:4px;}
 .index-page .footer{background:rgba(255,255,255,.95);color:#4c6c59;border-top:1px solid var(--line);padding:35px 0 55px;position:relative;z-index:1;}
@@ -246,3 +245,56 @@ body.index-page {--ink:#172d25;--muted:#60776b;--line:#dbe8df;--mint:#e9f5ed;--p
 .partner-logo img[src="/static/images/partners/investika.png"]{transform:scale(2.1);}
 @media(max-width:767px){.partner-logo img[src="/static/images/partners/pwc.svg"]{width:110px;max-height:54px}.partner-logo img[src="/static/images/partners/investika.png"]{transform:scale(1.9)}}
 .index-page .motion-toggle{position:absolute;top:78px;right:24px;bottom:auto;left:auto;}
+/* Desktop composition is bounded; typography never relies on extreme kerning. */
+.index-page .hero-title{font-weight:600;letter-spacing:-.035em;line-height:1.05;}
+.index-page .section-title,.index-page .cta-title{letter-spacing:-.03em;}
+.index-page .performance-main .return-value{letter-spacing:-.035em;}
+.index-page .risk-metric .metric-value{letter-spacing:-.02em;}
+.index-page .team-name{letter-spacing:-.02em;}
+@media(min-width:992px){
+ .index-page .container{max-width:1440px;width:calc(100% - 96px);padding-left:0;padding-right:0;}
+ .index-page .navbar>.container{max-width:1440px!important;width:calc(100% - 96px)!important;padding-left:0!important;padding-right:0!important;}
+ .index-page .hero-corporate{width:calc(100% - 96px);max-width:1440px;padding:0;grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);gap:clamp(40px,4vw,72px);}
+ .index-page .hero-left{max-width:none;min-width:0;}
+ .index-page .hero-right{min-width:0;}
+ .index-page .hero-section{padding-top:clamp(24px,3vh,42px);}
+ .index-page .hero-title{font-size:clamp(3.1rem,4.5vw,4.3rem);margin-bottom:22px;}
+ .index-page .hero-subtitle{font-size:1rem;max-width:440px;}
+ .index-page .hero-badge{font-size:10px;margin-bottom:22px;}
+ .index-page .hero-stat-compact .label{font-size:10px;max-width:120px;}
+ .index-page .hero-stats-row{padding:16px 0;margin-bottom:20px;}
+ .index-page .hero-stat-compact .value{font-size:1.6rem;letter-spacing:-.025em;}
+ .index-page .performance-main{padding:22px 24px 18px;}
+ .index-page .performance-main .return-value{font-size:3.7rem;}
+ .index-page .performance-header h3{font-size:11px;}
+ .index-page .performance-header .status{font-size:9px;}
+ .index-page .return-label{font-size:10px!important;}
+ .index-page .return-meta{font-size:11px!important;}
+ .index-page .risk-metric .metric-label{font-size:9px;line-height:1.5;}
+ .index-page .risk-metric .metric-value{font-size:23px;}
+ .index-page .benchmark-name{font-size:9px;}
+ .index-page .benchmark-value{font-size:16px;}
+ .index-page .section-title{font-size:clamp(2rem,2.8vw,2.6rem);}
+ .index-page .cta-title{font-size:clamp(2.5rem,4vw,3.7rem);}
+ .index-page .research-section .container-fluid{max-width:1536px;}
+}
+@media(min-width:768px) and (max-width:991px){.index-page .hero-title{font-size:clamp(2.1rem,4.7vw,2.9rem);}}
+@media(max-width:767px){.index-page .hero-title{font-size:clamp(2.1rem,10.5vw,3.2rem);}}
+/* Restore the original portrait-above-comment team cards. */
+.index-page .team-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));max-width:900px;gap:24px;margin:0 auto;}
+.index-page .team-card{display:block;border:1px solid var(--line);border-radius:8px;background:#fff;}
+.index-page .team-image-wrapper{height:auto;min-height:0;aspect-ratio:4/3;}
+.index-page .team-image{width:100%;height:100%;object-fit:cover;object-position:50% 12%;}
+.index-page .team-image-overlay{display:block;}
+.index-page .team-content{padding:24px;}
+.index-page .team-name{font-size:1.35rem;line-height:1.2;letter-spacing:-.02em;font-weight:600;}
+.index-page .team-role{font-size:.7rem;line-height:1.6;letter-spacing:.04em;margin:8px 0;}
+.index-page .team-edu{font-size:.8rem;line-height:1.5;margin:0 0 16px;}
+.index-page .team-quote{font-size:.9rem;line-height:1.75;font-style:italic;border-left:2px solid #1a9c5e;padding-left:16px;margin:0 0 20px;}
+.index-page .team-photo{max-width:900px;height:auto;aspect-ratio:16/7;margin:0 auto 24px;}
+.index-page .team-photo img{height:100%;object-position:center 40%;}
+.index-page .team-placeholder{min-height:0;border-style:dashed;}
+.index-page .team-placeholder .quote-slot{padding:12px 24px;background:#f6faf7;font:10px ui-monospace,monospace;}
+.index-page .team-placeholder .team-name{font-size:1rem;}
+.index-page .team-placeholder .team-quote{font-style:normal;border:0;padding:0;font-size:.8rem;}
+@media(max-width:767px){.index-page .team-grid{grid-template-columns:1fr;max-width:460px;gap:20px}.index-page .team-content{padding:22px}.index-page .team-image-wrapper{aspect-ratio:4/3}.index-page .team-photo{aspect-ratio:16/9;margin-bottom:20px}.index-page .team-quote{font-size:.88rem;line-height:1.7}}
