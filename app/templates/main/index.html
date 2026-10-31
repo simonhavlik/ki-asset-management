@@ -4,7 +4,7 @@
 
 {% block body_class %}index-page{% endblock %}
 {% block default_lang %}cs{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css', v='20261031b') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css', v='20261031c') }}">{% endblock %}
 {% block content %}
 <div class="ki-atmosphere" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
 <button class="motion-toggle" id="kiMotion" type="button" aria-pressed="false" data-i18n="polish.motion">Pause background</button>
@@ -838,6 +838,23 @@
                 </div>
             </div>
             
+            <!-- Tomáš Cverna -->
+            <div class="team-card reveal reveal-delay-1">
+                <div class="team-image-wrapper">
+                    <img src="{{ url_for('static', filename='images/tomas-cverna.jpg') }}"
+                         alt="Tomáš Cverna"
+                         class="team-image team-image-top"
+                         width="800" height="800"
+                         loading="lazy" decoding="async">
+                    <div class="team-image-overlay"></div>
+                </div>
+                <div class="team-content">
+                    <h3 class="team-name" data-i18n="team.tomas_name">Tomáš Cverna</h3>
+                    <div class="team-role" data-i18n="team.committee_member">Investment Committee member</div>
+                    <p class="team-quote" data-i18n="team.tomas_quote">“I enjoy helping build KI AM, a project that helps young talent deepen their knowledge of global markets and investing.”</p>
+                </div>
+            </div>
+
             <!-- Šimon Havlík -->
             <div class="team-card reveal reveal-delay-2">
                 <div class="team-image-wrapper">
@@ -860,16 +877,6 @@
                     </a>
                 </div>
             </div>
-            {% if current_user.is_authenticated and current_user.is_admin %}
-            {% for slot in [3, 4, 5] %}
-            <div class="team-card team-placeholder reveal">
-                <div class="quote-slot"><span>{{ "%02d"|format(slot) }}</span></div>
-                <div class="team-content"><div class="team-role" data-i18n="polish.placeholder_label">Team perspective / to be added</div>
-                <h3 class="team-name" data-i18n="polish.placeholder_name">Additional team member</h3>
-                <p class="team-quote" data-i18n="polish.placeholder_copy">Name, photograph and approved comment to be added.</p></div>
-            </div>
-            {% endfor %}
-            {% endif %}
         </div>
     </div>
 </section>

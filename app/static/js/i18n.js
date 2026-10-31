@@ -34,6 +34,9 @@
 
     var TEXTS = {
     "en": {
+        "team.tomas_name": "Tomáš Cverna",
+        "team.committee_member": "Investment Committee member",
+        "team.tomas_quote": "“I enjoy helping build KI AM, a project that helps young talent deepen their knowledge of global markets and investing.”",
         "deck.process.title1": "Idea",
         "deck.process.screen": "Screening: revenue growth, ROIC, margins and valuation multiples.",
         "deck.process.reading": "Investment theses: Seeking Alpha, Substack and hedge fund letters.",
@@ -728,6 +731,9 @@
         "polish.collected": "Retrieved"
     },
     "cs": {
+        "team.tomas_name": "Tomáš Cverna",
+        "team.committee_member": "Člen investičního výboru",
+        "team.tomas_quote": "„Rád se podílím na budování KI AM. Mladým talentům pomáhá prohlubovat znalosti světových trhů a investování.“",
         "deck.process.title1": "Nápad",
         "deck.process.screen": "Screening: růst tržeb, ROIC, marže a valuační násobky.",
         "deck.process.reading": "Čtení investičních tezí: Seeking Alpha, Substack a dopisy hedgeových fondů.",
