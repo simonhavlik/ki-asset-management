@@ -4,7 +4,7 @@
 
 {% block body_class %}index-page{% endblock %}
 {% block default_lang %}cs{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css', v='20261030') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css', v='20261031a') }}">{% endblock %}
 {% block content %}
 <div class="ki-atmosphere" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
 <button class="motion-toggle" id="kiMotion" type="button" aria-pressed="false" data-i18n="polish.motion">Pause background</button>
@@ -196,7 +196,7 @@
     <div class="container">
         <div class="section-header reveal">
             <span class="section-label" data-i18n="section.mission">Our Mission</span>
-            <h2 class="section-title" data-i18n-html="home.institutional_grade_research_student_driven_exce">Research with conviction.<br>Experience that counts.</h2>
+            <h2 class="section-title" data-i18n-html="home.institutional_grade_research_student_driven_exce">Institutional-Grade Research.<br>Student-Driven Excellence.</h2>
             <p class="section-subtitle" data-i18n="mission.subtitle">Since August 2024, we have connected company research with managing the club’s capital.</p>
         </div>
         
@@ -666,7 +666,6 @@
         <div class="section-header reveal">
             <span class="section-label" data-i18n="section.team">Leadership</span>
             <h2 class="section-title" data-i18n="team.title">Meet the Team</h2>
-            <p class="section-subtitle" data-i18n="team.subtitle">The people behind the research and portfolio decisions.</p>
         </div>
         
         <div class="team-photo reveal">
@@ -692,7 +691,7 @@
                     <div class="team-edu" data-i18n-html="home.ctu_wu_alumni">
                         <i class="bi bi-mortarboard"></i> CTU & WU Alumni
                     </div>
-                    <p class="team-quote" data-i18n="home.leading_strategic_vision_and_investment_decision">Investment direction, Committee leadership and development of the analytical team.</p>
+                    <p class="team-quote" data-i18n="home.leading_strategic_vision_and_investment_decision">“Leading strategic vision and investment decisions for the Prague Club of Investors. Our mission is to provide students with real capital management experience while delivering superior risk-adjusted returns.”</p>
                     <a href="https://www.linkedin.com/in/adam-kolomaznik/" target="_blank" class="btn btn-sm btn-outline-primary">
                         <i class="bi bi-linkedin"></i> LinkedIn
                     </a>
@@ -715,20 +714,22 @@
                     <div class="team-edu" data-i18n-html="home.v_e_economics_student">
                         <i class="bi bi-mortarboard"></i> VŠE Economics Student
                     </div>
-                    <p class="team-quote" data-i18n="home.join_us_and_gain_real_world_investment_experienc">Company research and development of the tools used to follow our portfolio.</p>
+                    <p class="team-quote" data-i18n="home.join_us_and_gain_real_world_investment_experienc">“Join us and gain real-world investment experience while building production-grade financial technology. Here, you'll learn equity research, portfolio management, and software development—all while managing real capital.”</p>
                     <a href="https://www.linkedin.com/in/simonhavlik/" target="_blank" class="btn btn-sm btn-outline-primary">
                         <i class="bi bi-linkedin"></i> LinkedIn
                     </a>
                 </div>
             </div>
-            {% for slot in [3, 4] %}
+            {% if current_user.is_authenticated and current_user.is_admin %}
+            {% for slot in [3, 4, 5] %}
             <div class="team-card team-placeholder reveal">
-                <div class="quote-slot"><span>{{ "%02d"|format(slot) }}</span><i class="bi bi-quote" aria-hidden="true"></i></div>
+                <div class="quote-slot"><span>{{ "%02d"|format(slot) }}</span></div>
                 <div class="team-content"><div class="team-role" data-i18n="polish.placeholder_label">Team perspective / to be added</div>
-                <h3 class="team-name" data-i18n="polish.placeholder_name">Another perspective</h3>
-                <p class="team-quote" data-i18n="polish.placeholder_copy">Space for a name, role, photo and approved comment.</p></div>
+                <h3 class="team-name" data-i18n="polish.placeholder_name">Additional team member</h3>
+                <p class="team-quote" data-i18n="polish.placeholder_copy">Name, photograph and approved comment to be added.</p></div>
             </div>
             {% endfor %}
+            {% endif %}
         </div>
     </div>
 </section>
@@ -740,7 +741,7 @@
     <div class="research-glow research-glow-b" aria-hidden="true"></div>
 
     <div class="container-fluid px-3 px-lg-5">
-        <div class="research-heading"><h2 class="section-title" data-i18n="home.featured_research">Featured Research</h2><a href="{{ url_for('blog.index') }}" data-i18n-html="home.view_all_research"><i class="bi bi-journal-text"></i> View All Research</a></div>
+        <h2 class="visually-hidden" data-i18n="home.featured_research">Featured Research</h2>
 
         <div class="browser reveal">
             <!-- window chrome -->
@@ -993,7 +994,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/landing.js', v='20261030') }}"></script>
+<script src="{{ url_for('static', filename='js/landing.js', v='20261031a') }}"></script>
 <script>
 // Section navigation: bottom-right "Jump to" menu + left vertical rail.
 (function () {
