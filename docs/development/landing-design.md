@@ -18,8 +18,17 @@ The September 2026 pitch deck is the editorial reference:
   Do not present them as approved rules without confirmation of adoption.
 - Historical portfolio values/returns from the deck must not replace the live
   centrally stored performance snapshot.
-- The two additional team cards are visibly unfilled comment placeholders.
-  Add identities, photos and quotations only after the comments are approved.
+- Pages 9, 11 and 14 supply the visible strategy tools, universe criteria and
+  four-stage investment process, including the decision gates. Preserve those
+  details when editing copy; do not replace them with generic summaries.
+- Page 8 supplies a separate potential-cooperation section, explicitly dated
+  September 2026 and described as a proposal, not an agreed sponsorship.
+- Keep Adam and Šimon's complete comments. Czech wording may be improved without
+  discarding their meaning. Three unfilled profile slots are reserved in the
+  admin view, for a total of five; identities and quotations must be supplied.
+
+The native cursor is used throughout the application. The former cursor overlay,
+animation loop, hover listeners and CSS hiding the native cursor were removed.
 
 The hero retains the existing portfolio metrics. The separate chart is labelled
 as an incremental model simulation so it is not mistaken for the headline metric.

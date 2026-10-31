@@ -4,7 +4,7 @@
 
 {% block body_class %}index-page{% endblock %}
 {% block default_lang %}cs{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css', v='20261031a') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css', v='20261031b') }}">{% endblock %}
 {% block content %}
 <div class="ki-atmosphere" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
 <button class="motion-toggle" id="kiMotion" type="button" aria-pressed="false" data-i18n="polish.motion">Pause background</button>
@@ -287,32 +287,97 @@
     <div class="container">
         <div class="section-header reveal">
             <span class="section-label" style="background: rgba(26, 156, 94, 0.2); color: #2cce7e;" data-i18n="polish.process">Our process</span>
-            <h2 class="section-title" data-i18n="home.investment_process">Investment Process</h2>
+            <h2 class="section-title" data-i18n="home.investment_process">Our investment process</h2>
             <p class="section-subtitle" data-i18n="home.a_rigorous_multi_stage_approach_ensuring_thoroug">From the first idea to a position we continue to follow.</p>
         </div>
         
-        <div class="process-flow reveal">
-            <div class="process-step">
-                <div class="step-number">1</div>
-                <div class="step-title" data-i18n="polish.screening">Screening</div>
-                <div class="step-desc" data-i18n="home.initial_screening_using_quantitative_metrics_roi">Revenue growth, ROIC, margins and valuation. Then the business behind the numbers.</div>
-            </div>
-            <div class="process-step">
-                <div class="step-number">2</div>
-                <div class="step-title" data-i18n="polish.analysis">Analysis</div>
-                <div class="step-desc" data-i18n="home.in_depth_20_page_write_up_covering_business_mode">A structured write-up, valuation and peer review.</div>
-            </div>
-            <div class="process-step">
-                <div class="step-number">3</div>
-                <div class="step-title" data-i18n="home.peer_review">Watchlist</div>
-                <div class="step-desc" data-i18n="home.internal_discussion_and_critique_by_fellow_analy">The analyst team votes. The responsible analyst tracks fundamentals and valuation.</div>
-            </div>
-            <div class="process-step">
-                <div class="step-number">4</div>
-                <div class="step-title" data-i18n="home.committee_vote">Investment</div>
-                <div class="step-desc" data-i18n="home.presentation_to_investment_committee_with_absolu">The Investment Committee decides on entry, followed by monitoring and monthly reporting.</div>
-            </div>
-        </div>
+<div class="process-flow deck-process reveal">
+ <div class="process-step">
+  <div class="step-number">
+   1
+  </div>
+  <h3 class="step-title" data-i18n="deck.process.title1">
+   Idea
+  </h3>
+  <ul class="deck-list">
+   <li data-i18n="deck.process.screen">
+    Screening: revenue growth, ROIC, margins and valuation multiples.
+   </li>
+   <li data-i18n="deck.process.reading">
+    Investment theses: Seeking Alpha, Substack and hedge fund letters.
+   </li>
+   <li data-i18n="deck.process.scouting">
+    Field research: products, customers, employees and management.
+   </li>
+  </ul>
+  <p class="process-gate" data-i18n="deck.process.gate1">
+   Analyst selection →
+  </p>
+ </div>
+ <div class="process-step">
+  <div class="step-number">
+   2
+  </div>
+  <h3 class="step-title" data-i18n="deck.process.title2">
+   Analysis
+  </h3>
+  <ul class="deck-list">
+   <li data-i18n="deck.process.writeup">
+    A structured write-up of around 20 pages, including valuation.
+   </li>
+   <li data-i18n="deck.process.review">
+    Presentation and peer review.
+   </li>
+   <li data-i18n="deck.process.discussion">
+    Internal discussion of the investment thesis.
+   </li>
+  </ul>
+  <p class="process-gate" data-i18n="deck.process.gate2">
+   Analyst team vote →
+  </p>
+ </div>
+ <div class="process-step">
+  <div class="step-number">
+   3
+  </div>
+  <h3 class="step-title" data-i18n="deck.process.title3">
+   Watchlist
+  </h3>
+  <ul class="deck-list">
+   <li data-i18n="deck.process.monitoring">
+    Monitoring of fundamentals and valuation.
+   </li>
+   <li data-i18n="deck.process.owner">
+    An assigned analyst follows the company.
+   </li>
+   <li data-i18n="deck.process.candidate">
+    A candidate for portfolio investment.
+   </li>
+  </ul>
+  <p class="process-gate" data-i18n="deck.process.gate3">
+   Investment Committee consensus →
+  </p>
+ </div>
+ <div class="process-step">
+  <div class="step-number">
+   4
+  </div>
+  <h3 class="step-title" data-i18n="deck.process.title4">
+   Investment
+  </h3>
+  <ul class="deck-list">
+   <li data-i18n="deck.process.entry">
+    Gradual entry according to portfolio rules.
+   </li>
+   <li data-i18n="deck.process.earnings">
+    Portfolio monitoring and review after earnings.
+   </li>
+   <li data-i18n="deck.process.reporting">
+    Monthly reporting.
+   </li>
+  </ul>
+ </div>
+</div>
     </div>
 </section>
 
@@ -321,36 +386,60 @@
     <div class="container">
         <div class="section-header reveal">
             <span class="section-label" data-i18n="section.strategy">Investment Approach</span>
-            <h2 class="section-title" data-i18n="strategy.title">Our Strategy Pillars</h2>
-            <p class="section-subtitle" data-i18n="strategy.subtitle">Three complementary pillars. One portfolio of 15–25 companies.</p>
+            <h2 class="section-title" data-i18n="strategy.title">Tools of our strategy</h2>
+            <p class="section-subtitle" data-i18n="strategy.subtitle">15–25 actively selected holdings. Three complementary pillars.</p>
         </div>
         
         <div class="row g-4">
             <div class="col-lg-7 reveal">
-                <div class="strategy-grid">
-                    <div class="strategy-card">
-                        <h4 style="color: #c53030;" data-i18n-html="home.no_leverage"><i class="bi bi-x-octagon"></i> No leverage</h4>
-                        <p class="mb-0" data-i18n="home.we_avoid_leverage_to_prevent_increased_volatilit">We invest without leverage to limit additional volatility and drawdowns.</p>
-                    </div>
-                    
-                    <div class="strategy-card">
-                        <h4 style="color: #c53030;" data-i18n-html="home.no_shorts"><i class="bi bi-x-octagon"></i> No shorts</h4>
-                        <p class="mb-0" data-i18n="home.short_selling_introduces_margin_call_risks_and_b">We focus on finding companies to own, without stock-borrow costs or margin calls.</p>
-                    </div>
-                    
-                    <div class="strategy-card">
-                        <h4 style="color: #c53030;" data-i18n-html="home.no_hedging">
-                            <i class="bi bi-x-octagon"></i>
-                            No Hedging
-                        </h4>
-                        <p class="mb-0" data-i18n="home.we_don_t_hedge_currencies_as_they_provide_natura">We diversify across currencies and monitor FX exposure.</p>
-                    </div>
-                    
-                    <div class="strategy-card">
-                        <h4 style="color: var(--primary-green);" data-i18n-html="home.non_replicable_strategy"><i class="bi bi-check-circle"></i> Active selection</h4>
-                        <p class="mb-0" data-i18n="home.our_portfolio_cannot_be_replicated_by_standard_e">We select companies individually across SMID caps, emerging markets and specific equity stories.</p>
-                    </div>
-                </div>
+<div class="strategy-grid deck-strategy">
+ <div class="strategy-card">
+  <h3 data-i18n="deck.strategy.title1">
+   Active selection, beyond ordinary ETFs
+  </h3>
+  <ul class="deck-list">
+   <li data-i18n="deck.strategy.selection">
+    We select and manage 15–25 companies across EM, SMID caps and equity stories. Diversification must add value, not just more holdings.
+   </li>
+   <li data-i18n="deck.strategy.etf">
+    This combination cannot be replicated with ordinary ETFs. We look for opportunities beyond expensive developed markets, including emerging markets that retail investors often avoid.
+   </li>
+  </ul>
+ </div>
+ <div class="strategy-card">
+  <h3 data-i18n="deck.strategy.title2">
+   No leverage
+  </h3>
+  <ul class="deck-list">
+   <li data-i18n="deck.strategy.leverage">
+    We do not use leverage: we do not want to increase portfolio volatility or potential drawdowns.
+   </li>
+  </ul>
+ </div>
+ <div class="strategy-card">
+  <h3 data-i18n="deck.strategy.title3">
+   No shorts
+  </h3>
+  <ul class="deck-list">
+   <li data-i18n="deck.strategy.loss">
+    Short positions carry the risk of unlimited loss, margin calls and stock-borrow costs.
+   </li>
+   <li data-i18n="deck.strategy.shorts">
+    The long-term rise of markets works against short positions. We see our advantage in selecting winners and spend our time there.
+   </li>
+  </ul>
+ </div>
+ <div class="strategy-card">
+  <h3 data-i18n="deck.strategy.title4">
+   No currency hedging
+  </h3>
+  <ul class="deck-list">
+   <li data-i18n="deck.strategy.fx">
+    We address currency risk through diversification across currencies. During periods of high volatility, we monitor exchange-rate risk.
+   </li>
+  </ul>
+ </div>
+</div>
             </div>
             
             <div class="col-lg-5 reveal reveal-delay-2">
@@ -460,42 +549,93 @@
     <div class="container">
         <div class="section-header reveal">
             <span class="section-label" data-i18n="polish.universe">Investment universe</span>
-            <h2 class="section-title" data-i18n="home.where_we_invest">Where We Invest</h2>
-            <p class="section-subtitle" data-i18n="home.focused_on_market_segments_where_our_student_dri">Less coverage. Local sources. Room for original research.</p>
+            <h2 class="section-title" data-i18n="home.where_we_invest">Investment universe: undervalued, small and growing</h2>
+            <p class="section-subtitle" data-i18n="home.focused_on_market_segments_where_our_student_dri">Three pillars with specific selection criteria.</p>
         </div>
         
-        <div class="row g-4 universe-cards">
-            <div class="col-md-4 reveal">
-                <div class="feature-card h-100">
-                    <div class="feature-icon primary">
-                        <i class="bi bi-building"></i>
-                    </div>
-                    <h4 class="feature-title" data-i18n="home.small_mid_caps">Small/Mid Caps</h4>
-                    <p class="feature-text" data-i18n="home.market_capitalization_under_25b_under_covered_by">Market capitalisation below $25bn, strong revenue growth and a durable competitive advantage.</p>
-                </div>
-            </div>
-            
-            <div class="col-md-4 reveal reveal-delay-1">
-                <div class="feature-card h-100">
-                    <div class="feature-icon secondary">
-                        <i class="bi bi-globe"></i>
-                    </div>
-                    <h4 class="feature-title" data-i18n="home.emerging_markets">Emerging Markets</h4>
-                    <p class="feature-text" data-i18n="home.cee_latam_and_asia_exposure_our_regional_experti">CEE, Latin America and Asia. We use local sources, language skills and regional contacts.</p>
-                </div>
-            </div>
-            
-            <div class="col-md-4 reveal reveal-delay-2">
-                <div class="feature-card h-100">
-                    <div class="feature-icon accent">
-                        <i class="bi bi-lightning"></i>
-                    </div>
-                    <h4 class="feature-title" data-i18n="home.equity_stories">Equity Stories</h4>
-                    <p class="feature-text" data-i18n="home.special_situations_thematic_investments_and_cont">Specific catalysts, changing market expectations and asymmetric potential.</p>
-                </div>
-            </div>
-        </div>
-        
+<div class="row g-4 universe-cards deck-universe">
+ <div class="col-md-4 reveal">
+  <div class="universe-detail">
+   <span class="universe-number">
+    01
+   </span>
+   <h3 data-i18n="deck.universe.title1">
+    Small/Mid Caps
+   </h3>
+   <ul class="deck-list">
+    <li data-i18n="deck.universe.cap">
+     Market capitalisation up to $25bn.
+    </li>
+    <li data-i18n="deck.universe.growth">
+     Revenue growth above 15% CAGR.
+    </li>
+    <li data-i18n="deck.universe.flexible">
+     Flexibility in responding to change.
+    </li>
+    <li data-i18n="deck.universe.moat">
+     A strong competitive moat.
+    </li>
+   </ul>
+   <p class="universe-examples" data-i18n="deck.universe.examples1">
+    Deck examples: CCReB, Kaspi.kz.
+   </p>
+  </div>
+ </div>
+ <div class="col-md-4 reveal">
+  <div class="universe-detail">
+   <span class="universe-number">
+    02
+   </span>
+   <h3 data-i18n="deck.universe.title2">
+    Emerging Markets
+   </h3>
+   <ul class="deck-list">
+    <li data-i18n="deck.universe.regions">
+     CEE, Latin America and Asia.
+    </li>
+    <li data-i18n="deck.universe.demographics">
+     Fast growth in population and consumption.
+    </li>
+    <li data-i18n="deck.universe.coverage">
+     Less analyst coverage and potential mispricing.
+    </li>
+    <li data-i18n="deck.universe.diversification">
+     Diversification beyond developed markets.
+    </li>
+   </ul>
+   <p class="universe-examples" data-i18n="deck.universe.examples2">
+    Deck examples: Grab, dLocal.
+   </p>
+  </div>
+ </div>
+ <div class="col-md-4 reveal">
+  <div class="universe-detail">
+   <span class="universe-number">
+    03
+   </span>
+   <h3 data-i18n="deck.universe.title3">
+    Equity Stories
+   </h3>
+   <ul class="deck-list">
+    <li data-i18n="deck.universe.moonshots">
+     Technology, geopolitical shifts and buyouts.
+    </li>
+    <li data-i18n="deck.universe.skepticism">
+     Opportunities overlooked or doubted by the market.
+    </li>
+    <li data-i18n="deck.universe.upside">
+     Asymmetric upside.
+    </li>
+    <li data-i18n="deck.universe.catalysts">
+     Strong catalysts for change.
+    </li>
+   </ul>
+   <p class="universe-examples" data-i18n="deck.universe.examples3">
+    Deck examples: Aquestive Therapeutics, Advance Auto Parts.
+   </p>
+  </div>
+ </div>
+</div>
         <!-- Anti-Investment Universe -->
         <div class="row mt-5">
             <div class="col-12 reveal">
@@ -906,6 +1046,68 @@
 </section>
 {% endif %}
 
+<section class="section section-alt cooperation-section" id="cooperation">
+ <div class="container">
+  <div class="section-header reveal">
+   <span class="section-label" data-i18n="deck.cooperation.status">
+    Proposal / September 2026
+   </span>
+   <h2 class="section-title" data-i18n="deck.cooperation.title">
+    Potential sponsorship of the KI AM portfolio
+   </h2>
+   <p class="section-subtitle" data-i18n="deck.cooperation.intro">
+    The deck proposes cooperation with J&amp;T IS and a talent pipeline for a pooling fund as an alternative to the paused ZISIF 15 project.
+   </p>
+  </div>
+  <div class="cooperation-grid">
+   <article class="cooperation-item reveal">
+    <span class="universe-number">
+     01
+    </span>
+    <h3 data-i18n="deck.cooperation.heading1">
+     Media &amp; PR
+    </h3>
+    <p data-i18n="deck.cooperation.copy1">
+     Videos, investment-thesis PDFs and event aftermovies, as at Investor Insight Evening, backed by work with real capital. Published outputs would acknowledge the supporting partner.
+    </p>
+   </article>
+   <article class="cooperation-item reveal">
+    <span class="universe-number">
+     02
+    </span>
+    <h3 data-i18n="deck.cooperation.heading2">
+     Young investment talent
+    </h3>
+    <p data-i18n="deck.cooperation.copy2">
+     Direct contact with motivated students interested in investing: a source of candidates for junior roles and internships at J&amp;T and the pooling fund.
+    </p>
+   </article>
+   <article class="cooperation-item reveal">
+    <span class="universe-number">
+     03
+    </span>
+    <h3 data-i18n="deck.cooperation.heading3">
+     Real capital in practice
+    </h3>
+    <p data-i18n="deck.cooperation.copy3">
+     More capital for KI AM would give future analysts and portfolio managers a real track record, allowing a potential employer to assess their work before hiring.
+    </p>
+   </article>
+   <article class="cooperation-item reveal">
+    <span class="universe-number">
+     04
+    </span>
+    <h3 data-i18n="deck.cooperation.heading4">
+     Investment education
+    </h3>
+    <p data-i18n="deck.cooperation.copy4">
+     Support for financial literacy and the next generation of investors, with a long-term relationship with Klub investorů and its alumni.
+    </p>
+   </article>
+  </div>
+ </div>
+</section>
+
 {% if partners or current_user.is_admin %}
 <section class="section partners-section" id="partners"><div class="container">
 <div class="partners-heading"><div><span class="section-label" data-i18n="polish.partner_kicker">The club’s partners</span><h2 class="section-title" data-i18n="polish.partners">Partners of Klub investorů</h2></div>
@@ -957,6 +1159,7 @@
     ('platform', 'Platform', 'grid-1x2'),
     ('team', 'Team', 'people'),
     ('research', 'Research', 'file-earmark-text'),
+    ('cooperation', 'Cooperation', 'briefcase'),
     ('join', 'Join', 'person-plus')
 ] %}
 <div class="secnav" id="secnav" data-active="home">
@@ -966,7 +1169,7 @@
             {% for sid, label, icon in secnav_items %}
             <button type="button" class="secnav-item" data-target="{{ sid }}" role="menuitem">
                 <span class="secnav-ico"><i class="bi bi-{{ icon }}"></i></span>
-{% if sid == "home" %}<span class="secnav-label" data-i18n="polish.nav_home">Home</span>{% endif %}{% if sid == "about" %}<span class="secnav-label" data-i18n="polish.nav_about">About</span>{% endif %}{% if sid == "process" %}<span class="secnav-label" data-i18n="polish.nav_process">Process</span>{% endif %}{% if sid == "strategy" %}<span class="secnav-label" data-i18n="polish.nav_strategy">Strategy</span>{% endif %}{% if sid == "risk" %}<span class="secnav-label" data-i18n="polish.nav_risk">Risk</span>{% endif %}{% if sid == "universe" %}<span class="secnav-label" data-i18n="polish.nav_universe">Universe</span>{% endif %}{% if sid == "platform" %}<span class="secnav-label" data-i18n="polish.nav_platform">Platform</span>{% endif %}{% if sid == "team" %}<span class="secnav-label" data-i18n="polish.nav_team">Team</span>{% endif %}{% if sid == "research" %}<span class="secnav-label" data-i18n="polish.nav_research">Research</span>{% endif %}{% if sid == "join" %}<span class="secnav-label" data-i18n="polish.nav_join">Join</span>{% endif %}
+{% if sid == "home" %}<span class="secnav-label" data-i18n="polish.nav_home">Home</span>{% endif %}{% if sid == "about" %}<span class="secnav-label" data-i18n="polish.nav_about">About</span>{% endif %}{% if sid == "process" %}<span class="secnav-label" data-i18n="polish.nav_process">Process</span>{% endif %}{% if sid == "strategy" %}<span class="secnav-label" data-i18n="polish.nav_strategy">Strategy</span>{% endif %}{% if sid == "risk" %}<span class="secnav-label" data-i18n="polish.nav_risk">Risk</span>{% endif %}{% if sid == "universe" %}<span class="secnav-label" data-i18n="polish.nav_universe">Universe</span>{% endif %}{% if sid == "platform" %}<span class="secnav-label" data-i18n="polish.nav_platform">Platform</span>{% endif %}{% if sid == "team" %}<span class="secnav-label" data-i18n="polish.nav_team">Team</span>{% endif %}{% if sid == "research" %}<span class="secnav-label" data-i18n="polish.nav_research">Research</span>{% endif %}{% if sid == "cooperation" %}<span class="secnav-label" data-i18n="deck.nav.cooperation">Cooperation</span>{% endif %}{% if sid == "join" %}<span class="secnav-label" data-i18n="polish.nav_join">Join</span>{% endif %}
                 <span class="secnav-dot"></span>
             </button>
             {% endfor %}
@@ -994,7 +1197,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/landing.js', v='20261031a') }}"></script>
+<script src="{{ url_for('static', filename='js/landing.js', v='20261031b') }}"></script>
 <script>
 // Section navigation: bottom-right "Jump to" menu + left vertical rail.
 (function () {
