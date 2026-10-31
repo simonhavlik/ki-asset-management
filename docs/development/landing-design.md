@@ -24,8 +24,9 @@ The September 2026 pitch deck is the editorial reference:
 - Page 8 supplies a separate potential-cooperation section, explicitly dated
   September 2026 and described as a proposal, not an agreed sponsorship.
 - Keep Adam and Šimon's complete comments. Czech wording may be improved without
-  discarding their meaning. Three unfilled profile slots are reserved in the
-  admin view, for a total of five; identities and quotations must be supplied.
+  discarding their meaning. The requested profile order is Adam Kolomazník,
+  Tomáš Cverna, Šimon Havlík. Keep these three profiles until more are supplied.
+  Tomáš's comment is based on the wording provided by the site owner.
 
 The native cursor is used throughout the application. The former cursor overlay,
 animation loop, hover listeners and CSS hiding the native cursor were removed.
