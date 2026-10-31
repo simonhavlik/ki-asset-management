@@ -1,5 +1,16 @@
 /* Decorative motion is optional, stops offscreen, and never fetches data. */
 (function () {
+    var header = document.querySelector('.navbar');
+    if (!header) return;
+    function measureHeader() {
+        document.body.style.setProperty('--ki-header-height', Math.ceil(header.getBoundingClientRect().height) + 'px');
+    }
+    measureHeader();
+    if (window.ResizeObserver) new ResizeObserver(measureHeader).observe(header);
+    else window.addEventListener('resize', measureHeader);
+})();
+
+(function () {
     var button = document.getElementById('kiMotion');
     if (!button) return;
     var reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
