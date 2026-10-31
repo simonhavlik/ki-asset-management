@@ -102,15 +102,18 @@ def test_scheduled_job_uses_complete_central_publisher(application, monkeypatch)
 
 def test_publisher_warms_every_board_variant(application, monkeypatch):
     from app.utils import neon_cache as nc
-    for name in ['main_stats', 'portfolio_chart', 'growth_timeline', 'top_sectors',
+    for name in ['main_stats', 'purchased_main_stats', 'portfolio_chart', 'growth_timeline', 'top_sectors',
                  'latest_blog_posts', 'featured_research', 'rss_posts', 'sitemap_posts']:
         monkeypatch.setattr(nc, 'get_cached_' + name, lambda **kw: None)
+    purchased_public = []
+    monkeypatch.setattr(nc, 'get_cached_purchased_main_stats', lambda **kw: purchased_public.append(kw))
     performance, series = [], []
     monkeypatch.setattr(nc, 'get_cached_board_portfolio_performance',
                         lambda **kw: performance.append(kw))
     monkeypatch.setattr(nc, 'get_cached_board_portfolio_series',
                         lambda **kw: series.append(kw))
     nc.warm_public_caches(strict=True)
+    assert purchased_public == [{'force_refresh': True}]
     assert performance == [{'purchased_only': p, 'force_refresh': True} for p in (False, True)]
     assert series == [{'purchased_only': p, 'years': y, 'force_refresh': True}
                       for p in (False, True) for y in (None, 1)]

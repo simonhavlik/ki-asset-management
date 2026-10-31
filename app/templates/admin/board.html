@@ -90,6 +90,19 @@
 <div class="container-fluid">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+<form action="{{ url_for('admin.public_portfolio') }}" method="post" class="border p-3 mb-4 d-flex flex-wrap align-items-end gap-3">
+    {{ public_portfolio_form.hidden_tag() }}
+    <div class="flex-grow-1">
+        <label for="public-portfolio-mode" class="form-label" data-i18n="board.public_title">Public homepage portfolio</label>
+        <select id="public-portfolio-mode" name="mode" class="form-select">
+            <option value="approved" {% if public_portfolio_form.mode.data == 'approved' %}selected{% endif %} data-i18n="board.public_approved">Board-approved positions</option>
+            <option value="purchased" {% if public_portfolio_form.mode.data == 'purchased' %}selected{% endif %} data-i18n="board.public_purchased">Purchased positions</option>
+        </select>
+        <p class="small text-muted mb-0 mt-2" data-i18n="board.public_help">Changes all homepage figures and both charts together. Uses centrally published results.</p>
+    </div>
+    <button class="btn btn-success" type="submit" data-i18n="board.public_save">Save selection</button>
+</form>
+
 <!-- Header -->
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>

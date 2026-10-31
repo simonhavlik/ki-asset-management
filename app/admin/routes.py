@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, send_file, session, jsonify
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, send_file, session, jsonify, abort
 from flask_login import login_required, current_user
 from flask_wtf.csrf import validate_csrf
 from werkzeug.utils import secure_filename
@@ -12,8 +12,8 @@ from sqlalchemy import desc, func
 
 from ..extensions import db
 from ..models import User, ActivityLog, CsvUpload, Analysis, Company, PerformanceCalculation, AnalystMapping, CompanyTickerMapping, Vote, PortfolioPurchase, Idea, IdeaComment, BenchmarkPrice, StockPrice, analysis_analysts, CompanySectorCache, SystemSettings
-from .forms import UserEditForm, CreateUserForm, CsvUploadForm, AnalystMappingForm, CompanyTickerForm, SitePartnersForm
-from ..utils.site_content import get_partners
+from .forms import UserEditForm, CreateUserForm, CsvUploadForm, AnalystMappingForm, CompanyTickerForm, SitePartnersForm, PublicPortfolioForm
+from ..utils.site_content import get_partners, get_public_portfolio_mode
 from ..utils.csv_import import CsvImporter
 from ..utils.performance import PerformanceCalculator, get_vote_counts_for_analyses
 from ..utils.email_normalization import normalize_email
@@ -1162,7 +1162,25 @@ def board():
                          purchased_performance=purchased_performance,
                          purchased_series_all=purchased_series_all,
                          purchased_series_1y=purchased_series_1y,
-                         last_recalc=last_recalc)
+                         last_recalc=last_recalc,
+                         public_portfolio_form=PublicPortfolioForm(mode=get_public_portfolio_mode()))
+
+
+@admin_bp.route('/board/public-portfolio', methods=['POST'])
+@admin_required
+def public_portfolio():
+    form = PublicPortfolioForm()
+    if not form.validate_on_submit():
+        abort(400)
+    if form.mode.data == 'purchased':
+        from ..models import CalculationSnapshot
+        # Switching never starts work or mixes approved and purchased results.
+        if not CalculationSnapshot.query.filter_by(
+                key='get_cached_purchased_main_stats:{}').first():
+            flash('Nejprve spusťte centrální aktualizaci portfolia. / Run the central portfolio update first.', 'warning')
+            return redirect(url_for('admin.board'))
+    SystemSettings.set('site_public_portfolio_mode', form.mode.data)
+    return redirect(url_for('admin.board'))
 
 
 @admin_bp.route('/board/vote/<int:analysis_id>', methods=['POST'])

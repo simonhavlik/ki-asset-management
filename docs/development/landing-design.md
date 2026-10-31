@@ -31,10 +31,12 @@ The September 2026 pitch deck is the editorial reference:
 The native cursor is used throughout the application. The former cursor overlay,
 animation loop, hover listeners and CSS hiding the native cursor were removed.
 
-The hero retains the existing Board-approved portfolio metrics. The invested
-portfolio chart reads the already-published Board series with purchased_only=True
-and years=None. It follows recorded purchase dates; it must never fall back to the
-legacy chart of all approved analyses or calculate anything during a page load.
+The homepage defaults to Board-approved positions. Administrators choose approved
+or purchased positions in the Board's public-homepage control. The setting selects
+all return/risk/benchmark figures and both charts together. Both metric variants
+are published centrally; changing the setting never calculates. The purchased
+metric snapshot must exist before that source can be selected. An invalid setting
+uses approved positions. Each series keeps the Board's existing date semantics.
 Research selection, inline PDF viewing, phone open/download actions, charts,
 section navigation and authenticated navigation retain their existing behavior.
 Opening a page must never start a calculation; see calculation-snapshots.md in
@@ -49,7 +51,7 @@ after first paint, stops offscreen/when hidden, respects reduced motion and has
 manual pause and keyboard controls. The responsive team photograph is fetched
 only when its view is selected. Particle density is reduced on phones; no
 animation library or additional data endpoint is used.
-The opening return also contains the same purchased-position history shown in
+The opening return also contains the same selected portfolio history shown in
 the mission section. Both plots reuse the existing cached payload and one shared
 deferred Chart.js load; the opening plot does not animate its initial draw.
 All return, risk and benchmark figures remain visible.
@@ -64,3 +66,9 @@ The club-partners block defaults to the five logos on klubinvestoru.com, without
 claiming sponsorship of KI AM capital. Admins see a link to `/admin/site-partners`.
 The CSRF-protected form stores only `site_partners` in SystemSettings; empty lists
 are respected, and admin-supplied URLs never cause server-side requests.
+
+The mission pairs full context on the left with history and three principles on
+the right. The team context uses the same responsive WebP as the hero, loaded
+lazily, above the three complete profiles. Phone density uses smaller gutters,
+compact cards and two-column process/rule grids; no quotes or process details are
+truncated. Tomáš's MSc studies at UGent are supplied by the site owner.

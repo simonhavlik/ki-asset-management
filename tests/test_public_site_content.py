@@ -10,7 +10,7 @@ def application():
     app = create_app()
     app.config.update(TESTING=True, WTF_CSRF_ENABLED=False)
     with app.app_context():
-        SystemSettings.query.filter(SystemSettings.key.in_(['site_partners','site_market_tape'])).delete(synchronize_session=False)
+        SystemSettings.query.filter(SystemSettings.key.in_(['site_partners','site_market_tape','site_public_portfolio_mode'])).delete(synchronize_session=False)
         db.session.commit()
         yield app
 
@@ -101,3 +101,60 @@ def test_default_local_logo_addresses_can_be_saved(application):
     data={f'partners-{i}-{field}':partner[field] for i,partner in enumerate(DEFAULT_PARTNERS) for field in ('name','logo','website')}
     assert client.post('/admin/site-partners',data=data).status_code==302
     assert len(SystemSettings.get('site_partners'))==5
+
+
+@pytest.mark.parametrize('mode,purchased', [('approved', False), ('purchased', True), ('invalid', False)])
+def test_homepage_selects_one_published_portfolio(application, monkeypatch, mode, purchased):
+    from app.main import routes
+    from app.utils import neon_cache as nc
+    SystemSettings.set('site_public_portfolio_mode', mode)
+    monkeypatch.setattr(routes, 'get_dashboard_stats', lambda **kw: pytest.fail('GET calculated'))
+    monkeypatch.setattr(nc, 'get_cached_main_stats', lambda: {'source': 'approved'})
+    monkeypatch.setattr(nc, 'get_cached_purchased_main_stats', lambda: {'source': 'purchased'})
+    calls = []
+    monkeypatch.setattr(nc, 'get_cached_board_portfolio_series', lambda **kw: calls.append(kw) or {'source': purchased})
+    captured = {}
+    monkeypatch.setattr(routes, 'render_template', lambda template, **kw: captured.update(kw) or 'ok')
+    assert application.test_client().get('/').status_code == 200
+    assert captured['stats']['source'] == ('purchased' if purchased else 'approved')
+    assert calls == [{'purchased_only': purchased, 'years': None}]
+
+
+def test_public_portfolio_change_is_admin_only_validated_and_never_calculates(application, monkeypatch):
+    from app.main import routes
+    from app.models import CalculationSnapshot
+    monkeypatch.setattr(routes, 'get_dashboard_stats', lambda **kw: pytest.fail('switch calculated'))
+    client = application.test_client()
+    assert client.post('/admin/board/public-portfolio', data={'mode': 'purchased'}).status_code in (302, 401)
+    login(client, False)
+    assert client.post('/admin/board/public-portfolio', data={'mode': 'purchased'}).status_code == 302
+    assert SystemSettings.get('site_public_portfolio_mode') is None
+    login(client, True)
+    assert client.post('/admin/board/public-portfolio', data={'mode': 'invalid'}).status_code == 400
+    CalculationSnapshot.query.filter_by(key='get_cached_purchased_main_stats:{}').delete()
+    db.session.commit()
+    assert client.post('/admin/board/public-portfolio', data={'mode': 'purchased'}).status_code == 302
+    assert SystemSettings.get('site_public_portfolio_mode') is None
+    db.session.add(CalculationSnapshot(key='get_cached_purchased_main_stats:{}', payload='{}'))
+    db.session.commit()
+    assert client.post('/admin/board/public-portfolio', data={'mode': 'purchased'}).status_code == 302
+    assert SystemSettings.get('site_public_portfolio_mode') == 'purchased'
+    assert client.post('/admin/board/public-portfolio', data={'mode': 'approved'}).status_code == 302
+    assert SystemSettings.get('site_public_portfolio_mode') == 'approved'
+    application.config['WTF_CSRF_ENABLED'] = True
+    assert client.post('/admin/board/public-portfolio', data={'mode': 'approved'}).status_code == 400
+
+
+def test_purchased_metrics_are_published_once_then_read_only(application, monkeypatch):
+    from app.main import routes
+    from app.utils.neon_cache import get_cached_purchased_main_stats
+    from app.models import CalculationSnapshot
+    CalculationSnapshot.query.filter_by(key='get_cached_purchased_main_stats:{}').delete()
+    db.session.commit()
+    calls = []
+    monkeypatch.setattr(routes, 'get_dashboard_stats', lambda **kw: calls.append(kw) or {'portfolio_return': 12.5})
+    assert get_cached_purchased_main_stats()['portfolio_return'] is None
+    assert calls == []
+    published = get_cached_purchased_main_stats(force_refresh=True)
+    assert get_cached_purchased_main_stats() == published
+    assert calls == [{'purchased_only': True}]
