@@ -80,3 +80,15 @@ class PublicPortfolioForm(FlaskForm):
     mode = SelectField('Public portfolio', choices=[
         ('approved', 'Board-approved positions'), ('purchased', 'Purchased positions')],
         validators=[DataRequired()])
+
+
+from wtforms import HiddenField, IntegerField
+from wtforms.validators import AnyOf, NumberRange
+
+class MaintenanceScheduleForm(FlaskForm):
+    job = HiddenField(validators=[DataRequired(), AnyOf(['notion', 'recalc'])])
+    enabled = BooleanField()
+    frequency = SelectField(choices=[('daily', 'Daily'), ('weekly', 'Weekly')], validators=[DataRequired()])
+    day_of_week = SelectField(choices=[(day, day) for day in ('mon','tue','wed','thu','fri','sat','sun')], validators=[DataRequired()])
+    hour = IntegerField(validators=[NumberRange(min=0, max=23)])
+    minute = IntegerField(validators=[NumberRange(min=0, max=59)])

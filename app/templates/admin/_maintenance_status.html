@@ -1,0 +1,1 @@
+{% if run.status=='completed' %}<span class="maintenance-state on" data-i18n="maintenance.completed">Completed</span>{% elif run.status=='running' %}<span class="maintenance-state live" data-i18n="maintenance.running">Running</span>{% else %}<span class="maintenance-state off" data-i18n="maintenance.failed">Failed</span>{% endif %}

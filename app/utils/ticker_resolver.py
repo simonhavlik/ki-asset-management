@@ -34,6 +34,11 @@ COMPANY_INDICATORS = [
 ]
 
 
+def is_update_event(name):
+    """Follow-up presentations are not a new initial stock analysis."""
+    return bool(name and re.search(r'[-–—]\s*update\b', name, re.IGNORECASE))
+
+
 def is_other_event(company_name: str, sector: Optional[str] = None) -> bool:
     """
     Detect if this is a non-stock "Other" event (market commentary, macro, etc.)
@@ -62,6 +67,9 @@ def is_other_event(company_name: str, sector: Optional[str] = None) -> bool:
 
     # 1. Explicit "Other" marker
     if name_lower in ['other', 'n/a', 'na', '-', '']:
+        return True
+
+    if is_update_event(name):
         return True
 
     # 2. A real sector means it is a listed stock pitch, not an "Other" event.
@@ -189,6 +197,18 @@ def resolve_ticker(company_name: str, hint: Optional[str] = None,
     if not company_name or company_name.strip() in ['', '-', 'N/A', 'n/a']:
         return None, True, 'other_auto'
     
+    mapping = CompanyTickerMapping.query.filter_by(company_name=company_name.strip()).first()
+    if mapping and mapping.source == 'manual' and mapping.is_other_event:
+        return None, True, 'manual'
+    manual_analysis = bool(mapping and mapping.source == 'manual' and not mapping.is_other_event)
+    if is_update_event(company_name) and not manual_analysis:
+        if mapping:
+            mapping.is_other_event, mapping.source, mapping.last_updated = True, 'other_auto', datetime.utcnow()
+            db.session.commit()
+        else:
+            set_cached_ticker(company_name, None, is_other=True, source='other_auto')
+        return None, True, 'other_auto'
+
     # Step 1: Check cache (unless forcing refresh)
     if not force_refresh:
         cached_ticker, is_other = get_cached_ticker(company_name)
@@ -198,7 +218,7 @@ def resolve_ticker(company_name: str, hint: Optional[str] = None,
             return cached_ticker, False, 'cached'
     
     # Step 2: Auto-detect "Other" events
-    if is_other_event(company_name):
+    if not manual_analysis and is_other_event(company_name):
         set_cached_ticker(company_name, None, is_other=True, source='other_auto')
         return None, True, 'other_auto'
     
@@ -333,3 +353,27 @@ def bulk_resolve_tickers(company_names: list, progress_callback=None) -> dict:
         }
     
     return results
+
+
+def classify_update_entries():
+    """Explicit maintenance: correct existing automatic update mappings, reversibly."""
+    from ..models import Company
+    mappings = {m.company_name: m for m in CompanyTickerMapping.query.all()}
+    changed = []
+    for company in Company.query.all():
+        if not is_update_event(company.name):
+            continue
+        mapping = mappings.get(company.name)
+        if mapping and mapping.source == 'manual':
+            continue
+        if mapping and mapping.is_other_event and not company.ticker_symbol:
+            continue
+        if mapping is None:
+            mapping = CompanyTickerMapping(company_name=company.name, ticker_symbol=company.ticker_symbol)
+            db.session.add(mapping)
+        mapping.is_other_event, mapping.source = True, 'other_auto'
+        mapping.last_updated = datetime.utcnow()
+        company.ticker_symbol = None
+        changed.append(company.id)
+    db.session.commit()
+    return changed

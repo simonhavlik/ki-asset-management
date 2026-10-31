@@ -28,6 +28,10 @@ time (Render's clock is UTC):
 | `daily_notion_import` | daily, 04:00 | Pulls the Notion analysis schedule into the analyses table (Notion is a read-only source). |
 | `automated_recalc` | Monday, 04:00 | Full refresh + recalculation + cache re-warm. |
 
+Both primary schedules can now be enabled/disabled and set to daily or weekly from
+Admin → Updates. Defaults above are preserved. See [update controls](docs/operations/update-controls.md)
+for durable history, live output, ownership handover and ticker classification.
+
 They depend on the uptime monitor keeping the Render instance awake, and they run
 inside a Flask application context (APScheduler threads do not inherit one). Read
 their output back from Render with `python scripts/render_logs.py --text "Notion

@@ -739,3 +739,16 @@ class CalculationSnapshot(db.Model):
     key = db.Column(db.String(255), primary_key=True)
     payload = db.Column(db.Text, nullable=False)
     cached_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
+class MaintenanceRun(db.Model):
+    """Durable import history, shared by manual and scheduled runs."""
+    __tablename__ = 'maintenance_runs'
+    id = db.Column(db.Integer, primary_key=True)
+    job = db.Column(db.String(40), nullable=False, index=True)
+    run_type = db.Column(db.String(20), nullable=False)
+    status = db.Column(db.String(20), nullable=False, default='running')
+    started_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    completed_at = db.Column(db.DateTime)
+    details = db.Column(db.JSON)
+    error = db.Column(db.Text)

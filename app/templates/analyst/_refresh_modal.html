@@ -27,6 +27,11 @@
                 </div>
 
                 <div id="refreshIdle">
+                    <div id="refreshRecent" class="alert alert-warning alert-permanent d-none">
+                        <strong data-i18n="maintenance.recent">A refresh was started in the past 24 hours.</strong>
+                        <div id="refreshRecentWhen" class="small my-2"></div>
+                        <label class="d-flex gap-2 align-items-start"><input type="checkbox" id="refreshRecentAck" class="form-check-input"><span data-i18n="maintenance.repeat_ack">I want to run the full refresh again.</span></label>
+                    </div>
                     <p class="term-footnote mb-3" data-i18n="analyst.refresh_intro">
                         Nothing runs until you press Start. A refresh recalculates prices, performance,
                         benchmarks, caches and every analyst dashboard and can take 5–10 minutes.
@@ -48,10 +53,13 @@
                                 <strong id="refreshViews">–</strong>
                             </div>
                             <div class="term-result-row">
+                                <span data-i18n="maintenance.metric_prices_updated">Prices updated</span><strong id="refreshPrices">–</strong>
+                            </div><div class="term-result-row">
                                 <span data-i18n="analyst.refresh_errors">Errors</span>
                                 <strong id="refreshErrors">–</strong>
                             </div>
                         </div>
+                        <pre class="term-log d-none" id="refreshPastLog"></pre>
                         <div class="term-error d-none" id="refreshErrorBox">
                             <strong data-i18n="analyst.refresh_failed">Refresh failed</strong>
                             <pre class="term-log" id="refreshErrorMsg"></pre>
@@ -94,7 +102,11 @@
         var startedHere = false;
 
         var STATE_URL = '{{ url_for("analyst.refresh_progress") }}';
-        var START_URL = '{{ url_for("analyst.refresh_data") }}';
+        var START_URL = '{{ refresh_start_url|default(url_for("analyst.refresh_data")) }}';
+        var warnRecent = {{ refresh_warn_recent|default(false)|tojson }};
+        var recentRequired = false;
+        var recentAck = document.getElementById('refreshRecentAck');
+        recentAck.addEventListener('change', function () { startBtn.disabled = recentRequired && !recentAck.checked; });
 
         function parseDate(iso) {
             if (!iso) return null;
@@ -103,11 +115,11 @@
         }
         function clock(iso) {
             var d = parseDate(iso);
-            return d ? d.toLocaleString() : (iso || '–');
+            return d ? d.toLocaleString(window.LANG && window.LANG.current === 'cs' ? 'cs-CZ' : 'en-GB') : (iso || '–');
         }
         function shortTime(iso) {
             var d = parseDate(iso);
-            return d ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+            return d ? d.toLocaleTimeString(window.LANG && window.LANG.current === 'cs' ? 'cs-CZ' : 'en-GB', { hour: '2-digit', minute: '2-digit' }) : '';
         }
         function dur(sec) {
             if (sec === null || sec === undefined) return '–';
@@ -128,14 +140,29 @@
             startBtn.classList.remove('d-none');
             reloadEl.classList.toggle('d-none', !finishedNow);
             if (!last) {
+                recentRequired = false;
+                startBtn.disabled = false;
+                document.getElementById('refreshRecent').classList.add('d-none');
                 resultBox.classList.add('d-none');
                 return;
             }
             resultBox.classList.remove('d-none');
+            var started = parseDate(last.started_at);
+            recentRequired = warnRecent && started && (Date.now() - started.getTime()) < 86400000;
+            document.getElementById('refreshRecent').classList.toggle('d-none', !recentRequired);
+            var typeKey = last.run_type === 'manual' ? 'maintenance.manual' : 'maintenance.automatic';
+            var runType = window.LANG && window.LANG.texts[window.LANG.current][typeKey] || last.run_type || '';
+            document.getElementById('refreshRecentWhen').textContent = clock(last.started_at) + ' · ' + runType;
+            startBtn.disabled = recentRequired && !recentAck.checked;
+            var pastLog = document.getElementById('refreshPastLog');
+            pastLog.textContent = (last.logs || []).join('\n');
+            pastLog.classList.toggle('d-none', !pastLog.textContent);
+
             document.getElementById('refreshFinishedAt').textContent = clock(last.finished_at || last.started_at);
             document.getElementById('refreshDuration').textContent = dur(last.duration_seconds);
             document.getElementById('refreshViews').textContent =
-                last.calculations_updated + ' (' + last.prices_updated + ' prices)';
+                last.calculations_updated;
+            document.getElementById('refreshPrices').textContent = last.prices_updated;
             document.getElementById('refreshErrors').textContent = last.errors_count;
             if (last.status === 'failed' && last.error_message) {
                 errorBox.classList.remove('d-none');
@@ -186,6 +213,7 @@
 
         // Opening the panel never starts anything: it only reports the state.
         btn.addEventListener('click', function () {
+            recentAck.checked = false;
             modal.show();
             statusEl.textContent = '';
             fetchState().then(function (d) { render(d || { running: false, last: null }); });
@@ -193,10 +221,12 @@
 
         // The single place a refresh can begin.
         startBtn.addEventListener('click', function () {
+            if (recentRequired && !recentAck.checked) return;
             startedHere = true;
             startBtn.disabled = true;
             fetch(START_URL, {
                 method: 'POST',
+                body: new URLSearchParams({acknowledge_recent: recentAck.checked ? '1' : '0'}),
                 headers: { 'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || '' }
             }).then(function (r) { return r.json().catch(function () { return {}; }); })
               .then(function (s) {

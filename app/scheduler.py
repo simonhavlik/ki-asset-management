@@ -69,6 +69,7 @@ def _try_owner_lock():
     from .models import db
 
     global _owner_conn
+    conn = None
     try:
         if db.engine.dialect.name != 'postgresql':
             return True                  # SQLite/tests: one process anyway
@@ -77,14 +78,17 @@ def _try_owner_lock():
         cur.execute("select pg_try_advisory_lock(%s)", (SCHEDULER_LOCK_KEY,))
         got = bool(cur.fetchone()[0])
         cur.close()
+        conn.commit()
         if got:
             _owner_conn = conn
             return True
         conn.close()
         return False
     except Exception as exc:  # noqa: BLE001 - better to run than to stay idle
-        logger.warning("scheduler ownership check failed (%s); assuming owner", exc)
-        return True
+        if conn is not None:
+            conn.close()
+        logger.warning("scheduler ownership check failed (%s); waiting to retry", exc)
+        return False
 
 
 def _acquire_owner_lock(app):
@@ -136,6 +140,10 @@ def _persist_run(record):
     from sqlalchemy import text as _sa_text
     from .models import db
 
+    from flask import has_app_context
+    if not has_app_context() and _app is not None:
+        with _app.app_context():
+            return _persist_run(record)
     try:
         if db.engine.dialect.name != 'postgresql':
             return
@@ -218,6 +226,7 @@ def _tracked(job_id, job_func):
                   'finished_at': None, 'duration_seconds': None, 'error': None,
                   'result': None}
         JOB_RUNS[job_id] = record
+        _persist_run(record)
         try:
             result = job_func(*args, **kwargs)
         except Exception as exc:  # noqa: BLE001 - record, then let APScheduler log it
@@ -254,15 +263,8 @@ def _with_app_context(job_func):
 
 
 def get_scheduler_settings():
-    """Get scheduler settings from database."""
-    from .models import SystemSettings
-
-    return {
-        'enabled': SystemSettings.get('auto_recalc_enabled', False),
-        'day_of_week': SystemSettings.get('auto_recalc_day', 'mon'),
-        'hour': SystemSettings.get('auto_recalc_hour', 4),
-        'minute': SystemSettings.get('auto_recalc_minute', 0)
-    }
+    from .utils.maintenance import schedule_settings
+    return schedule_settings('recalc')
 
 
 def import_notion_daily():
@@ -278,7 +280,7 @@ def import_notion_daily():
     logger.info("=" * 60)
 
     with _run_lock:
-        stats = run_notion_import()
+        stats = run_notion_import(run_type='scheduled')
 
     if stats.get('success'):
         logger.info(
@@ -293,6 +295,9 @@ def import_notion_daily():
     else:
         logger.error("Daily Notion import failed: %s", stats.get('error'))
     logger.info("=" * 60)
+    if not stats.get('success') and not stats.get('busy'):
+        raise RuntimeError(stats.get('error') or 'Notion import failed')
+    return stats
 
 
 def notion_import_if_stale(max_age_hours: int = 20) -> None:
@@ -302,14 +307,21 @@ def notion_import_if_stale(max_age_hours: int = 20) -> None:
     04:00 and APScheduler skipped the misfired run, this catches up within the
     hour. Normally a no-op, because the 04:00 import ran.
     """
-    from .models import CsvUpload
-    last = (CsvUpload.query.filter(CsvUpload.filename.like('notion_import_%'))
-            .order_by(CsvUpload.id.desc()).first())
-    if last and last.processed_at and (datetime.utcnow() - last.processed_at) < timedelta(hours=max_age_hours):
-        logger.debug("Notion safety net: last import %s is fresh; nothing to do", last.processed_at)
+    from .models import CsvUpload, MaintenanceRun
+    from .utils.maintenance import schedule_settings, due_slot
+    settings = schedule_settings('notion')
+    if not settings['enabled']:
         return
-    logger.info("Notion safety net: last import is stale or missing - importing now")
-    import_notion_daily()
+    due = due_slot(settings).astimezone(timezone.utc).replace(tzinfo=None)
+    last = MaintenanceRun.query.filter_by(job='notion', status='completed').order_by(MaintenanceRun.started_at.desc()).first()
+    upload = CsvUpload.query.filter(CsvUpload.filename.like('notion_%'), CsvUpload.processed_at.isnot(None)).order_by(CsvUpload.processed_at.desc()).first()
+    latest = max([d for d in [last.started_at if last else None, upload.processed_at if upload else None] if d], default=None)
+    if latest and latest >= due:
+        return
+    attempt = MaintenanceRun.query.filter_by(job='notion').order_by(MaintenanceRun.started_at.desc()).first()
+    if attempt and attempt.started_at > datetime.utcnow() - timedelta(hours=1):
+        return
+    return import_notion_daily()
 
 
 def weekly_data_refresh():
@@ -329,13 +341,8 @@ def scheduled_recalc_if_due():
     settings = get_scheduler_settings()
     if not settings['enabled']:
         return
-    now = datetime.now(ZoneInfo(TIMEZONE))
-    weekday = {'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3,
-               'fri': 4, 'sat': 5, 'sun': 6}.get(settings['day_of_week'], 0)
-    due = (now - timedelta(days=(now.weekday() - weekday) % 7)).replace(
-        hour=settings['hour'], minute=settings['minute'], second=0, microsecond=0)
-    if due > now:
-        due -= timedelta(days=7)
+    from .utils.maintenance import due_slot
+    due = due_slot(settings, now=datetime.now(ZoneInfo(TIMEZONE)))
     latest = RecalculationLog.query.filter_by(status='completed').order_by(
         RecalculationLog.started_at.desc()).first()
     due_utc = due.astimezone(timezone.utc).replace(tzinfo=None)
@@ -393,6 +400,19 @@ def retry_queued_emails():
         logger.warning(f"Email outbox retry failed: {e}")
 
 
+_applied_schedule_signature = None
+
+
+def _schedule_signature():
+    from .utils.maintenance import schedule_settings
+    return repr([schedule_settings('notion'), schedule_settings('recalc')])
+
+
+def _reload_schedule_if_changed():
+    if _applied_schedule_signature != _schedule_signature():
+        _register_jobs(_app)
+
+
 def _register_jobs(app):
     """Create every scheduled job on the module-level scheduler.
 
@@ -400,7 +420,9 @@ def _register_jobs(app):
     worker thread was lost: the job store is in memory, so jobs have to be
     re-added if the scheduler was rebuilt from empty.
     """
+    global _applied_schedule_signature
     with app.app_context():
+        _applied_schedule_signature = _schedule_signature()
         # Always scheduled, and never gated on the recalculation setting: this
         # is the safety net for undeliverable mail.
         scheduler.add_job(
@@ -413,21 +435,17 @@ def _register_jobs(app):
             misfire_grace_time=300,
         )
 
-        # Daily autonomous Notion import. Deliberately always on: keeping the
-        # site in step with Notion is the point, and the job is a no-op when
-        # nothing changed.
-        scheduler.add_job(
-            func=_tracked('daily_notion_import', _with_app_context(import_notion_daily)),
-            trigger=CronTrigger(hour=DAILY_IMPORT_HOUR, minute=DAILY_IMPORT_MINUTE,
-                                timezone=TIMEZONE),
-            id='daily_notion_import',
-            name='Daily Notion import',
-            replace_existing=True,
-            coalesce=True,
-            misfire_grace_time=60,
-        )
-        logger.info(f"Daily Notion import scheduled for "
-                    f"{DAILY_IMPORT_HOUR:02d}:{DAILY_IMPORT_MINUTE:02d} {TIMEZONE}")
+        from .utils.maintenance import schedule_settings, schedule_trigger
+        notion = schedule_settings('notion')
+        if notion['enabled']:
+            scheduler.add_job(func=_tracked('daily_notion_import', _with_app_context(import_notion_daily)),
+                              trigger=schedule_trigger(notion), id='daily_notion_import',
+                              name='Notion import', replace_existing=True, coalesce=True, misfire_grace_time=3600, max_instances=1)
+        elif scheduler.get_job('daily_notion_import'):
+            scheduler.remove_job('daily_notion_import')
+        scheduler.add_job(func=_with_app_context(_reload_schedule_if_changed),
+                          trigger=IntervalTrigger(minutes=1), id='schedule_settings_sync',
+                          name='Apply saved schedules', replace_existing=True, coalesce=True)
 
         # Safety net: guarantee the daily Notion sync even if the 04:00 slot was
         # missed (instance asleep/restarting). Runs hourly but only acts when the
@@ -473,8 +491,7 @@ def _register_jobs(app):
 
             scheduler.add_job(
                 func=_tracked('automated_recalc', _with_app_context(weekly_data_refresh)),
-                trigger=CronTrigger(day_of_week=day_of_week, hour=settings['hour'],
-                                    minute=settings['minute'], timezone=TIMEZONE),
+                trigger=schedule_trigger(settings),
                 id='automated_recalc',
                 name='Automated Data Refresh',
                 replace_existing=True,
@@ -596,6 +613,27 @@ def _restart_scheduler(reason):
         return False
 
 
+_promotion_lock = threading.Lock()
+
+
+def _promote_if_owner_available():
+    """A replacement instance takes over only after the old owner's lock releases."""
+    global SCHEDULER_ROLE, _ownership_decided
+    if _app is None or SCHEDULER_ROLE == 'owner':
+        return False
+    with _promotion_lock, _app.app_context():
+        if SCHEDULER_ROLE == 'owner' or not _try_owner_lock():
+            return False
+        SCHEDULER_ROLE, _ownership_decided = 'owner', True
+        _register_jobs(_app)
+        if scheduler.running:
+            scheduler.resume()
+        else:
+            scheduler.start()
+        logger.info('Scheduler ownership acquired after previous instance stopped')
+        return True
+
+
 def _watchdog_loop():
     checks = 0
     while not _watchdog_stop.is_set():
@@ -612,6 +650,8 @@ def _watchdog_loop():
                               'next': {j.id: (j.next_run_time.isoformat(timespec='seconds')
                                               if j.next_run_time else None)
                                        for j in scheduler.get_jobs()}})
+            if SCHEDULER_ROLE != 'owner':
+                _promote_if_owner_available()
             if SCHEDULER_ROLE != 'owner':
                 # Reporters must never start a scheduler: that would double-run
                 # every job next to the process that owns the schedule.
@@ -684,42 +724,9 @@ def shutdown_scheduler():
 
 
 def update_scheduler_settings():
-    """Update scheduler based on current settings (call after settings change)."""
-    settings = get_scheduler_settings()
-    
-    if not settings['enabled']:
-        # Remove scheduled job if exists
-        if scheduler.get_job('automated_recalc'):
-            scheduler.remove_job('automated_recalc')
-            logger.info("Automated recalculation disabled")
-        return
-    
-    # Update or add job
-    day_map = {
-        'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3, 
-        'fri': 4, 'sat': 5, 'sun': 6
-    }
-    
-    day_of_week = day_map.get(settings['day_of_week'], 0)
-    
-    # Remove existing job
-    if scheduler.get_job('automated_recalc'):
-        scheduler.remove_job('automated_recalc')
-    
-    # Add new job
-    scheduler.add_job(
-        func=_tracked('automated_recalc', _with_app_context(weekly_data_refresh)),
-        trigger=CronTrigger(day_of_week=day_of_week, hour=settings['hour'],
-                            minute=settings['minute'], timezone=TIMEZONE),
-        id='automated_recalc',
-        name='Automated Data Refresh',
-        replace_existing=True,
-        # Allow short delays, with the overnight catch-up as a safety net.
-        coalesce=True,
-        misfire_grace_time=3600,
-    )
-    
-    logger.info(f"Scheduler updated: {settings['day_of_week']} at {settings['hour']:02d}:{settings['minute']:02d} {TIMEZONE}")
+    """Apply saved settings here; the owner also synchronizes every minute."""
+    if _app is not None:
+        _register_jobs(_app)
 
 
 # Make db accessible
