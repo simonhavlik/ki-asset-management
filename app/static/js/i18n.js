@@ -34,6 +34,15 @@
 
     var TEXTS = {
     "en": {
+        "hero.story.who": "Who we are",
+        "hero.story.meet": "Meet our team →",
+        "hero.story.full_process": "Our full investment process →",
+        "hero.story.views": "Opening views",
+        "hero.story.tab0": "Portfolio",
+        "hero.story.tab1": "Who we are",
+        "hero.story.tab2": "Our process",
+        "hero.story.pause": "Pause animation",
+        "hero.story.resume": "Resume animation",
         "team.tomas_name": "Tomáš Cverna",
         "team.committee_member": "Investment Committee member",
         "team.tomas_quote": "“I enjoy helping build KI AM, a project that helps young talent deepen their knowledge of global markets and investing.”",
@@ -731,6 +740,15 @@
         "polish.collected": "Retrieved"
     },
     "cs": {
+        "hero.story.who": "Kdo jsme",
+        "hero.story.meet": "Poznat náš tým →",
+        "hero.story.full_process": "Celý náš investiční proces →",
+        "hero.story.views": "Pohledy na úvodu",
+        "hero.story.tab0": "Portfolio",
+        "hero.story.tab1": "Kdo jsme",
+        "hero.story.tab2": "Náš proces",
+        "hero.story.pause": "Pozastavit animaci",
+        "hero.story.resume": "Spustit animaci",
         "team.tomas_name": "Tomáš Cverna",
         "team.committee_member": "Člen investičního výboru",
         "team.tomas_quote": "„Rád se podílím na budování KI AM. Mladým talentům pomáhá prohlubovat znalosti světových trhů a investování.“",

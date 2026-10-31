@@ -4,7 +4,7 @@
 
 {% block body_class %}index-page{% endblock %}
 {% block default_lang %}cs{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css', v='20261031d') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css', v='20261031g') }}">{% endblock %}
 {% block content %}
 <div class="ki-atmosphere" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
 <button class="motion-toggle" id="kiMotion" type="button" aria-pressed="false" data-i18n="polish.motion">Pause background</button>
@@ -80,8 +80,10 @@
                 {% endif %}
             </div>
             
-            <!-- Portfolio terminal: precomputed results only -->
             <div class="hero-right">
+                <div class="hero-stories" id="heroStories">
+                    <div class="hero-scenes">
+                        <section class="hero-scene is-active" id="heroScene0" role="tabpanel" aria-labelledby="heroTab0">
                 {% if stats.portfolio_return is not none %}
                 <div class="performance-dashboard">
                     <div class="performance-header">
@@ -176,6 +178,149 @@
                     </div>
                 </div>
                 {% endif %}
+                        </section>
+                        <section class="hero-scene hero-team-story" id="heroScene1" role="tabpanel" aria-labelledby="heroTab1" aria-hidden="true" inert>
+                            <div class="hero-story-heading"><span data-i18n="hero.story.who" class="hero-story-kicker">Who we are</span><span class="hero-story-number">02 / 03</span></div>
+                            <img class="hero-story-photo" data-src="{{ url_for('static', filename='images/team-hero-1280.webp') }}" data-srcset="{{ url_for('static', filename='images/team-hero-768.webp') }} 768w, {{ url_for('static', filename='images/team-hero-1280.webp') }} 1280w" sizes="(max-width: 767px) 100vw, 65vw" width="1280" height="853" alt="KI Asset Management team" loading="lazy" decoding="async">
+                            <div class="hero-team-copy">
+                                <h3>KI Asset Management</h3>
+                                <p data-i18n="home.umo_nit_motivovan_m_student_m_z_skat_re_lnou_zku">Enable motivated students to gain real capital management experience and grow the club’s assets.</p>
+                                <a href="#team" class="hero-story-link"><span data-i18n="hero.story.meet" >Meet our team →</span></a>
+                            </div>
+                        </section>
+                        <section aria-hidden="true" aria-labelledby="heroTab2" class="hero-scene hero-process-story" data-phase="0" id="heroScene2" inert="" role="tabpanel">
+ <div class="hero-story-heading">
+  <span class="hero-story-kicker" data-i18n="home.investment_process">
+   Our investment process
+  </span>
+  <span class="hero-story-number">
+   03 / 03
+  </span>
+ </div>
+ <div class="hero-process-terminal">
+  <canvas aria-hidden="true" id="heroParticles">
+  </canvas>
+  <div class="hero-process-stages">
+   <button aria-pressed="true" class="hero-process-stage" data-process-step="0" type="button">
+    <span class="hero-process-node">
+     01
+    </span>
+    <span data-i18n="deck.process.title1">
+     Idea
+    </span>
+   </button>
+   <button aria-pressed="false" class="hero-process-stage" data-process-step="1" type="button">
+    <span class="hero-process-node">
+     02
+    </span>
+    <span data-i18n="deck.process.title2">
+     Analysis
+    </span>
+   </button>
+   <button aria-pressed="false" class="hero-process-stage" data-process-step="2" type="button">
+    <span class="hero-process-node">
+     03
+    </span>
+    <span data-i18n="deck.process.title3">
+     Watchlist
+    </span>
+   </button>
+   <button aria-pressed="false" class="hero-process-stage" data-process-step="3" type="button">
+    <span class="hero-process-node">
+     04
+    </span>
+    <span data-i18n="deck.process.title4">
+     Investment
+    </span>
+   </button>
+  </div>
+  <div class="hero-process-details">
+   <div class="hero-process-detail is-active" data-phase-detail="0">
+    <h3 data-i18n="deck.process.title1">
+     Idea
+    </h3>
+    <ul class="hero-source-list">
+     <li data-i18n="deck.process.screen">
+      Screening: revenue growth, ROIC, margins and valuation multiples.
+     </li>
+     <li data-i18n="deck.process.reading">
+      Investment theses: Seeking Alpha, Substack and hedge fund letters.
+     </li>
+     <li data-i18n="deck.process.scouting">
+      Field research: products, customers, employees and management.
+     </li>
+    </ul>
+    <p class="hero-process-gate" data-i18n="deck.process.gate1">
+     Analyst selection →
+    </p>
+   </div>
+   <div class="hero-process-detail" data-phase-detail="1" hidden="">
+    <h3 data-i18n="deck.process.title2">
+     Analysis
+    </h3>
+    <ul class="hero-source-list">
+     <li data-i18n="deck.process.writeup">
+      A structured write-up of around 20 pages, including valuation.
+     </li>
+     <li data-i18n="deck.process.review">
+      Presentation and peer review.
+     </li>
+     <li data-i18n="deck.process.discussion">
+      Internal discussion of the investment thesis.
+     </li>
+    </ul>
+    <p class="hero-process-gate" data-i18n="deck.process.gate2">
+     Analyst team vote →
+    </p>
+   </div>
+   <div class="hero-process-detail" data-phase-detail="2" hidden="">
+    <h3 data-i18n="deck.process.title3">
+     Watchlist
+    </h3>
+    <ul class="hero-source-list">
+     <li data-i18n="deck.process.monitoring">
+      Monitoring of fundamentals and valuation.
+     </li>
+     <li data-i18n="deck.process.owner">
+      An assigned analyst follows the company.
+     </li>
+     <li data-i18n="deck.process.candidate">
+      A candidate for portfolio investment.
+     </li>
+    </ul>
+    <p class="hero-process-gate" data-i18n="deck.process.gate3">
+     Investment Committee consensus →
+    </p>
+   </div>
+   <div class="hero-process-detail" data-phase-detail="3" hidden="">
+    <h3 data-i18n="deck.process.title4">
+     Investment
+    </h3>
+    <ul class="hero-source-list">
+     <li data-i18n="deck.process.entry">
+      Gradual entry according to portfolio rules.
+     </li>
+     <li data-i18n="deck.process.earnings">
+      Portfolio monitoring and review after earnings.
+     </li>
+     <li data-i18n="deck.process.reporting">
+      Monthly reporting.
+     </li>
+    </ul>
+   </div>
+  </div>
+ </div>
+ <div class="hero-process-footer">
+  <a class="hero-story-link" href="#process">
+   <span data-i18n="hero.story.full_process">
+    Our full investment process →
+   </span>
+  </a>
+ </div>
+</section>
+</div>
+<div class="hero-story-controls"><div class="hero-story-tabs" role="tablist" aria-label="Opening views" data-i18n-aria-label="hero.story.views"><button class="hero-story-tab is-active" id="heroTab0" type="button" role="tab" aria-controls="heroScene0" aria-selected="true" tabindex="0" data-scene="0"><span class="hero-tab-number">01</span><span data-i18n="hero.story.tab0" >Portfolio</span></button><button class="hero-story-tab" id="heroTab1" type="button" role="tab" aria-controls="heroScene1" aria-selected="false" tabindex="-1" data-scene="1"><span class="hero-tab-number">02</span><span data-i18n="hero.story.tab1" >Who we are</span></button><button class="hero-story-tab" id="heroTab2" type="button" role="tab" aria-controls="heroScene2" aria-selected="false" tabindex="-1" data-scene="2"><span class="hero-tab-number">03</span><span data-i18n="hero.story.tab2" >Our process</span></button></div><button type="button" class="hero-story-pause" id="heroStoryPause" aria-pressed="false" aria-label="Pause animation" data-i18n-aria-label="hero.story.pause"><i class="bi bi-pause" aria-hidden="true"></i></button></div>
+                </div>
             </div>
         </div>
     </div>
@@ -809,11 +954,7 @@
             <h2 class="section-title" data-i18n="team.title">Meet the Team</h2>
         </div>
         
-        <div class="team-photo reveal">
-            <img src="{{ url_for('static', filename='images/team-photo.jpg') }}"
-                 alt="KI Asset Management team" loading="lazy">
-            <span class="team-photo-caption" data-i18n="team.photo_caption">The KI Asset Management team</span>
-        </div>
+
 
         </div>
 
@@ -1219,7 +1360,8 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/landing.js', v='20261031d') }}"></script>
+<script src="{{ url_for('static', filename='js/landing.js', v='20261031g') }}"></script>
+<script defer src="{{ url_for('static', filename='js/hero-stories.js', v='20261031g') }}"></script>
 <script>
 // Section navigation: bottom-right "Jump to" menu + left vertical rail.
 (function () {

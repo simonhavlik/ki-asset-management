@@ -40,6 +40,16 @@ section navigation and authenticated navigation retain their existing behavior.
 Opening a page must never start a calculation; see calculation-snapshots.md in
 `docs/operations`.
 
+The opening viewport uses the measured fixed-header height, keeping the market
+tape at its lower edge. Its three right-hand views are portfolio, team and the
+investment process. The process repeats the complete existing process text; it
+must not be reduced to two screening ratios or replaced by a publication list.
+The default server-rendered view remains the portfolio. Optional motion starts
+after first paint, stops offscreen/when hidden, respects reduced motion and has
+manual pause and keyboard controls. The responsive team photograph is fetched
+only when its view is selected. Particle density is reduced on phones; no
+animation library or additional data endpoint is used.
+
 The market strip reads `site_market_tape` from SystemSettings. A separate 15-minute
 scheduler job fetches quotes with the existing Yahoo Finance provider; page loads
 never fetch quotes. Values are labelled delayed and stamped with the retrieval
