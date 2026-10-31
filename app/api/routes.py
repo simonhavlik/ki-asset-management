@@ -182,6 +182,7 @@ def jobs():
     import time as _time
 
     from ..scheduler import HEARTBEAT, SCHEDULER_ROLE, load_run, scheduler, get_scheduler_settings
+    from ..utils.maintenance import schedule_settings
 
     out = []
     for j in scheduler.get_jobs():
@@ -213,6 +214,7 @@ def jobs():
     return jsonify({'scheduler_running': scheduler.running,
                     'role': SCHEDULER_ROLE,
                     'settings': get_scheduler_settings(),
+                    'notion_settings': schedule_settings('notion'),
                     'diag': {
                         'now': datetime.now(timezone.utc).isoformat(timespec='seconds'),
                         'pid': os.getpid(),

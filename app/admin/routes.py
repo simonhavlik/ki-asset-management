@@ -12,7 +12,7 @@ from sqlalchemy import desc, func
 
 from ..extensions import db
 from ..models import User, ActivityLog, CsvUpload, Analysis, Company, PerformanceCalculation, AnalystMapping, CompanyTickerMapping, Vote, PortfolioPurchase, Idea, IdeaComment, BenchmarkPrice, StockPrice, analysis_analysts, CompanySectorCache, SystemSettings
-from .forms import UserEditForm, CreateUserForm, CsvUploadForm, AnalystMappingForm, CompanyTickerForm, SitePartnersForm, PublicPortfolioForm
+from .forms import UserEditForm, CreateUserForm, CsvUploadForm, AnalystMappingForm, CompanyTickerForm, SitePartnersForm, PublicPortfolioForm, MaintenanceScheduleForm
 from ..utils.site_content import get_partners, get_public_portfolio_mode
 from ..utils.csv_import import CsvImporter
 from ..utils.performance import PerformanceCalculator, get_vote_counts_for_analyses
@@ -766,81 +766,76 @@ def delete_analyst_mapping(mapping_id):
 @admin_required
 def company_tickers():
     """Manage company ticker mappings."""
-    form = CompanyTickerForm()
-    
-    # Companies without tickers, excluding those marked as Other events
-    missing = Company.query.filter(
-        Company.ticker_symbol.is_(None)
-    ).outerjoin(
-        CompanyTickerMapping, Company.name == CompanyTickerMapping.company_name
-    ).filter(
-        (CompanyTickerMapping.is_other_event.is_(None)) | (CompanyTickerMapping.is_other_event == False)
-    ).order_by(Company.name).all()
-    
-    # Existing mappings (not Other events)
-    mappings = db.session.query(CompanyTickerMapping, Company).\
-        join(Company, CompanyTickerMapping.company_name == Company.name).\
-        filter(CompanyTickerMapping.is_other_event == False).\
-        order_by(CompanyTickerMapping.company_name).all()
-    
-    # Other events
-    other_events = db.session.query(CompanyTickerMapping, Company).\
-        join(Company, CompanyTickerMapping.company_name == Company.name).\
-        filter(CompanyTickerMapping.is_other_event == True).\
-        order_by(CompanyTickerMapping.company_name).all()
-    
-    return render_template('admin/company_tickers.html',
-                         missing=missing,
-                         mappings=mappings,
-                         other_events=other_events,
-                         form=form)
+    query = db.session.query(Company, func.max(Analysis.analysis_date).label('latest_date'),
+                             func.count(Analysis.id).label('analysis_count')).outerjoin(Analysis).group_by(Company.id)
+    term = request.args.get('q', '').strip()[:150]
+    if term:
+        query = query.filter((Company.name.ilike('%' + term + '%')) | (Company.ticker_symbol.ilike('%' + term + '%')))
+    ascending = request.args.get('order') == 'oldest'
+    query = query.order_by((func.max(Analysis.analysis_date).asc() if ascending else func.max(Analysis.analysis_date).desc()).nullslast(), Company.id)
+    mappings = {m.company_name: m for m in CompanyTickerMapping.query.all()}
+    from ..utils.ticker_resolver import is_update_event
+    dates = {}
+    for cid, analysis_date in db.session.query(Analysis.company_id, Analysis.analysis_date).order_by(Analysis.analysis_date.desc()).all():
+        dates.setdefault(cid, []).append(analysis_date)
+    rows = []
+    for company, latest, count in query.all():
+        mapping = mappings.get(company.name)
+        other = bool(mapping and mapping.is_other_event)
+        rows.append(dict(company=company, date=latest, count=count, mapping=mapping,
+                         kind='other' if other else 'missing' if not company.ticker_symbol else 'analysis', dates=dates.get(company.id, []),
+                         auto_candidate=not other and (not company.ticker_symbol or (is_update_event(company.name) and (not mapping or mapping.source != 'manual')))))
+    total = len(rows)
+    counts = {kind: sum(r['kind'] == kind for r in rows) for kind in ('analysis','other','missing')}
+    counts['analysis'] += counts['missing']
+    kind = request.args.get('kind', 'all')
+    if kind in counts:
+        rows = [row for row in rows if (row['kind'] != 'other' if kind == 'analysis' else row['kind'] == kind)]
+    return render_template('admin/company_tickers.html', rows=rows, counts=counts,
+                           total=total, term=term, kind=kind, ascending=ascending)
+
+
+def _ticker_return():
+    target = request.form.get('return_to', '')
+    base = url_for('admin.company_tickers')
+    return redirect(target if target == base or target.startswith(base + '?') else base)
+
+
+@admin_bp.route('/company-tickers/company/<int:company_id>/kind', methods=['POST'])
+@admin_required
+def set_company_kind(company_id):
+    company = Company.query.get_or_404(company_id)
+    kind = request.form.get('kind')
+    if kind not in ('analysis', 'other'):
+        abort(400)
+    mapping = CompanyTickerMapping.query.filter_by(company_name=company.name).first()
+    if mapping is None:
+        mapping = CompanyTickerMapping(company_name=company.name, ticker_symbol=company.ticker_symbol)
+        db.session.add(mapping)
+    mapping.is_other_event, mapping.source, mapping.last_updated = kind == 'other', 'manual', datetime.utcnow()
+    company.ticker_symbol = None if kind == 'other' else mapping.ticker_symbol
+    db.session.commit()
+    return _ticker_return()
 
 
 @admin_bp.route('/company-tickers/company/<int:company_id>/set', methods=['POST'])
 @admin_required
 def set_company_ticker(company_id):
     """Set or update a company's ticker symbol."""
+    import re
     company = Company.query.get_or_404(company_id)
     ticker = request.form.get('ticker_symbol', '').strip().upper()
-    
-    if not ticker:
-        flash('Ticker symbol is required.', 'danger')
-        return redirect(url_for('admin.company_tickers'))
-    
-    # Validate ticker has price data
-    from ..utils.yahooquery_helper import fetch_prices
-    from datetime import date, timedelta
-    
-    try:
-        end_date = date.today()
-        start_date = end_date - timedelta(days=7)
-        df = fetch_prices(ticker, start_date, end_date)
-        if df.empty:
-            flash(f'Warning: No price data available for ticker {ticker}. The mapping was created but calculations may fail.', 'warning')
-        else:
-            flash(f'Ticker {ticker} validated with price data.', 'success')
-    except Exception as e:
-        flash(f'Warning: Could not validate ticker {ticker}: {e}. The mapping was created but may not work.', 'warning')
-    
-    # Update company
-    company.ticker_symbol = ticker
-    
-    # Update or create mapping
+    if not re.fullmatch(r'[A-Z0-9^][A-Z0-9.^=/-]{0,49}', ticker):
+        abort(400)
     mapping = CompanyTickerMapping.query.filter_by(company_name=company.name).first()
-    if mapping:
-        mapping.ticker_symbol = ticker
-        mapping.is_other_event = False
-        mapping.source = 'manual'
-    else:
-        mapping = CompanyTickerMapping(
-            company_name=company.name,
-            ticker_symbol=ticker,
-            source='manual'
-        )
+    if mapping is None:
+        mapping = CompanyTickerMapping(company_name=company.name)
         db.session.add(mapping)
-    
+    mapping.ticker_symbol, mapping.is_other_event = ticker, False
+    mapping.source, mapping.last_updated = 'manual', datetime.utcnow()
+    company.ticker_symbol = ticker
     db.session.commit()
-    return redirect(url_for('admin.company_tickers'))
+    return _ticker_return()
 
 
 @admin_bp.route('/company-tickers/deepseek', methods=['POST'])
@@ -849,7 +844,8 @@ def deepseek_missing_tickers():
     """Attempt to extract tickers for all missing companies with price validation."""
     from ..utils.ticker_resolver import resolve_ticker, set_cached_ticker
     
-    missing_companies = Company.query.filter(Company.ticker_symbol.is_(None)).all()
+    from ..utils.ticker_resolver import is_update_event
+    missing_companies = [c for c in Company.query.all() if not c.ticker_symbol or is_update_event(c.name)]
     
     stats = {
         'total': len(missing_companies),
@@ -1585,6 +1581,8 @@ def api_resolve_ticker(company_id):
         ticker, is_other, source = resolve_ticker(company.name, force_refresh=True)
         
         if is_other:
+            company.ticker_symbol = None
+            db.session.commit()
             return jsonify({'success': True, 'ticker': None, 'is_other': True, 'source': source})
         elif ticker:
             # Update company
@@ -1833,142 +1831,73 @@ def unified_update():
     Unified Update page - combines CSV upload, ticker mappings, recalculation, and debug tools.
     This is the main update interface for the entire system.
     """
-    from ..models import SystemSettings, RecalculationLog, CsvUpload
-    import os
-
-    recent_logs = RecalculationLog.query.order_by(
-        RecalculationLog.started_at.desc()
-    ).limit(10).all()
-
-    recent_uploads = CsvUpload.query.order_by(
-        CsvUpload.uploaded_at.desc()
-    ).limit(5).all()
-
-    auto_recalc_enabled = SystemSettings.get('auto_recalc_enabled', False)
-    auto_recalc_day = SystemSettings.get('auto_recalc_day', 'fri')
-    auto_recalc_hour = SystemSettings.get('auto_recalc_hour', 23)
-    auto_recalc_minute = SystemSettings.get('auto_recalc_minute', 0)
-    notion_api_key = os.environ.get('NOTION_API_KEY', '') or SystemSettings.get('notion_api_key', '')
-    notion_database_id = os.environ.get('NOTION_DATABASE_ID', '') or SystemSettings.get('notion_database_id', '')
-    notion_configured = bool(notion_api_key and notion_database_id)
-
-    total_analyses = Analysis.query.count()
-    missing_tickers = Company.query.filter(
-        Company.ticker_symbol.is_(None)
-    ).outerjoin(
-        CompanyTickerMapping, Company.name == CompanyTickerMapping.company_name
-    ).filter(
-        (CompanyTickerMapping.is_other_event.is_(None)) | (CompanyTickerMapping.is_other_event == False)
-    ).count()
-
-    return render_template('admin/unified_update.html',
-                         recent_logs=recent_logs,
-                         recent_uploads=recent_uploads,
-                         auto_recalc_enabled=auto_recalc_enabled,
-                         auto_recalc_day=auto_recalc_day,
-                         auto_recalc_hour=auto_recalc_hour,
-                         auto_recalc_minute=auto_recalc_minute,
-                         notion_configured=notion_configured,
-                         total_analyses=total_analyses,
-                         missing_tickers=missing_tickers)
+    from ..models import RecalculationLog, CsvUpload, MaintenanceRun
+    from ..utils.maintenance import schedule_settings, next_run
+    from ..utils.notion_import import notion_credentials
+    schedules = []
+    for job in ('notion', 'recalc'):
+        settings = schedule_settings(job)
+        form = MaintenanceScheduleForm(data=dict(settings, job=job))
+        schedules.append(dict(job=job, settings=settings, form=form, next_run=next_run(settings)))
+    from sqlalchemy import select, literal, union_all
+    columns = lambda model, job: select(literal(job).label('job'), model.id.label('id'),
+        model.started_at.label('started_at'), model.completed_at.label('completed_at'),
+        model.status.label('status'), model.run_type.label('run_type'))
+    histories = union_all(columns(RecalculationLog, 'recalc'),
+                          columns(MaintenanceRun, 'notion').where(MaintenanceRun.job == 'notion')).subquery()
+    query = select(histories)
+    history_job = request.args.get('history_job', 'all')
+    if history_job in ('notion', 'recalc'):
+        query = query.where(histories.c.job == history_job)
+    page = max(1, request.args.get('page', 1, type=int))
+    history = db.session.execute(query.order_by(histories.c.started_at.desc(), histories.c.id.desc()).offset((page-1)*20).limit(21)).mappings().all()
+    imports_page = max(1, request.args.get('imports_page', 1, type=int))
+    uploads = CsvUpload.query.order_by(CsvUpload.uploaded_at.desc()).offset((imports_page-1)*20).limit(21).all()
+    return render_template('admin/unified_update.html', schedules=schedules,
+                           history=history[:20], history_job=history_job, page=page,
+                           has_more=len(history)>20, recent_uploads=uploads[:20], imports_page=imports_page, more_uploads=len(uploads)>20,
+                           notion_configured=all(notion_credentials()))
 
 
 @admin_bp.route('/unified-update/settings', methods=['POST'])
 @admin_required
 def unified_update_settings():
-    """Save automated recalculation settings."""
-    from ..models import SystemSettings
+    from ..utils.maintenance import save_schedule
+    from ..scheduler import update_scheduler_settings
+    form = MaintenanceScheduleForm()
+    if not form.validate_on_submit():
+        abort(400)
+    save_schedule(form.job.data, {key: getattr(form, key).data for key in
+                                ('enabled','frequency','day_of_week','hour','minute')})
+    update_scheduler_settings()
+    return redirect(url_for('admin.unified_update') + '#schedules')
 
-    auto_recalc_enabled = request.form.get('auto_recalc_enabled') == 'on'
-    auto_recalc_day = request.form.get('auto_recalc_day', 'fri')
-    auto_recalc_hour = int(request.form.get('auto_recalc_hour', 23))
-    auto_recalc_minute = int(request.form.get('auto_recalc_minute', 0))
 
-    SystemSettings.set('auto_recalc_enabled', auto_recalc_enabled, 'boolean', 'Enable automated recalculation')
-    SystemSettings.set('auto_recalc_day', auto_recalc_day, 'string', 'Day of week for automated recalculation')
-    SystemSettings.set('auto_recalc_hour', auto_recalc_hour, 'integer', 'Hour for automated recalculation')
-    SystemSettings.set('auto_recalc_minute', auto_recalc_minute, 'integer', 'Minute for automated recalculation')
-
-    flash('Settings saved successfully.', 'success')
-    return redirect(url_for('admin.unified_update'))
+@admin_bp.route('/unified-update/history/<string:job>/<int:run_id>')
+@admin_required
+def maintenance_run(job, run_id):
+    from ..models import MaintenanceRun, RecalculationLog
+    if job == 'notion':
+        row = MaintenanceRun.query.filter_by(id=run_id, job='notion').first_or_404()
+        details = row.details or {}
+        error = row.error
+    elif job == 'recalc':
+        row = RecalculationLog.query.get_or_404(run_id)
+        details = dict(row.details or {}, prices_updated=row.prices_updated,
+                       calculations_updated=row.calculations_updated, errors_count=row.errors_count)
+        error = row.error_message
+    else:
+        abort(404)
+    return render_template('admin/maintenance_run.html', run=row, job=job, details=details, error=error, metadata={key: value for key, value in details.items() if key != 'logs'})
 
 
 @admin_bp.route('/unified-update/download-notion', methods=['POST'])
 @admin_required
 def download_notion_csv():
     """Download CSV from Notion and import."""
-    from ..models import SystemSettings
-    from ..utils.notion_helper import NotionAPIError, download_notion_export
-    from ..utils.csv_import import CsvImporter
-    import os
-
-    api_key = os.environ.get('NOTION_API_KEY', '') or SystemSettings.get('notion_api_key', '')
-    database_id = os.environ.get('NOTION_DATABASE_ID', '') or SystemSettings.get('notion_database_id', '')
-
-    if not api_key or not database_id:
-        flash('Notion API key or database ID not configured. Set NOTION_API_KEY and NOTION_DATABASE_ID in .env.', 'danger')
-        return redirect(url_for('admin.unified_update'))
-
-    try:
-        # Auto-detect the mapping from the database's real property names.
-        # This used to be hardcoded here and matched NOTHING against the live
-        # database (its title column is 'Name', not 'Company'; its date column is
-        # 'Date ' with a trailing space), so the export was 135 blank rows that
-        # imported 0 records while still reporting success.
-        result = download_notion_export(database_id, api_key)
-        csv_content = result['csv_content']
-
-        if not csv_content:
-            flash('No data found in Notion database.', 'warning')
-            return redirect(url_for('admin.unified_update'))
-
-        importer = CsvImporter(
-            csv_content=csv_content,
-            filename=f'notion_export_{datetime.now().strftime("%Y%m%d_%H%M")}.csv',
-            uploaded_by=current_user.id
-        )
-        stats = importer.process()
-
-        if not stats['success']:
-            flash(f'Import failed: {stats.get("error", "Unknown error")}', 'danger')
-        elif stats['created'] == 0 and stats['updated'] == 0:
-            blank = stats.get('blank', 0)
-            unchanged = stats.get('unchanged', 0)
-            invalid = len(stats.get('errors') or [])
-            total = stats.get('total', 0)
-
-            if blank and not unchanged:
-                # Every row was blank AND nothing was already imported, so the
-                # Notion properties cannot have been mapped to columns.
-                current_app.logger.error(
-                    'Notion import produced no usable rows: mapping=%s stats=%s',
-                    result.get('column_mapping'), stats,
-                )
-                flash(
-                    f'Notion import produced no usable rows: {blank} of {total} rows '
-                    'had an empty Company, so the Notion columns were not mapped. '
-                    'Check the logged column mapping.',
-                    'danger'
-                )
-            else:
-                # Re-running an import is idempotent: rows already present are
-                # left alone. This is informational, not a failure.
-                flash(
-                    f'Notion import changed nothing: {unchanged} rows already up to '
-                    f'date, {blank} blank, {invalid} skipped for an invalid/missing '
-                    'date. Nothing to do.',
-                    'info'
-                )
-        else:
-            flash(f'Notion import completed: {stats["created"]} created, {stats["updated"]} updated, {stats["skipped"]} skipped.', 'success')
-
-    except NotionAPIError as e:
-        flash(f'Notion error: {str(e)}', 'danger')
-    except Exception as e:
-        current_app.logger.exception('Notion download failed')
-        flash(f'Error downloading from Notion: {str(e)}', 'danger')
-
-    return redirect(url_for('admin.unified_update'))
+    from ..utils.notion_import import run_notion_import
+    stats = run_notion_import(uploaded_by=current_user.id, run_type='manual')
+    return redirect(url_for('admin.unified_update') + '#history')
 
 
 @admin_bp.route('/unified-update/full-recalc', methods=['POST'])
@@ -1980,9 +1909,14 @@ def full_recalculation():
     "Refresh data" buttons run exactly the same job with the same live progress.
     """
     from ..utils.full_recalc import start_full_recalculation
-
+    from ..analyst.routes import build_refresh_state
+    state = build_refresh_state()
+    last = state.get('last')
+    recent = last and last.get('started_at') and (datetime.utcnow() - datetime.fromisoformat(last['started_at'])) < timedelta(hours=24)
+    if recent and not state['running'] and request.form.get('acknowledge_recent') != '1':
+        return jsonify(started=False, recent=True, last=last), 409
     started, message = start_full_recalculation(run_type='manual')
-    return jsonify({'status': 'started' if started else 'busy', 'message': message}), (202 if started else 409)
+    return jsonify(started=started, status='started' if started else 'busy', message=message), (202 if started else 409)
 
 
 @admin_bp.route('/unified-update/recalculate-progress')
@@ -2062,7 +1996,8 @@ def resolve_missing_tickers():
     """Resolve all missing tickers using AI/ticker resolver."""
     from ..utils.ticker_resolver import resolve_ticker
     
-    missing_companies = Company.query.filter(Company.ticker_symbol.is_(None)).all()
+    from ..utils.ticker_resolver import is_update_event
+    missing_companies = [c for c in Company.query.all() if not c.ticker_symbol or is_update_event(c.name)]
     
     stats = {
         'total': len(missing_companies),
@@ -2075,6 +2010,7 @@ def resolve_missing_tickers():
         try:
             ticker, is_other, source = resolve_ticker(company.name)
             if is_other:
+                company.ticker_symbol = None
                 stats['other'] += 1
             elif ticker:
                 company.ticker_symbol = ticker

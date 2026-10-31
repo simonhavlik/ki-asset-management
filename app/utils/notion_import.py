@@ -32,7 +32,63 @@ def notion_credentials():
     return api_key, database_id
 
 
-def run_notion_import(uploaded_by=None):
+import threading
+_import_lock = threading.Lock()
+
+
+def run_notion_import(uploaded_by=None, run_type='manual'):
+    """One import across scheduler/manual requests and overlapping deployments."""
+    from ..extensions import db
+    connection = None
+    acquired = False
+    if not _import_lock.acquire(blocking=False):
+        return {'success': False, 'busy': True, 'error': 'An import is already running'}
+    try:
+        if db.engine.dialect.name == 'postgresql':
+            connection = db.engine.raw_connection()
+            cursor = connection.cursor()
+            cursor.execute('SELECT pg_try_advisory_lock(%s)', (0x6B696E6F74696F6E,))
+            acquired = bool(cursor.fetchone()[0])
+            cursor.close()
+            connection.commit()
+            if not acquired:
+                return {'success': False, 'busy': True, 'error': 'An import is already running'}
+        return _recorded_notion_import(uploaded_by, run_type)
+    finally:
+        if connection is not None:
+            try:
+                if acquired:
+                    cursor = connection.cursor()
+                    cursor.execute('SELECT pg_advisory_unlock(%s)', (0x6B696E6F74696F6E,))
+                    cursor.close()
+                    connection.commit()
+            finally:
+                connection.close()
+        _import_lock.release()
+
+
+def _recorded_notion_import(uploaded_by=None, run_type='manual'):
+    from ..extensions import db
+    from ..models import MaintenanceRun
+    run = MaintenanceRun(job='notion', run_type=run_type, status='running')
+    db.session.add(run)
+    db.session.commit()
+    try:
+        stats = _import_notion(uploaded_by)
+        run.status = 'completed' if stats.get('success') else 'failed'
+        run.details = stats
+        run.error = stats.get('error')
+        return stats
+    except Exception as exc:
+        db.session.rollback()
+        run.status, run.error = 'failed', str(exc)
+        raise
+    finally:
+        run.completed_at = datetime.utcnow()
+        db.session.commit()
+
+
+def _import_notion(uploaded_by=None):
     """Fetch the Notion database and import it into the analyses table.
 
     Returns the CsvImporter stats dict (``success`` + ``created``/``updated``/

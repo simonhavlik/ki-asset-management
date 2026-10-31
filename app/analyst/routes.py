@@ -924,8 +924,9 @@ def build_refresh_state():
         message = progress.get('message') or progress.get('status') or 'Working…'
         logs = progress.get('logs') or []
     elif running:
-        pct, logs = 0, []
-        message = ('A refresh is already running in another worker - progress will '
+        saved = last.details or {} if last else {}
+        pct, logs = int(saved.get('progress_pct') or 0), (saved.get('logs') or [])[-50:]
+        message = saved.get('message') or ('A refresh is already running in another worker - progress will '
                    'show here as it reports in.')
     else:
         pct = 0
@@ -950,6 +951,7 @@ def build_refresh_state():
             'calculations_updated': last.calculations_updated or 0,
             'errors_count': last.errors_count or 0,
             'error_message': last.error_message,
+            'logs': (last.details or {}).get('logs', [])[-50:],
         },
     }
 

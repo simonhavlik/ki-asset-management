@@ -17,7 +17,7 @@ from typing import List, Dict, Optional, Tuple, Callable
 from sqlalchemy.exc import IntegrityError
 from ..extensions import db
 from ..models import User, Company, Analysis, CsvUpload, CompanyTickerMapping, analysis_analysts, AnalystMapping
-from .ticker_resolver import resolve_ticker, is_other_event
+from .ticker_resolver import resolve_ticker, is_other_event, is_update_event
 from .email_normalization import normalize_name_for_email
 
 logger = logging.getLogger(__name__)
@@ -336,6 +336,8 @@ class CsvImporter:
             if sector and not company.sector:
                 company.sector = sector
                 db.session.flush()
+            if is_update_event(name):
+                self._resolve_company_ticker(company, sector)
             self._company_cache[name] = company
             return company
         
@@ -352,6 +354,18 @@ class CsvImporter:
     
     def _resolve_company_ticker(self, company: Company, sector: str = ''):
         """Resolve ticker for a company using multiple methods."""
+        if is_update_event(company.name):
+            mapping = CompanyTickerMapping.query.filter_by(company_name=company.name).first()
+            if not mapping or mapping.source != 'manual':
+                if mapping is None:
+                    mapping = CompanyTickerMapping(company_name=company.name)
+                    db.session.add(mapping)
+                mapping.is_other_event, mapping.source = True, 'auto_detected'
+                company.ticker_symbol = None
+                db.session.flush()
+                self._mapping_cache[company.name] = mapping
+                return
+
         # Check cache first
         if company.name in self._mapping_cache:
             mapping = self._mapping_cache[company.name]

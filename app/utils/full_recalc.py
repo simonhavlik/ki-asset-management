@@ -44,7 +44,7 @@ def running_refresh_state():
     for row in stale:
         row.mark_failed('Interrupted: the worker restarted while this refresh was running')
 
-    newest = RecalculationLog.query.order_by(RecalculationLog.id.desc()).first()
+    newest = RecalculationLog.query.order_by(RecalculationLog.started_at.desc(), RecalculationLog.id.desc()).first()
     return bool(newest is not None and newest.status == 'running'), newest
 
 
@@ -80,8 +80,12 @@ def start_full_recalculation(run_type: str = 'manual'):
             # A failure here must not block a legitimate refresh.
             logger.warning(f'Could not check for a running refresh: {e}')
 
-        _job_thread = threading.Thread(target=_run_full_recalculation, args=(run_type,),
-                                       daemon=True, name='full-recalculation')
+        from flask import current_app
+        app = current_app._get_current_object()
+        def run():
+            with app.app_context():
+                _run_full_recalculation(run_type)
+        _job_thread = threading.Thread(target=run, daemon=True, name='full-recalculation')
         _job_thread.start()
     return True, 'Recalculation started'
 
@@ -105,6 +109,7 @@ def _publish_with_lock(run_type):
             cursor.execute('SELECT pg_try_advisory_lock(%s)', (0x6B6963616C63,))
             acquired = cursor.fetchone()[0]
             cursor.close()
+            connection.commit()
             if not acquired:
                 return {'skipped': 'A central refresh is already running'}
         return _publish_results(run_type)
@@ -116,6 +121,39 @@ def _publish_with_lock(run_type):
                 cursor.close()
             finally:
                 connection.close()
+
+
+def _progress_recorder(run_id):
+    """Write progress from an isolated session so any web worker can display it."""
+    from flask import current_app
+    from ..extensions import db
+    from ..models import RecalculationLog
+    from .unified_calculator import get_progress
+    app = current_app._get_current_object()
+    stop = threading.Event()
+    def save():
+        with app.app_context():
+            try:
+                row = db.session.get(RecalculationLog, run_id)
+                if row:
+                    progress = get_progress()
+                    payload = progress.to_dict()
+                    with progress._lock:
+                        payload['logs'] = list(progress.logs)
+                    row.details = dict(payload, heartbeat=datetime.utcnow().isoformat())
+                    db.session.commit()
+            except Exception:
+                db.session.rollback()
+                logger.warning('Could not persist refresh progress')
+            finally:
+                db.session.remove()
+    def loop():
+        while not stop.wait(3):
+            save()
+        save()
+    thread = threading.Thread(target=loop, daemon=True, name='refresh-progress-writer')
+    thread.start()
+    return stop, thread
 
 
 def _publish_results(run_type):
@@ -131,6 +169,10 @@ def _publish_results(run_type):
     log_entry = RecalculationLog(run_type=run_type)
     db.session.add(log_entry)
     db.session.commit()
+
+    from .unified_calculator import get_progress, reset_progress
+    reset_progress().log('Refreshing benchmark prices')
+    progress_stop, progress_thread = _progress_recorder(log_entry.id)
 
     stats = {'analyses_processed': 0, 'prices_updated': 0,
              'calculations_updated': 0, 'errors_count': 0}
@@ -174,6 +216,7 @@ def _publish_results(run_type):
             stats['errors_count'] += 1
             logger.error(f'Cache invalidation failed: {e}')
 
+        get_progress().log('Publishing homepage, Board and analyst snapshots')
         # Warm the public caches, then the per-analyst dashboards.
         try:
             warm_public_caches(strict=True)
@@ -184,16 +227,22 @@ def _publish_results(run_type):
 
         _warm_dashboards(stats)
 
+        stats['analyses_processed'] = get_progress().total_companies
         log_entry.mark_completed(stats)
+        get_progress().log('Central refresh completed')
         logger.info(f'Full recalculation finished: {stats}')
         return stats
     except Exception as e:
         logger.error(f'Full recalculation failed: {e}')
         try:
+            db.session.rollback()
             log_entry.mark_failed(str(e))
             db.session.commit()
         except Exception:
             pass
+    finally:
+        progress_stop.set()
+        progress_thread.join(timeout=10)
 
 
 def _warm_dashboards(stats=None):
