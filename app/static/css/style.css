@@ -72,6 +72,19 @@
 /* -----------------------------------------------------------------
    Base Styles & Reset
    ----------------------------------------------------------------- */
+/* Keep native cursors explicit, including over navigation icons and labels. */
+html, body {
+    cursor: auto !important;
+}
+
+a[href], button:not(:disabled), .btn:not(.disabled), [role="button"] {
+    cursor: pointer !important;
+}
+
+a[href] *, button:not(:disabled) *, .btn:not(.disabled) *, [role="button"] * {
+    cursor: inherit !important;
+}
+
 *, *::before, *::after {
     box-sizing: border-box;
 }
