@@ -4,7 +4,7 @@
 
 {% block body_class %}index-page{% endblock %}
 {% block default_lang %}cs{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css', v='20261031h') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css', v='20261031i') }}">{% endblock %}
 {% block content %}
 <div class="ki-atmosphere" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
 <button class="motion-toggle" id="kiMotion" type="button" aria-pressed="false" data-i18n="polish.motion">Pause background</button>
@@ -87,7 +87,7 @@
                 {% if stats.portfolio_return is not none %}
                 <div class="performance-dashboard">
                     <div class="performance-header">
-                        <h3 data-i18n-html="home.board_approved_portfolio"><i class="bi bi-graph-up-arrow"></i> Board-Approved Portfolio</h3>
+                        {% if public_portfolio_mode == 'purchased' %}<h3 data-i18n-html="public.purchased_title"><i class="bi bi-graph-up-arrow"></i> Board-Approved Portfolio</h3>{% else %}<h3 data-i18n-html="home.board_approved_portfolio"><i class="bi bi-graph-up-arrow"></i> Board-Approved Portfolio</h3>{% endif %}
                         <span class="status" data-i18n="polish.snapshot">Portfolio snapshot</span>
                     </div>
                     
@@ -104,8 +104,8 @@
                         </div>
                         {% if chart_data %}
                         <div class="hero-return-chart">
-                            <div class="hero-chart-caption" data-i18n="hero.chart_caption">Purchased positions</div>
-                            <div class="hero-chart-canvas"><canvas id="heroPortfolioChart" role="img" aria-label="Performance of purchased positions and market indices" data-i18n-aria-label="hero.chart_label"></canvas></div>
+                            {% if public_portfolio_mode == 'purchased' %}<div class="hero-chart-caption" data-i18n="hero.chart_caption">Purchased positions</div>{% else %}<div class="hero-chart-caption" data-i18n="public.approved_caption">Board-approved positions</div>{% endif %}
+                            <div class="hero-chart-canvas"><canvas id="heroPortfolioChart" role="img" aria-label="Portfolio performance compared with market indices" data-i18n-aria-label="public.chart_aria"></canvas></div>
                         </div>
                         {% endif %}
                     </div>
@@ -345,33 +345,25 @@
 
 
 <!-- About / Mission Section -->
-<section class="section" id="about">
-    <div class="container">
-        <div class="section-header reveal">
+<section class="section" id="about"><div class="container mission-layout">
+<div class="mission-story reveal"><div class="section-header reveal">
             <span class="section-label" data-i18n="section.mission">Our Mission</span>
             <h2 class="section-title" data-i18n-html="home.institutional_grade_research_student_driven_exce">Institutional-Grade Research.<br>Student-Driven Excellence.</h2>
             <p class="section-subtitle" data-i18n="mission.subtitle">Since August 2024, we have connected company research with managing the club’s capital.</p>
-        </div>
-        
-        <div class="row align-items-center">
-            <div class="col-lg-6 reveal">
-                <div class="pe-lg-5">
-                    <h3 class="mb-4" data-i18n="ambition.title">Why KI AM exists</h3>
+        </div><h3 class="mb-4" data-i18n="ambition.title">Why KI AM exists</h3>
                     <blockquote class="border-start border-4 ps-4 mb-4" style="border-color: var(--primary-green) !important;">
                         <p class="mb-2 fst-italic" style="color: var(--color-gray-700);" data-i18n="home.umo_nit_motivovan_m_student_m_z_skat_re_lnou_zku">We enable motivated students to gain real capital management experience and grow the club’s assets.</p>
                     </blockquote>
                     
-                    <p class="text-muted mb-4" data-i18n="home.our_primary_objective_is_to_outperform_the_eems">15–25 selected companies. Fundamental analysis. A long horizon. Our primary comparison is EEMS.</p>
-                    
-
-                    {% if chart_data %}
+                    <p class="text-muted mb-4" data-i18n="home.our_primary_objective_is_to_outperform_the_eems">15–25 selected companies. Fundamental analysis. A long horizon. Our primary comparison is EEMS.</p></div>
+<div class="mission-evidence reveal reveal-delay-2">{% if chart_data %}
                     <!-- Portfolio Performance Chart -->
                     <div class="mission-chart card border-0">
                         <div class="card-body p-4">
                             <div class="d-flex align-items-center justify-content-between mb-3">
                                 <div>
-                                    <h5 class="mb-1" style="color: var(--primary-green);" data-i18n-html="home.portfolio_performance"><i class="bi bi-graph-up-arrow"></i> Invested portfolio performance</h5>
-                                    <p class="text-muted small mb-0" data-i18n="home.since_inception_vs_benchmarks">Purchased positions since their purchase dates · compared with market indices</p>
+                                    <h5 class="mb-1" style="color: var(--primary-green);" data-i18n-html="public.history_title"><i class="bi bi-graph-up-arrow"></i> Invested portfolio performance</h5>
+                                    {% if public_portfolio_mode == 'purchased' %}<p class="text-muted small mb-0" data-i18n="home.since_inception_vs_benchmarks">Purchased positions since their purchase dates · compared with market indices</p>{% else %}<p class="text-muted small mb-0" data-i18n="public.approved_history">Board-approved positions since inclusion · compared with market indices</p>{% endif %}
                                 </div>
                             </div>
                             <div style="height: 200px;">
@@ -393,40 +385,30 @@
                             </div>
                         </div>
                     </div>
-                    {% endif %}
-                </div>
-            </div>
-            
-            <div class="col-lg-6 reveal reveal-delay-2">
-                <div class="feature-grid" style="grid-template-columns: 1fr;">
-                    <div class="feature-card mb-3">
-                        <div class="feature-icon primary">
-                            <i class="bi bi-lightbulb"></i>
-                        </div>
-                        <h4 class="feature-title" data-i18n="values.patience">Patience</h4>
-                        <p class="feature-text" data-i18n="values.patience.desc">We wait for the price to match our thesis.</p>
-                    </div>
-                    
-                    <div class="feature-card mb-3">
-                        <div class="feature-icon secondary">
-                            <i class="bi bi-eye"></i>
-                        </div>
-                        <h4 class="feature-title" data-i18n="values.foresight">Foresight</h4>
-                        <p class="feature-text" data-i18n="values.foresight.desc">We examine the business, its market and what could change.</p>
-                    </div>
-                    
-                    <div class="feature-card">
-                        <div class="feature-icon accent">
-                            <i class="bi bi-shield-check"></i>
-                        </div>
-                        <h4 class="feature-title" data-i18n="values.integrity">Discipline</h4>
-                        <p class="feature-text" data-i18n="values.integrity.desc">We document the thesis, monitor risk and revisit assumptions.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
+                    {% endif %}<div class="feature-grid">
+<div class="feature-card">
+<div class="feature-icon primary">
+<i class="bi bi-lightbulb"></i>
+</div>
+<h4 class="feature-title" data-i18n="values.patience">Patience</h4>
+<p class="feature-text" data-i18n="values.patience.desc">We wait for the price to match our thesis.</p>
+</div>
+<div class="feature-card">
+<div class="feature-icon secondary">
+<i class="bi bi-eye"></i>
+</div>
+<h4 class="feature-title" data-i18n="values.foresight">Foresight</h4>
+<p class="feature-text" data-i18n="values.foresight.desc">We examine the business, its market and what could change.</p>
+</div>
+<div class="feature-card">
+<div class="feature-icon accent">
+<i class="bi bi-shield-check"></i>
+</div>
+<h4 class="feature-title" data-i18n="values.integrity">Discipline</h4>
+<p class="feature-text" data-i18n="values.integrity.desc">We document the thesis, monitor risk and revisit assumptions.</p>
+</div>
+</div></div>
+</div></section>
 
 <section class="initiative-strip" aria-label="September 2026 update" data-i18n-aria-label="polish.status_date">
 <div class="container"><div class="initiative-date" data-i18n="polish.status_date">Status / September 2026</div><div class="initiative-items">
@@ -570,6 +552,16 @@
   </ul>
  </div>
  <div class="strategy-card">
+  <h3 data-i18n="deck.strategy.title4">
+   No currency hedging
+  </h3>
+  <ul class="deck-list">
+   <li data-i18n="deck.strategy.fx">
+    We address currency risk through diversification across currencies. During periods of high volatility, we monitor exchange-rate risk.
+   </li>
+  </ul>
+ </div>
+ <div class="strategy-card">
   <h3 data-i18n="deck.strategy.title3">
    No shorts
   </h3>
@@ -582,16 +574,7 @@
    </li>
   </ul>
  </div>
- <div class="strategy-card">
-  <h3 data-i18n="deck.strategy.title4">
-   No currency hedging
-  </h3>
-  <ul class="deck-list">
-   <li data-i18n="deck.strategy.fx">
-    We address currency risk through diversification across currencies. During periods of high volatility, we monitor exchange-rate risk.
-   </li>
-  </ul>
- </div>
+
 </div>
             </div>
             
@@ -966,6 +949,18 @@
 
         </div>
 
+        <div class="team-community reveal">
+            <div class="team-community-copy">
+                <h3 data-i18n="team.community_title">Several dozen people. One investment team.</h3>
+                <p data-i18n="team.community_interest">Our investment team already brings together several dozen people, with strong interest in joining.</p>
+                <p data-i18n="team.community_learning">University provides theoretical knowledge; early professional roles build experience and working habits. At KI AM, we add practical experience in investment analysis and capital management.</p>
+            </div>
+            <img src="{{ url_for('static', filename='images/team-hero-768.webp') }}"
+                 srcset="{{ url_for('static', filename='images/team-hero-768.webp') }} 768w, {{ url_for('static', filename='images/team-hero-1280.webp') }} 1280w"
+                 sizes="(max-width: 767px) 100vw, 44vw" width="1280" height="853" loading="lazy" decoding="async"
+                 alt="Investment team" data-i18n-alt="team.community_photo">
+        </div>
+
         <div class="team-grid">
             <!-- Adam Kolomazník -->
             <div class="team-card reveal">
@@ -1008,6 +1003,7 @@
                 <div class="team-details">
                     <h3 class="team-name" data-i18n="team.tomas_name">Tomáš Cverna</h3>
                     <div class="team-role" data-i18n="team.committee_member">Investment Committee member</div>
+                    <div class="team-edu" data-i18n-html="team.tomas_education"><i class="bi bi-mortarboard"></i> MSc studies · UGent, Belgium</div>
                 </div>
                 </div>
                 <div class="team-content">
@@ -1368,8 +1364,8 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/landing.js', v='20261031g') }}"></script>
-<script defer src="{{ url_for('static', filename='js/hero-stories.js', v='20261031h') }}"></script>
+<script src="{{ url_for('static', filename='js/landing.js', v='20261031i') }}"></script>
+<script defer src="{{ url_for('static', filename='js/hero-stories.js', v='20261031i') }}"></script>
 <script>
 // Section navigation: bottom-right "Jump to" menu + left vertical rail.
 (function () {

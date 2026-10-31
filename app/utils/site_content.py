@@ -125,3 +125,9 @@ def refresh_market_tape():
                'source': 'Yahoo Finance'}
     SystemSettings.set('site_market_tape', payload, value_type='json')
     return {'quotes': len(quotes), 'as_of': payload['as_of']}
+
+
+def get_public_portfolio_mode():
+    """Unknown/missing settings always use the established approved portfolio."""
+    mode = SystemSettings.get('site_public_portfolio_mode', 'approved')
+    return mode if mode in ('approved', 'purchased') else 'approved'

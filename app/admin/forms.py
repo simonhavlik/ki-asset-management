@@ -74,3 +74,9 @@ class PartnerEntryForm(Form):
 class SitePartnersForm(FlaskForm):
     partners = FieldList(FormField(PartnerEntryForm), min_entries=0, max_entries=12)
     submit = SubmitField('Save partners')
+
+
+class PublicPortfolioForm(FlaskForm):
+    mode = SelectField('Public portfolio', choices=[
+        ('approved', 'Board-approved positions'), ('purchased', 'Purchased positions')],
+        validators=[DataRequired()])

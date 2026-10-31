@@ -109,7 +109,7 @@ def get_portfolio_1yr_return():
         return None
 
 
-def get_dashboard_stats():
+def get_dashboard_stats(purchased_only=False):
     """
     Get dashboard statistics for the main page.
     
@@ -140,21 +140,23 @@ def get_dashboard_stats():
         # Get total meetings - count unique analysis dates (each date = one meeting)
         total_meetings = db.session.query(func.count(func.distinct(Analysis.analysis_date))).scalar() or 0
         
-        # Optimized: Fetch vote counts in single query instead of N+1
-        all_watchlist = Analysis.query.filter_by(status='On Watchlist').all()
-        analysis_ids = [a.id for a in all_watchlist]
-        vote_counts = get_vote_counts_for_analyses(analysis_ids)
-        
-        # Get Board-approved positions (votes_yes > votes_no)
         approved_analysis_ids = []
         earliest_date = None
-        for analysis in all_watchlist:
-            vote_data = vote_counts.get(analysis.id, {'yes': 0, 'no': 0})
-            if vote_data['yes'] > vote_data['no']:
-                approved_analysis_ids.append(analysis.id)
-                if earliest_date is None or analysis.analysis_date < earliest_date:
-                    earliest_date = analysis.analysis_date
-        
+        if purchased_only:
+            from ..models import PortfolioPurchase
+            purchases = PortfolioPurchase.query.all()
+            approved_analysis_ids = list({p.analysis_id for p in purchases})
+            earliest_date = min((p.purchase_date for p in purchases), default=None)
+        else:
+            all_watchlist = Analysis.query.filter_by(status='On Watchlist').all()
+            vote_counts = get_vote_counts_for_analyses([a.id for a in all_watchlist])
+            for analysis in all_watchlist:
+                votes = vote_counts.get(analysis.id, {'yes': 0, 'no': 0})
+                if votes['yes'] > votes['no']:
+                    approved_analysis_ids.append(analysis.id)
+                    if earliest_date is None or analysis.analysis_date < earliest_date:
+                        earliest_date = analysis.analysis_date
+
         portfolio_positions = len(approved_analysis_ids)
         
         # Calculate since-inception return (same as Board page for fair comparison)
@@ -458,14 +460,18 @@ def index():
     # Use cached data to avoid DB calls (Neon optimization)
     from ..utils.neon_cache import (
         get_cached_main_stats,
+        get_cached_purchased_main_stats,
         get_cached_board_portfolio_series,
         get_cached_growth_timeline,
         get_cached_top_sectors,
         get_cached_featured_research
     )
     
-    stats = get_cached_main_stats()
-    chart_data = get_cached_board_portfolio_series(purchased_only=True, years=None)
+    from ..utils.site_content import get_public_portfolio_mode
+    public_portfolio_mode = get_public_portfolio_mode()
+    purchased = public_portfolio_mode == 'purchased'
+    stats = get_cached_purchased_main_stats() if purchased else get_cached_main_stats()
+    chart_data = get_cached_board_portfolio_series(purchased_only=purchased, years=None)
     growth_data = get_cached_growth_timeline()
     top_sectors = get_cached_top_sectors()
     featured_research = get_cached_featured_research(limit=6)
@@ -479,7 +485,7 @@ def index():
                          growth_data=growth_data,
                          top_sectors=top_sectors,
                          featured_research=featured_research, partners=partners,
-                         market_tape=market_tape)
+                         market_tape=market_tape, public_portfolio_mode=public_portfolio_mode)
 
 
 @main_bp.route('/about')

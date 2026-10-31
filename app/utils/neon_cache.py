@@ -231,6 +231,13 @@ def invalidate_cache(prefix: Optional[str] = None):
 # =============================================================================
 
 @snapshot(default=empty_main_stats)
+def get_cached_purchased_main_stats(force_refresh: bool = False) -> Optional[dict]:
+    """Published purchased-position metrics; page reads never calculate."""
+    from ..main.routes import get_dashboard_stats
+    return get_dashboard_stats(purchased_only=True)
+
+
+@snapshot(default=empty_main_stats)
 def get_cached_main_stats(force_refresh: bool = False) -> Optional[dict]:
     """Get cached dashboard stats for main page."""
     from ..main.routes import get_dashboard_stats
@@ -1042,6 +1049,13 @@ def warm_public_caches(strict=False):
         failures.append(str(e))
         logger.warning(f"Failed to warm main_stats: {e}")
     
+    try:
+        get_cached_purchased_main_stats(force_refresh=True)
+        warmed.append('purchased_main_stats')
+    except Exception as e:
+        failures.append(str(e))
+        logger.warning(f"Failed to warm purchased_main_stats: {e}")
+
     try:
         get_cached_portfolio_chart(force_refresh=True)
         warmed.append('portfolio_chart')

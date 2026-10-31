@@ -3,8 +3,26 @@
     var header = document.querySelector('.navbar');
     if (!header) return;
     function measureHeader() {
+        if (header.querySelector('.navbar-collapse.show,.navbar-collapse.collapsing')) return;
         document.body.style.setProperty('--ki-header-height', Math.ceil(header.getBoundingClientRect().height) + 'px');
     }
+    header.querySelectorAll('a[href*="#"]').forEach(function (link) {
+        link.addEventListener('click', function (event) {
+            var menu = header.querySelector('.navbar-collapse.show');
+            if (!menu || !window.bootstrap) return;
+            var destination = new URL(link.href, location.href);
+            if (destination.pathname !== location.pathname || !destination.hash) return;
+            var target = document.getElementById(destination.hash.slice(1));
+            if (!target) return;
+            event.preventDefault();
+            menu.addEventListener('hidden.bs.collapse', function () {
+                measureHeader();
+                history.pushState(null, '', destination.hash);
+                target.scrollIntoView({behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
+            }, {once: true});
+            window.bootstrap.Collapse.getOrCreateInstance(menu, {toggle: false}).hide();
+        });
+    });
     measureHeader();
     if (window.ResizeObserver) new ResizeObserver(measureHeader).observe(header);
     else window.addEventListener('resize', measureHeader);
