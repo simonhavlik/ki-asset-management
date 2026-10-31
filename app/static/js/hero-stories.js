@@ -12,7 +12,7 @@
     var canvas = document.getElementById('heroParticles');
     var ctx = canvas && canvas.getContext('2d');
     var reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-    var durations = [12000, 9000, 32000];
+    var durations = [7000, 5500, 18000];
     var current = 0, phase = 0, elapsed = 0, processElapsed = 0;
     var paused = false, hovered = false, focused = false, visible = true;
     var manualPhase = false, frameId = null, previous = 0, lastPaint = 0, lastProgress = 0;
@@ -129,7 +129,7 @@
         }
         if (current === 2) {
             if (!hovered && !focused) processElapsed += delta;
-            var nextPhase = Math.floor(processElapsed / 7000) % 4;
+            var nextPhase = Math.floor(processElapsed / 4000) % 4;
             if (!manualPhase && nextPhase !== phase) selectPhase(nextPhase);
             if (time - lastPaint >= 32) { draw(time); lastPaint = time; }
         }

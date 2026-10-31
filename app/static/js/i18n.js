@@ -34,6 +34,8 @@
 
     var TEXTS = {
     "en": {
+        "hero.chart_caption": "Purchased positions",
+        "hero.chart_label": "Performance of purchased positions and market indices",
         "hero.story.who": "Who we are",
         "hero.story.meet": "Meet our team →",
         "hero.story.full_process": "Our full investment process →",
@@ -210,7 +212,7 @@
         "home.real_time_portfolio_tracking_vs_major_benchmarks": "Real-time portfolio tracking vs major benchmarks",
         "home.performance_data_will_appear_once_positions_are": "Performance data will appear once positions are established",
         "home.institutional_grade_research_student_driven_exce": "Institutional-Grade Research.<br>Student-Driven Excellence.",
-        "home.umo_nit_motivovan_m_student_m_z_skat_re_lnou_zku": "Enable motivated students to gain real capital management experience and grow the club’s assets.",
+        "home.umo_nit_motivovan_m_student_m_z_skat_re_lnou_zku": "We enable motivated students to gain real capital management experience and grow the club’s assets.",
         "home.our_primary_objective_is_to_outperform_the_eems": "15–25 selected companies. Fundamental analysis. A long horizon. Our primary comparison is EEMS.",
         "home.portfolio_performance": "<i class=\"bi bi-graph-up-arrow\"></i> Invested portfolio performance",
         "home.since_inception_vs_benchmarks": "Purchased positions since their purchase dates · compared with market indices",
@@ -740,6 +742,8 @@
         "polish.collected": "Retrieved"
     },
     "cs": {
+        "hero.chart_caption": "Nakoupené pozice",
+        "hero.chart_label": "Vývoj nakoupených pozic a tržních indexů",
         "hero.story.who": "Kdo jsme",
         "hero.story.meet": "Poznat náš tým →",
         "hero.story.full_process": "Celý náš investiční proces →",
@@ -1053,7 +1057,7 @@
         "home.real_time_portfolio_tracking_vs_major_benchmarks": "Sledujeme portfolio v reálném čase a srovnáváme ho s hlavními indexy",
         "home.performance_data_will_appear_once_positions_are": "Údaje o výkonnosti se zobrazí, jakmile budeme mít otevřené pozice",
         "home.institutional_grade_research_student_driven_exce": "Kvalitní analýzy.<br>Studentský přístup.",
-        "home.umo_nit_motivovan_m_student_m_z_skat_re_lnou_zku": "Umožnit motivovaným studentům získat reálnou zkušenost se správou kapitálu a zhodnocovat prostředky spolku.",
+        "home.umo_nit_motivovan_m_student_m_z_skat_re_lnou_zku": "Umožňujeme motivovaným studentům získat reálnou zkušenost se správou kapitálu a zhodnocovat prostředky spolku.",
         "home.our_primary_objective_is_to_outperform_the_eems": "15–25 pečlivě vybraných firem. Fundamentální analýza. Dlouhý horizont. Hlavním srovnávacím indexem je EEMS.",
         "home.portfolio_performance": "<i class=\"bi bi-graph-up-arrow\"></i> Vývoj investovaného portfolia",
         "home.since_inception_vs_benchmarks": "Nakoupené pozice od data nákupů · srovnání s tržními indexy",

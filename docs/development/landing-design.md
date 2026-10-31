@@ -49,6 +49,10 @@ after first paint, stops offscreen/when hidden, respects reduced motion and has
 manual pause and keyboard controls. The responsive team photograph is fetched
 only when its view is selected. Particle density is reduced on phones; no
 animation library or additional data endpoint is used.
+The opening return also contains the same purchased-position history shown in
+the mission section. Both plots reuse the existing cached payload and one shared
+deferred Chart.js load; the opening plot does not animate its initial draw.
+All return, risk and benchmark figures remain visible.
 
 The market strip reads `site_market_tape` from SystemSettings. A separate 15-minute
 scheduler job fetches quotes with the existing Yahoo Finance provider; page loads
