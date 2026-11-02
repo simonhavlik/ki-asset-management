@@ -930,7 +930,9 @@ def mark_company_other(company_id):
 def export_csv():
     """Export analyst performance as CSV."""
     calculator = PerformanceCalculator()
-    data = calculator.get_all_analysts_performance()
+    data = calculator.get_all_analysts_performance(
+        status_filter=request.args.get('filter', 'approved_only'),
+        annualized=request.args.get('annualized', 'false').lower() == 'true')
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(['Analyst Name', 'Analyses Count', 'Avg Return %', 'Median Return %', 'Win Rate %', 'Best Return %', 'Worst Return %'])

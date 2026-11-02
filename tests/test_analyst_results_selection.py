@@ -136,6 +136,15 @@ def test_leaderboard_detail_links_keep_filter_and_annualization(results_case):
     html = client.get('/admin/performance?filter=all_stock&annualized=true').get_data(as_text=True)
     assert f'/admin/analyst/{user.id}?filter=all_stock&amp;annualized=true' in html
     assert PerformanceCalculator().get_analyst_performance(user.id, 'all_stock')['num_analyses'] == 5
+    import csv
+    import io
+    response = client.get('/admin/export-csv?filter=all_stock&annualized=true')
+    assert response.status_code == 200
+    rows = list(csv.DictReader(io.StringIO(response.get_data(as_text=True))))
+    row = next(item for item in rows if item['Analyst Name'] == user.full_name)
+    assert row['Analyses Count'] == '5'
+    assert float(row['Avg Return %']) == PerformanceCalculator().get_analyst_performance(
+        user.id, 'all_stock', True)['avg_return']
 
 
 def test_no_eligible_analyses_returns_empty_metrics(results_case):
