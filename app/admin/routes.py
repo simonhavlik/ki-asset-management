@@ -653,12 +653,16 @@ def performance():
     total_analyses = sum(p['num_analyses'] for p in analyst_performance)
     avg_returns = [p['avg_return'] for p in analyst_performance if p['avg_return'] is not None]
     overall_avg = sum(avg_returns) / len(avg_returns) if avg_returns else None
+    from ..utils.company_fundamentals import fundamentals_context
+    companies = [company for analysis, perf, company in
+                 calculator.get_analyst_analysis_performance(None, filter_param)]
     return render_template('admin/performance.html', 
                          analyst_performance=analyst_performance,
                          total_analyses=total_analyses,
                          avg_return=overall_avg,
                          current_filter=filter_param,
-                         annualized=annualized)
+                         annualized=annualized,
+                         **fundamentals_context(companies))
 
 
 @admin_bp.route('/recalculate-performance', methods=['POST'])
@@ -1365,25 +1369,15 @@ def analyst_details(analyst_id):
     current_filter = request.args.get('filter', 'approved_only')
     annualized = request.args.get('annualized', 'false').lower() == 'true'
     
-    # Get analyst performance data
-    perf_data = calculator.get_analyst_performance(analyst_id, status_filter=current_filter, annualized=annualized)
-    
-    # Get analyses with performance details
-    analyses_with_perf = []
-    analyses = db.session.query(Analysis).join(
-        analysis_analysts, Analysis.id == analysis_analysts.c.analysis_id
-    ).filter(
-        analysis_analysts.c.user_id == analyst_id,
-        analysis_analysts.c.role == 'analyst'
-    ).all()
-    
-    for analysis in analyses:
-        company = Company.query.get(analysis.company_id)
-        perf = PerformanceCalculation.query.filter_by(analysis_id=analysis.id).order_by(
-            desc(PerformanceCalculation.calculation_date)
-        ).first()
-        if perf:
-            analyses_with_perf.append((analysis, perf, company))
+    # Summary, per-analysis bars, cumulative charts and rows share one selection.
+    analyses_with_perf = calculator.get_analyst_analysis_performance(analyst_id, current_filter)
+    perf_data = calculator.summarize_analyst_performance(analyses_with_perf, annualized)
+    analysis_returns = {analysis.id: calculator.analysis_return(analysis, perf, annualized)
+                        for analysis, perf, company in analyses_with_perf}
+    analyses_chart_data = [dict(label=company.name, return_pct=analysis_returns[analysis.id],
+                                date=analysis.analysis_date.isoformat())
+                           for analysis, perf, company in analyses_with_perf]
+    from ..utils.company_fundamentals import fundamentals_context
     
     # Build analyst dict matching template expectations
     analyst_dict = {
@@ -1414,10 +1408,24 @@ def analyst_details(analyst_id):
     return render_template('admin/analyst_details.html',
                          analyst=analyst_dict,
                          analyses=analyses_with_perf,
+                         analysis_returns=analysis_returns,
+                         analyses_chart_data=analyses_chart_data,
                          series_all=series_all,
                          series_1y=series_1y,
                          current_filter=current_filter,
-                         annualized=annualized)
+                         annualized=annualized,
+                         **fundamentals_context([company for analysis, perf, company in analyses_with_perf]))
+
+
+@admin_bp.route('/company/<int:company_id>/fundamentals')
+@login_required
+def company_fundamentals(company_id):
+    """On-demand detail from the central snapshot; never a provider request."""
+    from ..utils.company_fundamentals import fundamentals_context
+    company = db.get_or_404(Company, company_id)
+    context = fundamentals_context([company])
+    return render_template('admin/_fundamentals_detail.html',
+                           item=context['fundamentals'][0], **context)
 
 
 def _build_analyst_series(analyses_with_perf, years=None):

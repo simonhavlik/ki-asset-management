@@ -1,0 +1,114 @@
+{% macro label(key) -%}
+{% if key == 'decision' %}<span data-i18n="results.decision">Decision</span>
+{% elif key == 'annualized' %}<span data-i18n="results.annualized">Annualized returns</span>
+{% elif key == 'apply' %}<span data-i18n="results.apply">Apply</span>
+{% elif key == 'fundamentals' %}<span data-i18n="results.fundamentals">Company fundamentals</span>
+{% elif key == 'current_note' %}<span data-i18n="results.current_note">Current Yahoo Finance statistics, not valuations at the analysis date. Missing values stay blank; amounts retain their currency.</span>
+{% elif key == 'available' %}<span data-i18n="results.available">available</span>
+{% elif key == 'search' %}<span data-i18n="results.search">Find a company or ticker</span>
+{% elif key == 'company' %}<span data-i18n="results.company">Company</span>
+{% elif key == 'updated' %}<span data-i18n="results.updated">Updated</span>
+{% elif key == 'stale' %}<span data-i18n="results.stale">Older data</span>
+{% elif key == 'pending' %}<span data-i18n="results.pending">Not available</span>
+{% elif key == 'no_companies' %}<span data-i18n="results.no_companies">No companies match this selection.</span>
+{% elif key == 'fundamentals_note' %}<span data-i18n="results.fundamentals_note">Open a company for all available statistics. Refreshed with the central recalculation; opening this page makes no Yahoo requests. Ratios are not equally meaningful across sectors.</span>
+{% elif key == 'quote_currency' %}<span data-i18n="results.quote_currency">Quote currency</span>
+{% elif key == 'financial_currency' %}<span data-i18n="results.financial_currency">Financial statements</span>
+{% elif key == 'unavailable_note' %}<span data-i18n="results.unavailable_note">Yahoo has not provided these statistics yet. The next central refresh will retry.</span>
+{% elif key == 'raw_statistics' %}<span data-i18n="results.raw_statistics">All additional Yahoo fields</span>
+{% elif key == 'raw_note' %}<span data-i18n="results.raw_note">Original field names and raw provider values. Dates in these fields may be Unix timestamps.</span>
+{% elif key == 'back' %}<span data-i18n="results.back">← All analysts</span>
+{% elif key == 'analyst_intro' %}<span data-i18n="results.analyst_intro">Analysis returns and the current fundamentals of covered companies.</span>
+{% elif key == 'analyses' %}<span data-i18n="results.analyses">Analyses</span>
+{% elif key == 'avg_return' %}<span data-i18n="results.avg_return">Average return</span>
+{% elif key == 'median_return' %}<span data-i18n="results.median_return">Median return</span>
+{% elif key == 'win_rate' %}<span data-i18n="results.win_rate">Win rate</span>
+{% elif key == 'best_return' %}<span data-i18n="results.best_return">Best return</span>
+{% elif key == 'worst_return' %}<span data-i18n="results.worst_return">Worst return</span>
+{% elif key == 'per_analysis' %}<span data-i18n="results.per_analysis">Return per analysis</span>
+{% elif key == 'since_inception' %}<span data-i18n="results.since_inception">Since first analysis</span>
+{% elif key == 'last_year' %}<span data-i18n="results.last_year">Analyses from the last 12 months</span>
+{% elif key == 'benchmarks' %}<span data-i18n="results.benchmarks">Benchmarks</span>
+{% elif key == 'chart_note' %}<span data-i18n="results.chart_note">Cumulative charts use raw returns and start at 0%. The 12-month view includes analyses made in that period.</span>
+{% elif key == 'analysis_list' %}<span data-i18n="results.analysis_list">Analyses in this selection</span>
+{% elif key == 'analysis_date' %}<span data-i18n="results.analysis_date">Analysis date</span>
+{% elif key == 'status' %}<span data-i18n="results.status">Decision</span>
+{% elif key == 'return' %}<span data-i18n="results.return">Return</span>
+{% elif key == 'no_analyses' %}<span data-i18n="results.no_analyses">No analyses match this selection.</span>
+{% elif key == 'research' %}<span data-i18n="results.research">Equity research</span>
+{% elif key == 'title' %}<span data-i18n="results.title">Results</span>
+{% elif key == 'intro' %}<span data-i18n="results.intro">Analyst performance, company valuations and balance-sheet strength.</span>
+{% elif key == 'analysts' %}<span data-i18n="results.analysts">Analysts</span>
+{% elif key == 'analyst' %}<span data-i18n="results.analyst">Analyst</span>
+{% elif key == 'analyst_entries' %}<span data-i18n="results.analyst_entries">analyst participations</span>
+{% elif key == 'participations_note' %}<span data-i18n="results.participations_note">A co-authored analysis counts once for each contributing analyst. Company statistics below are shown once per company.</span>
+{% elif key == 'detail_error' %}<span data-i18n="results.detail_error">Unable to load saved statistics. Please try again.</span>
+{% elif key == 'valuation' %}<span data-i18n="results.valuation">Valuation</span>
+{% elif key == 'debt' %}<span data-i18n="results.debt">Debt &amp; liquidity</span>
+{% elif key == 'profitability' %}<span data-i18n="results.profitability">Profitability</span>
+{% elif key == 'growth' %}<span data-i18n="results.growth">Growth &amp; estimates</span>
+{% elif key == 'trading' %}<span data-i18n="results.trading">Trading &amp; ownership</span>
+{% elif key == 'dividends' %}<span data-i18n="results.dividends">Dividends</span>
+{% elif key == 'metric.marketCap' %}<span data-i18n="results.metric.marketCap">Market cap</span>
+{% elif key == 'metric.enterpriseValue' %}<span data-i18n="results.metric.enterpriseValue">Enterprise value</span>
+{% elif key == 'metric.trailingPE' %}<span data-i18n="results.metric.trailingPE">P/E · TTM</span>
+{% elif key == 'metric.forwardPE' %}<span data-i18n="results.metric.forwardPE">P/E · forward</span>
+{% elif key == 'metric.pegRatio' %}<span data-i18n="results.metric.pegRatio">PEG</span>
+{% elif key == 'metric.trailingPegRatio' %}<span data-i18n="results.metric.trailingPegRatio">PEG · trailing</span>
+{% elif key == 'metric.priceToSalesTrailing12Months' %}<span data-i18n="results.metric.priceToSalesTrailing12Months">P/S · TTM</span>
+{% elif key == 'metric.priceToBook' %}<span data-i18n="results.metric.priceToBook">P/B</span>
+{% elif key == 'metric.enterpriseToRevenue' %}<span data-i18n="results.metric.enterpriseToRevenue">EV / revenue</span>
+{% elif key == 'metric.enterpriseToEbitda' %}<span data-i18n="results.metric.enterpriseToEbitda">EV / EBITDA</span>
+{% elif key == 'metric.fcfYield' %}<span data-i18n="results.metric.fcfYield">FCF yield</span>
+{% elif key == 'metric.trailingEps' %}<span data-i18n="results.metric.trailingEps">EPS · TTM</span>
+{% elif key == 'metric.forwardEps' %}<span data-i18n="results.metric.forwardEps">EPS · forward</span>
+{% elif key == 'metric.bookValue' %}<span data-i18n="results.metric.bookValue">Book value / share</span>
+{% elif key == 'metric.totalDebt' %}<span data-i18n="results.metric.totalDebt">Total debt</span>
+{% elif key == 'metric.totalCash' %}<span data-i18n="results.metric.totalCash">Cash</span>
+{% elif key == 'metric.netDebt' %}<span data-i18n="results.metric.netDebt">Net debt</span>
+{% elif key == 'metric.debtToEquity' %}<span data-i18n="results.metric.debtToEquity">Debt / equity</span>
+{% elif key == 'metric.debtToEbitda' %}<span data-i18n="results.metric.debtToEbitda">Debt / EBITDA</span>
+{% elif key == 'metric.currentRatio' %}<span data-i18n="results.metric.currentRatio">Current ratio</span>
+{% elif key == 'metric.quickRatio' %}<span data-i18n="results.metric.quickRatio">Quick ratio</span>
+{% elif key == 'metric.totalCashPerShare' %}<span data-i18n="results.metric.totalCashPerShare">Cash / share</span>
+{% elif key == 'metric.grossMargins' %}<span data-i18n="results.metric.grossMargins">Gross margin</span>
+{% elif key == 'metric.operatingMargins' %}<span data-i18n="results.metric.operatingMargins">Operating margin</span>
+{% elif key == 'metric.ebitdaMargins' %}<span data-i18n="results.metric.ebitdaMargins">EBITDA margin</span>
+{% elif key == 'metric.profitMargins' %}<span data-i18n="results.metric.profitMargins">Net margin</span>
+{% elif key == 'metric.returnOnAssets' %}<span data-i18n="results.metric.returnOnAssets">ROA</span>
+{% elif key == 'metric.returnOnEquity' %}<span data-i18n="results.metric.returnOnEquity">ROE</span>
+{% elif key == 'metric.totalRevenue' %}<span data-i18n="results.metric.totalRevenue">Revenue · TTM</span>
+{% elif key == 'metric.ebitda' %}<span data-i18n="results.metric.ebitda">EBITDA · TTM</span>
+{% elif key == 'metric.netIncomeToCommon' %}<span data-i18n="results.metric.netIncomeToCommon">Net income · TTM</span>
+{% elif key == 'metric.operatingCashflow' %}<span data-i18n="results.metric.operatingCashflow">Operating cash flow · TTM</span>
+{% elif key == 'metric.freeCashflow' %}<span data-i18n="results.metric.freeCashflow">Free cash flow · TTM</span>
+{% elif key == 'metric.revenuePerShare' %}<span data-i18n="results.metric.revenuePerShare">Revenue / share</span>
+{% elif key == 'metric.revenueGrowth' %}<span data-i18n="results.metric.revenueGrowth">Revenue growth · YoY</span>
+{% elif key == 'metric.earningsGrowth' %}<span data-i18n="results.metric.earningsGrowth">Earnings growth · YoY</span>
+{% elif key == 'metric.earningsQuarterlyGrowth' %}<span data-i18n="results.metric.earningsQuarterlyGrowth">Quarterly earnings growth · YoY</span>
+{% elif key == 'metric.targetLowPrice' %}<span data-i18n="results.metric.targetLowPrice">Target · low</span>
+{% elif key == 'metric.targetMeanPrice' %}<span data-i18n="results.metric.targetMeanPrice">Target · mean</span>
+{% elif key == 'metric.targetHighPrice' %}<span data-i18n="results.metric.targetHighPrice">Target · high</span>
+{% elif key == 'metric.numberOfAnalystOpinions' %}<span data-i18n="results.metric.numberOfAnalystOpinions">Analyst estimates</span>
+{% elif key == 'metric.recommendationMean' %}<span data-i18n="results.metric.recommendationMean">Recommendation · 1–5</span>
+{% elif key == 'metric.regularMarketPrice' %}<span data-i18n="results.metric.regularMarketPrice">Price</span>
+{% elif key == 'metric.beta' %}<span data-i18n="results.metric.beta">Beta</span>
+{% elif key == 'metric.fiftyTwoWeekLow' %}<span data-i18n="results.metric.fiftyTwoWeekLow">52-week low</span>
+{% elif key == 'metric.fiftyTwoWeekHigh' %}<span data-i18n="results.metric.fiftyTwoWeekHigh">52-week high</span>
+{% elif key == 'metric.52WeekChange' %}<span data-i18n="results.metric.52WeekChange">52-week change</span>
+{% elif key == 'metric.fiftyDayAverage' %}<span data-i18n="results.metric.fiftyDayAverage">50-day average</span>
+{% elif key == 'metric.twoHundredDayAverage' %}<span data-i18n="results.metric.twoHundredDayAverage">200-day average</span>
+{% elif key == 'metric.averageVolume' %}<span data-i18n="results.metric.averageVolume">Average volume</span>
+{% elif key == 'metric.sharesOutstanding' %}<span data-i18n="results.metric.sharesOutstanding">Shares outstanding</span>
+{% elif key == 'metric.floatShares' %}<span data-i18n="results.metric.floatShares">Float</span>
+{% elif key == 'metric.shortRatio' %}<span data-i18n="results.metric.shortRatio">Short ratio</span>
+{% elif key == 'metric.shortPercentOfFloat' %}<span data-i18n="results.metric.shortPercentOfFloat">Short / float</span>
+{% elif key == 'metric.heldPercentInsiders' %}<span data-i18n="results.metric.heldPercentInsiders">Insider ownership</span>
+{% elif key == 'metric.heldPercentInstitutions' %}<span data-i18n="results.metric.heldPercentInstitutions">Institutional ownership</span>
+{% elif key == 'metric.dividendRate' %}<span data-i18n="results.metric.dividendRate">Dividend / share · forward</span>
+{% elif key == 'metric.dividendYield' %}<span data-i18n="results.metric.dividendYield">Dividend yield · forward</span>
+{% elif key == 'metric.trailingAnnualDividendYield' %}<span data-i18n="results.metric.trailingAnnualDividendYield">Dividend yield · trailing</span>
+{% elif key == 'metric.payoutRatio' %}<span data-i18n="results.metric.payoutRatio">Payout ratio</span>
+{% elif key == 'metric.fiveYearAvgDividendYield' %}<span data-i18n="results.metric.fiveYearAvgDividendYield">5-year avg. dividend yield</span>
+{% elif key == 'metric.lastDividendValue' %}<span data-i18n="results.metric.lastDividendValue">Last dividend / share</span>
+{% endif %}{%- endmacro %}

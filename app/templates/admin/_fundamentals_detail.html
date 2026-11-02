@@ -1,0 +1,9 @@
+{% from 'admin/_results_labels.html' import label as result_label %}
+<div class="fundamental-expanded">
+  <header><strong>{{ item.company.name }}</strong><span>{{ item.ticker }} · {{ item.sector or '—' }}</span>{% if item.yahoo_url %}<a href="{{ item.yahoo_url }}" target="_blank" rel="noopener noreferrer">Yahoo Finance ↗</a>{% endif %}</header>
+  <p class="results-footnote"><span data-i18n="results.quote_currency">Quote currency</span>: {{ item.quote_currency or '—' }} · <span data-i18n="results.financial_currency">Financial statements</span>: {{ item.financial_currency or '—' }}{% if item.cached_at %} · {{ item.cached_at.strftime('%d.%m.%Y %H:%M') }} UTC{% endif %}</p>
+  {% if not item.cached_at %}<p data-i18n="results.unavailable_note">Yahoo has not provided these statistics yet. The next central refresh will retry.</p>{% else %}
+  <div class="fundamental-metric-groups">{% for group, metrics in metric_groups.items() %}<section><h3>{{ result_label(group) }}</h3><dl>{% for key,label,kind in metrics %}<div><dt>{{ result_label("metric." ~ key) }}</dt><dd>{{ item['values'][key] }}</dd></div>{% endfor %}</dl></section>{% endfor %}</div>
+  <details class="fundamental-raw"><summary data-i18n="results.raw_statistics">All additional Yahoo fields</summary><p class="results-footnote" data-i18n="results.raw_note">Original field names and raw provider values. Dates in these fields may be Unix timestamps.</p><div class="fundamental-metric-groups">{% for module, fields in item.groups.items() %}<section><h3>{{ module }}</h3><dl>{% for key,value in fields %}<div><dt>{{ key }}</dt><dd>{{ value }}</dd></div>{% endfor %}</dl></section>{% endfor %}</div></details>
+  {% endif %}
+</div>

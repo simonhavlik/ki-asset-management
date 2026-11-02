@@ -36,9 +36,9 @@ class PerformanceCalculator:
     
     # Mapping of filter categories to status lists
     STATUS_CATEGORIES = {
-        'approved_only': ['On Watchlist'],
-        'neutral_approved': ['On Watchlist', 'Neutral'],
-        'all_stock': ['On Watchlist', 'Neutral', 'Refused'],
+        'approved_only': ['On Watchlist', 'Portfolio'],
+        'neutral_approved': ['On Watchlist', 'Portfolio', 'Neutral'],
+        'all_stock': ['On Watchlist', 'Portfolio', 'Neutral', 'Refused'],
     }
     
     def _statuses_for_filter(self, status_filter):
@@ -232,6 +232,45 @@ class PerformanceCalculator:
         db.session.commit()
         return True
     
+    def get_analyst_analysis_performance(self, analyst_id: int,
+                                        status_filter: str = 'approved_only') -> List[Tuple]:
+        """One selection for result totals, charts and rows; stored prices only.
+
+        A company moved from the watchlist into Portfolio remains a stock pick.
+        Other events, future analyses and entries without a calculated return
+        do not participate. Multiple calculations never multiply an analysis.
+        """
+        latest_id = db.session.query(PerformanceCalculation.id).filter(
+            PerformanceCalculation.analysis_id == Analysis.id
+        ).order_by(PerformanceCalculation.calculation_date.desc(),
+                   PerformanceCalculation.id.desc()).limit(1).correlate(Analysis).scalar_subquery()
+        other_event = db.session.query(CompanyTickerMapping.id).filter(
+            CompanyTickerMapping.company_name == Company.name,
+            CompanyTickerMapping.is_other_event.is_(True)
+        ).exists()
+        query = db.session.query(Analysis, PerformanceCalculation, Company).join(
+            analysis_analysts, Analysis.id == analysis_analysts.c.analysis_id
+        ).join(Company, Company.id == Analysis.company_id).join(
+            PerformanceCalculation, PerformanceCalculation.id == latest_id
+        ).filter(
+            analysis_analysts.c.role == 'analyst',
+            Analysis.status.in_(self._statuses_for_filter(status_filter)),
+            Analysis.analysis_date <= date.today(),
+            ~other_event,
+            PerformanceCalculation.return_pct.isnot(None)
+        )
+        if analyst_id is not None:
+            query = query.filter(analysis_analysts.c.user_id == analyst_id)
+        return query.distinct().order_by(Analysis.analysis_date, Analysis.id).all()
+
+    def analysis_return(self, analysis, performance, annualized=False):
+        """Use the same return in totals, the per-analysis plot and the table."""
+        value = float(performance.return_pct)
+        if annualized:
+            return self._annualize_return(value, analysis.analysis_date,
+                                          performance.calculation_date)
+        return value
+
     def get_analyst_performance(self, analyst_id: int, status_filter: str = 'approved_only', annualized: bool = False) -> Dict:
         """
         Compute aggregated performance metrics for a specific analyst.
@@ -250,44 +289,13 @@ class PerformanceCalculator:
                 - best_return: Highest return
                 - worst_return: Lowest return
         """
-        status_list = self._statuses_for_filter(status_filter)
-        today = date.today()
-        
-        # Build query for analyses where the user is an analyst (role 'analyst')
-        # Exclude future analyses (analysis_date > today) - these haven't happened yet
-        query = db.session.query(Analysis).join(
-            analysis_analysts, Analysis.id == analysis_analysts.c.analysis_id
-        ).filter(
-            analysis_analysts.c.user_id == analyst_id,
-            analysis_analysts.c.role == 'analyst',
-            Analysis.status.in_(status_list),
-            Analysis.analysis_date <= today  # Only past/present analyses
-        )
-        
-        analyses = query.all()
-        
-        # Get latest performance calculations for each analysis
-        # Filter out: 1) Other events, 2) Analyses without price data
-        returns = []
-        for analysis in analyses:
-            # Skip "Other" events (non-stock analyses)
-            if analysis.company and self._is_other_event(analysis.company):
-                continue
-            
-            pc = PerformanceCalculation.query.filter_by(
-                analysis_id=analysis.id
-            ).order_by(PerformanceCalculation.calculation_date.desc()).first()
-            
-            # Only include if there's a valid performance calculation
-            if pc and pc.return_pct is not None:
-                if annualized:
-                    ret = self._annualize_return(float(pc.return_pct),
-                                                 analysis.analysis_date,
-                                                 pc.calculation_date)
-                else:
-                    ret = float(pc.return_pct)
-                returns.append(ret)
-        
+        rows = self.get_analyst_analysis_performance(analyst_id, status_filter)
+        return self.summarize_analyst_performance(rows, annualized)
+
+    def summarize_analyst_performance(self, rows, annualized=False):
+        """Aggregate an already selected set without querying it a second time."""
+        returns = [self.analysis_return(analysis, pc, annualized)
+                   for analysis, pc, company in rows]
         if not returns:
             return {
                 'num_analyses': 0,

@@ -1,0 +1,20 @@
+{% from 'admin/_results_labels.html' import label as result_label %}
+<section class="fundamentals-panel" data-fundamentals>
+  <div class="results-section-head"><div><h2 data-i18n="results.fundamentals">Company fundamentals</h2><p><span data-i18n="results.current_note">Current Yahoo Finance statistics, not valuations at the analysis date. Missing values stay blank; amounts retain their currency.</span></p></div><span class="results-coverage">{{ fundamentals_available }}/{{ fundamentals|length }} <span data-i18n="results.available">available</span></span></div>
+  <div class="fundamentals-tools"><div class="results-tabs" role="group" aria-label="Metric categories">
+    {% for group in metric_columns %}<button type="button" class="{% if loop.first %}active{% endif %}" data-metric-view="{{ group }}" aria-pressed="{{ 'true' if loop.first else 'false' }}">{{ result_label(group) }}</button>{% endfor %}
+  </div><input class="form-control form-control-sm" type="search" data-company-search data-i18n-placeholder="results.search" data-i18n-aria-label="results.search" placeholder="Find a company or ticker"></div>
+  <div class="results-table-scroll"><table class="results-table fundamentals-table"><thead><tr>
+    <th class="company-column" data-i18n="results.company">Company</th>
+    {% for group, keys in metric_columns.items() %}{% for key in keys %}<th data-metric-group="{{ group }}" {% if group!='valuation' %}hidden{% endif %}><button type="button" data-sort-metric="{{ key }}">{{ result_label("metric." ~ key) }}</button></th>{% endfor %}{% endfor %}
+    <th data-i18n="results.updated">Updated</th>
+  </tr></thead><tbody>
+    {% for item in fundamentals %}<tr data-company-row data-search="{{ (item.company.name ~ ' ' ~ item.ticker)|lower }}">
+      <th class="company-column"><button type="button" class="company-detail-toggle" data-details-url="{{ url_for('admin.company_fundamentals',company_id=item.company.id) }}" aria-expanded="false" aria-controls="fundamental-detail-{{ item.company.id }}"><span>{{ item.company.name }}</span><small>{{ item.ticker or '—' }} <span aria-hidden="true">＋</span></small></button></th>
+      {% for group, keys in metric_columns.items() %}{% for key in keys %}<td data-metric-group="{{ group }}" data-metric="{{ key }}" data-value="{{ item.numeric[key] if item.numeric[key] is not none else '' }}" {% if group!='valuation' %}hidden{% endif %}>{{ item['values'][key] }}</td>{% endfor %}{% endfor %}
+      <td class="fundamental-date">{% if item.cached_at %}<time datetime="{{ item.cached_at.isoformat() }}Z" title="{{ item.cached_at.isoformat() }} UTC">{{ item.cached_at.strftime('%d.%m.%Y') }}</time>{% if item.stale %}<small data-i18n="results.stale">Older data</small>{% endif %}{% else %}<span data-i18n="results.pending">Not available</span>{% endif %}</td>
+    </tr><tr id="fundamental-detail-{{ item.company.id }}" class="fundamental-detail-row" hidden><td colspan="60"><div data-detail-content></div></td></tr>
+    {% else %}<tr><td colspan="60" data-i18n="results.no_companies">No companies match this selection.</td></tr>{% endfor %}
+  </tbody></table></div>
+  <p class="results-footnote" data-i18n="results.fundamentals_note">Open a company for all available statistics. Refreshed with the central recalculation; opening this page makes no Yahoo requests. Ratios are not equally meaningful across sectors.</p>
+</section>
