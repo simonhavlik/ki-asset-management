@@ -1,319 +1,39 @@
+{% from 'admin/_results_labels.html' import label as result_label %}
 {% extends "base.html" %}
-
-{% block title %}{{ analyst.analyst_name }} – Performance Details | KI Asset Management{% endblock %}
-
+{% block default_lang %}cs{% endblock %}
+{% block title %}{{ analyst.analyst_name }} – KI AM{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/results.css',v='20261102a') }}">{% endblock %}
 {% block content %}
-<div class="container-fluid">
+<div class="results-page">
+<header class="results-header"><div><a class="results-back" href="{{ url_for('admin.performance',filter=current_filter,annualized='true' if annualized else 'false') }}" data-i18n="results.back">← All analysts</a><h1>{{ analyst.analyst_name }}</h1><p data-i18n="results.analyst_intro">Analysis returns and the current fundamentals of covered companies.</p></div>{% include 'analyst/_refresh_button.html' %}</header>
+{% include 'admin/_results_filters.html' %}
+<p class="results-footnote" data-i18n="results.selection_note">Only completed stock analyses with a calculated return are included. Totals, charts and the list use the same selection.</p>
+<div class="results-stat-strip">
+  <div><span data-i18n="results.analyses">Analyses</span><strong>{{ analyst.num_analyses }}</strong></div>
+  {% for key,label in [('avg_return','Average return'),('median_return','Median return'),('win_rate','Win rate'),('best_return','Best return'),('worst_return','Worst return')] %}<div><span>{{ result_label(key) }}</span><strong class="{% if key!='win_rate' and analyst[key] is not none %}{{ 'positive' if analyst[key]>=0 else 'negative' }}{% endif %}">{{ '%.1f'|format(analyst[key]) ~ '%' if analyst[key] is not none else '—' }}</strong></div>{% endfor %}
+</div>
+{% include 'admin/_results_fundamentals.html' %}
+<div class="results-charts">
+  <article><h2 data-i18n="results.per_analysis">Return per analysis</h2><div class="results-chart"><canvas id="returnsChart"></canvas></div></article>
+  <article><h2 data-i18n="results.since_inception">Since first analysis</h2><div class="results-chart"><canvas id="inceptionChart"></canvas></div></article>
+  <article><h2 data-i18n="results.last_year">Analyses from the last 12 months</h2><div class="results-chart"><canvas id="oneyearChart"></canvas></div></article>
+</div>
+<div class="results-chart-legend"><span data-i18n="results.benchmarks">Benchmarks</span><label><input type="checkbox" id="toggleSpy" checked> S&amp;P 500</label><label><input type="checkbox" id="toggleVt" checked> FTSE All-World</label><label><input type="checkbox" id="toggleEems"> EEMS</label><small data-i18n="results.chart_note">Cumulative charts use raw returns and start at 0%. The 12-month view includes analyses made in that period.</small></div>
+<details class="results-analysis-list" open><summary><span data-i18n="results.analysis_list">Analyses in this selection</span> <span>{{ analyses|length }}</span></summary><div class="results-table-scroll"><table class="results-table"><thead><tr><th data-i18n="results.company">Company</th><th>Ticker</th><th data-i18n="results.analysis_date">Analysis date</th><th data-i18n="results.status">Decision</th><th data-i18n="results.return">Return</th></tr></thead><tbody>
+{% for analysis,perf,company in analyses %}<tr><td>{{ company.name }}</td><td>{{ company.ticker_symbol or '—' }}</td><td>{{ analysis.analysis_date.strftime('%d.%m.%Y') }}</td><td>{{ analysis.status }}</td><td class="{{ 'positive' if analysis_returns[analysis.id]>=0 else 'negative' }}">{{ '%.2f'|format(analysis_returns[analysis.id]) }}%</td></tr>{% else %}<tr><td colspan="5" data-i18n="results.no_analyses">No analyses match this selection.</td></tr>{% endfor %}
+</tbody></table></div></details>
+</div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<!-- Header -->
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h1><i class="bi bi-person-badge"></i> {{ analyst.analyst_name }}</h1>
-        <p class="text-muted mb-0">Detailed Performance Analysis & Benchmark Comparison</p>
-    </div>
-    <a href="{{ url_for('admin.performance') }}" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i> Back to Leaderboard
-    </a>
-</div>
-
-<!-- Filters -->
-<div class="card mb-4">
-    <div class="card-body">
-        <form method="GET" action="{{ url_for('admin.analyst_details', analyst_id=analyst.analyst_id) }}" class="row g-3 align-items-center">
-            <div class="col-md-4">
-                <label for="filter" class="form-label">Filter by decision:</label>
-                <select name="filter" id="filter" class="form-select">
-                    <option value="approved_only" {% if current_filter == 'approved_only' %}selected{% endif %}>Approved/On Watchlist only</option>
-                    <option value="neutral_approved" {% if current_filter == 'neutral_approved' %}selected{% endif %}>Neutral + Approved/On Watchlist</option>
-                    <option value="all_stock" {% if current_filter == 'all_stock' %}selected{% endif %}>All stock picks (any decision)</option>
-                </select>
-            </div>
-            <div class="col-md-3">
-                <div class="form-check mt-4">
-                      {% if annualized %}
-                      <input class="form-check-input" type="checkbox" name="annualized" value="true" id="annualizedCheckbox" checked>
-                      {% else %}
-                      <input class="form-check-input" type="checkbox" name="annualized" value="true" id="annualizedCheckbox">
-                      {% endif %}
-                    <label class="form-check-label" for="annualizedCheckbox">
-                        Show annualized returns
-                    </label>
-                </div>
-            </div>
-            <div class="col-md-2">
-                <button type="submit" class="btn btn-outline-primary mt-4">
-                    <i class="bi bi-funnel"></i> Apply
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- Performance Summary Cards -->
-<div class="row mb-4">
-    <div class="col-md-2 col-6">
-        <div class="card text-center h-100">
-            <div class="card-body">
-                <h6 class="text-muted text-uppercase small">Analyses</h6>
-                <div class="display-5 fw-bold">{{ analyst.num_analyses }}</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-2 col-6">
-        <div class="card text-center h-100">
-            <div class="card-body">
-                <h6 class="text-muted text-uppercase small">Avg Return</h6>
-                <div class="display-5 fw-bold {% if analyst.avg_return and analyst.avg_return >= 0 %}text-success{% elif analyst.avg_return and analyst.avg_return < 0 %}text-danger{% endif %}">
-                    {{ "%.1f"|format(analyst.avg_return) if analyst.avg_return else '--' }}%
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-2 col-6">
-        <div class="card text-center h-100">
-            <div class="card-body">
-                <h6 class="text-muted text-uppercase small">Median</h6>
-                <div class="display-5 fw-bold">
-                    {{ "%.1f"|format(analyst.median_return) if analyst.median_return else '--' }}%
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-2 col-6">
-        <div class="card text-center h-100">
-            <div class="card-body">
-                <h6 class="text-muted text-uppercase small">Win Rate</h6>
-                <div class="display-5 fw-bold {% if analyst.win_rate and analyst.win_rate >= 50 %}text-success{% elif analyst.win_rate and analyst.win_rate < 50 %}text-warning{% endif %}">
-                    {{ "%.0f"|format(analyst.win_rate) if analyst.win_rate else '--' }}%
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-2 col-6">
-        <div class="card text-center h-100">
-            <div class="card-body">
-                <h6 class="text-muted text-uppercase small">Best</h6>
-                <div class="display-5 fw-bold text-success">
-                    {{ "%.1f"|format(analyst.best_return) if analyst.best_return else '--' }}%
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-2 col-6">
-        <div class="card text-center h-100">
-            <div class="card-body">
-                <h6 class="text-muted text-uppercase small">Worst</h6>
-                <div class="display-5 fw-bold text-danger">
-                    {{ "%.1f"|format(analyst.worst_return) if analyst.worst_return else '--' }}%
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Charts Row -->
-<div class="row mb-4">
-    <!-- Return per Analysis Bar Chart -->
-    <div class="col-lg-7 mb-4">
-        <div class="card h-100 shadow-sm">
-            <div class="card-header bg-white">
-                <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Return per Analysis</h5>
-            </div>
-            <div class="card-body">
-                <canvas id="returnsChart" height="200"></canvas>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Summary Card -->
-    <div class="col-lg-5 mb-4">
-        <div class="card h-100 shadow-sm border-success">
-            <div class="card-header bg-success text-white">
-                <h5 class="mb-0"><i class="bi bi-info-circle"></i> Performance Summary</h5>
-            </div>
-            <div class="card-body">
-                <table class="table table-borderless">
-                    <tr>
-                        <td>Analyst:</td>
-                        <td class="fw-bold">{{ analyst.analyst_name }}</td>
-                    </tr>
-                    <tr>
-                        <td>Total Analyses:</td>
-                        <td class="fw-bold">{{ analyst.num_analyses }}</td>
-                    </tr>
-                    <tr>
-                        <td>Average Return:</td>
-                        <td class="fw-bold {% if analyst.avg_return and analyst.avg_return >= 0 %}text-success{% elif analyst.avg_return and analyst.avg_return < 0 %}text-danger{% endif %}">
-                            {{ "%.2f"|format(analyst.avg_return) if analyst.avg_return else '--' }}%
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>Median Return:</td>
-                        <td class="fw-bold">{{ "%.2f"|format(analyst.median_return) if analyst.median_return else '--' }}%</td>
-                    </tr>
-                    <tr>
-                        <td>Win Rate:</td>
-                        <td class="fw-bold">{{ "%.1f"|format(analyst.win_rate) if analyst.win_rate else '--' }}%</td>
-                    </tr>
-                    <tr>
-                        <td>Best Return:</td>
-                        <td class="fw-bold text-success">{{ "%.2f"|format(analyst.best_return) if analyst.best_return else '--' }}%</td>
-                    </tr>
-                    <tr>
-                        <td>Worst Return:</td>
-                        <td class="fw-bold text-danger">{{ "%.2f"|format(analyst.worst_return) if analyst.worst_return else '--' }}%</td>
-                    </tr>
-                </table>
-                
-                <div class="alert alert-info mb-0 mt-3">
-                    <small>
-                        <i class="bi bi-info-circle"></i>
-                        <strong>How to read:</strong> The cumulative chart below shows how $100 invested 
-                        equally across all positions would have performed vs benchmarks. 
-                        All series start at 0% for direct comparison.
-                    </small>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Performance Charts Row -->
-<div class="row">
-    <!-- Since Inception Chart -->
-    <div class="col-lg-6 mb-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-header bg-white">
-                <h5 class="mb-0"><i class="bi bi-graph-up"></i> Since Inception (Normalized to 0%)</h5>
-            </div>
-            <div class="card-body">
-                <canvas id="inceptionChart" height="250"></canvas>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Last 12 Months Chart -->
-    <div class="col-lg-6 mb-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-header bg-white">
-                <h5 class="mb-0"><i class="bi bi-graph-up"></i> Last 12 Months (Normalized to 0%)</h5>
-            </div>
-            <div class="card-body">
-                <canvas id="oneyearChart" height="250"></canvas>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Chart Legend -->
-<div class="card mb-4">
-    <div class="card-body">
-        <div class="d-flex justify-content-center gap-4 flex-wrap">
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="checkbox" id="toggleAnalystAll" checked disabled>
-                <label class="form-check-label fw-bold" for="toggleAnalystAll" style="color: #0d6efd;">
-                    <i class="bi bi-circle-fill" style="font-size: 0.6em;"></i> {{ analyst.analyst_name }}
-                </label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="checkbox" id="toggleSpy" checked>
-                <label class="form-check-label fw-bold" for="toggleSpy" style="color: #ffc107;">
-                    <i class="bi bi-circle-fill" style="font-size: 0.6em;"></i> S&P 500 (SPY)
-                </label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="checkbox" id="toggleVt" checked>
-                <label class="form-check-label fw-bold" for="toggleVt" style="color: #0dcaf5;">
-                    <i class="bi bi-circle-fill" style="font-size: 0.6em;"></i> FTSE All-World (VT)
-                </label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="checkbox" id="toggleEems">
-                <label class="form-check-label fw-bold" for="toggleEems" style="color: #6c757d;">
-                    <i class="bi bi-circle-fill" style="font-size: 0.6em;"></i> EEMS
-                </label>
-            </div>
-        </div>
-        <div class="text-center mt-2">
-            <small class="text-muted">
-                <i class="bi bi-info-circle"></i> 
-                All series are normalized to 0% at the start date for direct comparison.
-            </small>
-        </div>
-    </div>
-</div>
-
-<!-- Analyses List -->
-<div class="card shadow-sm">
-    <div class="card-header bg-white">
-        <h5 class="mb-0"><i class="bi bi-table"></i> Analyses List</h5>
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Company</th>
-                        <th>Ticker</th>
-                        <th>Analysis Date</th>
-                        <th>Status</th>
-                        <th class="text-end">Return %</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for analysis, perf, company in analyses %}
-                    <tr>
-                        <td><strong>{{ company.name }}</strong></td>
-                        <td><code>{{ company.ticker_symbol or '—' }}</code></td>
-                        <td>{{ analysis.analysis_date }}</td>
-                        <td><span class="badge bg-secondary">{{ analysis.status }}</span></td>
-                        <td class="text-end">
-                            {% if perf.return_pct is not none %}
-                                <span class="fw-bold {% if (annualized and perf.annualized_return is not none and (perf.annualized_return or 0) >= 0) or (not annualized and (perf.return_pct or 0) >= 0) %}text-success{% else %}text-danger{% endif %}">
-                                    {% if annualized and perf.annualized_return is not none %}
-                                        {{ "%.2f"|format(perf.annualized_return) }}%
-                                    {% else %}
-                                        {{ "%.2f"|format(perf.return_pct) }}%
-                                    {% endif %}
-                                </span>
-                            {% else %}
-                                <span class="text-muted">—</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="5" class="text-center text-muted py-4">
-                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                            No analyses with performance data found.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-</div>
-
+<script defer src="{{ url_for('static',filename='js/results.js',v='20261102a') }}"></script>
 {% endblock %}
-
+{% block modals %}{% include 'analyst/_refresh_modal.html' %}{% endblock %}
 {% block extra_js %}
 <script>
 // Returns Bar Chart
-const analysesData = [
-    {% for analysis, perf, company in analyses %}
-    {
-        label: '{{ company.name }}',
-        return: {% if annualized and perf.annualized_return is defined %}{{ perf.annualized_return|round(2) }}{% else %}{{ perf.return_pct if perf.return_pct is not none else 0 }}{% endif %},
-        date: '{{ analysis.analysis_date }}'
-    },
-    {% endfor %}
-];
+const analysesData = {{ analyses_chart_data|tojson }};
 
 const labels = analysesData.map(d => d.label);
-const returns = analysesData.map(d => d.return);
+const returns = analysesData.map(d => d.return_pct);
 
 const ctxReturns = document.getElementById('returnsChart').getContext('2d');
 const returnsChart = new Chart(ctxReturns, {
@@ -388,7 +108,7 @@ function createChartConfig(data, chartId) {
     // Analyst series
     if (data.analyst_series && data.analyst_series.length) {
         datasets.push({
-            label: '{{ analyst.analyst_name }}',
+            label: {{ analyst.analyst_name|tojson }},
             data: data.analyst_series,
             borderColor: '#0d6efd',
             backgroundColor: 'rgba(13, 110, 253, 0.1)',

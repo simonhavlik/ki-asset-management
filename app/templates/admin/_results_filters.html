@@ -1,0 +1,9 @@
+<form method="get" class="results-filters">
+  <label><span data-i18n="results.decision">Decision</span><select name="filter" class="form-select form-select-sm">
+    <option value="approved_only" {% if current_filter=='approved_only' %}selected{% endif %} data-i18n="results.approved">Watchlist and portfolio</option>
+    <option value="neutral_approved" {% if current_filter=='neutral_approved' %}selected{% endif %} data-i18n="results.neutral_approved">Neutral, watchlist and portfolio</option>
+    <option value="all_stock" {% if current_filter=='all_stock' %}selected{% endif %} data-i18n="results.all_stock">All stock analyses (including portfolio)</option>
+  </select></label>
+  <label class="results-check"><input type="checkbox" name="annualized" value="true" {% if annualized %}checked{% endif %}><span data-i18n="results.annualized">Annualized returns</span></label>
+  <button class="btn btn-sm btn-success" data-i18n="results.apply">Apply</button>
+</form>

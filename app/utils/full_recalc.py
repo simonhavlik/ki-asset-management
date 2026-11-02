@@ -227,6 +227,19 @@ def _publish_results(run_type):
 
         _warm_dashboards(stats)
 
+        # Secondary market data must not delay page requests or erase the last
+        # successful data if Yahoo rejects an individual symbol.
+        from .company_fundamentals import refresh_fundamentals
+        get_progress().log('Refreshing company valuations and financial ratios')
+        try:
+            fundamentals = refresh_fundamentals(progress=get_progress().log)
+            get_progress().log(f"Company fundamentals: {fundamentals['updated']} refreshed, "
+                               f"{fundamentals['fresh']} already current, {fundamentals['failed']} unavailable")
+        except Exception:
+            db.session.rollback()
+            logger.warning('Company fundamentals refresh failed; previous data retained', exc_info=True)
+            get_progress().log('Company fundamentals unavailable; previous data retained')
+
         stats['analyses_processed'] = get_progress().total_companies
         log_entry.mark_completed(stats)
         get_progress().log('Central refresh completed')

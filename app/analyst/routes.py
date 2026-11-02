@@ -987,23 +987,12 @@ def performance():
     """Detailed performance view for the logged‑in analyst."""
     annualized = request.args.get('annualized', 'false').lower() == 'true'
     calculator = PerformanceCalculator()
-    perf = calculator.get_analyst_performance(current_user.id, annualized=annualized)
-    
-    # Get list of analyses with performance calculations
-    analyses = db.session.query(Analysis).join(
-        analysis_analysts, Analysis.id == analysis_analysts.c.analysis_id
-    ).filter(
-        analysis_analysts.c.user_id == current_user.id,
-        analysis_analysts.c.role == 'analyst',
-        Analysis.status == 'On Watchlist'
-    ).all()
+    selected = calculator.get_analyst_analysis_performance(current_user.id)
+    perf = calculator.summarize_analyst_performance(selected, annualized)
     
     # Attach latest performance calculation for each analysis
     analysis_data = []
-    for a in analyses:
-        pc = PerformanceCalculation.query.filter_by(
-            analysis_id=a.id
-        ).order_by(PerformanceCalculation.calculation_date.desc()).first()
+    for a, pc, company in selected:
         annualized_return = None
         if pc and annualized:
             annualized_return = calculator._annualize_return(
