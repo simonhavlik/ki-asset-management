@@ -752,3 +752,49 @@ class MaintenanceRun(db.Model):
     completed_at = db.Column(db.DateTime)
     details = db.Column(db.JSON)
     error = db.Column(db.Text)
+
+
+class PurchaseRecommendation(db.Model):
+    """An analyst's time-limited purchase proposal, separate from Board votes."""
+    __tablename__ = 'purchase_recommendations'
+    id = db.Column(db.Integer, primary_key=True)
+    analysis_id = db.Column(db.Integer, db.ForeignKey('analyses.id'), nullable=False, index=True)
+    company_id = db.Column(db.Integer, db.ForeignKey('companies.id'), nullable=False, index=True)
+    author_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    window_started_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False, index=True)
+    withdrawn_at = db.Column(db.DateTime)
+    rationale = db.Column(db.Text, nullable=False, default='')
+    eligibility_mode = db.Column(db.String(20), nullable=False)
+    board_yes = db.Column(db.Integer, nullable=False, default=0)
+    board_no = db.Column(db.Integer, nullable=False, default=0)
+    analysis = db.relationship('Analysis')
+    author = db.relationship('User')
+    __table_args__ = (db.UniqueConstraint('author_id', 'company_id', name='uq_purchase_recommendation_author_company'),)
+
+
+class PurchaseRecommendationVote(db.Model):
+    __tablename__ = 'purchase_recommendation_votes'
+    id = db.Column(db.Integer, primary_key=True)
+    recommendation_id = db.Column(db.Integer, db.ForeignKey('purchase_recommendations.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    vote = db.Column(db.Boolean, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    __table_args__ = (
+        db.UniqueConstraint('recommendation_id', 'user_id', name='uq_purchase_recommendation_vote'),
+        db.Index('ix_purchase_recommendation_vote_count', 'recommendation_id', 'vote'),
+    )
+
+
+class PurchaseRecommendationEvent(db.Model):
+    """Append-only history of window changes, withdrawal and ballot changes."""
+    __tablename__ = 'purchase_recommendation_events'
+    id = db.Column(db.Integer, primary_key=True)
+    recommendation_id = db.Column(db.Integer, db.ForeignKey('purchase_recommendations.id'), nullable=False, index=True)
+    actor_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    kind = db.Column(db.String(20), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    details = db.Column(db.JSON, nullable=False, default=dict)
+    actor = db.relationship('User')

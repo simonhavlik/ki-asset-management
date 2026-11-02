@@ -1,0 +1,78 @@
+{% macro label(key) -%}
+{% if key == 'renew' %}<span data-i18n="voting.renew">Renew recommendation</span>
+{% elif key == 'renewed' %}<span data-i18n="voting.renewed">Recommendation renewed; previous votes retained.</span>
+{% elif key == 'window_start' %}<span data-i18n="voting.window_start">Current validity started</span>
+{% elif key == 'carried_votes' %}<span data-i18n="voting.carried_votes">votes retained</span>
+{% elif key == 'previous_window' %}<span data-i18n="voting.previous_window">Previous window</span>
+{% elif key == 'new_short' %}<span data-i18n="voting.new_short">Propose</span>
+{% elif key == 'club' %}<span data-i18n="voting.club">Analyst team</span>
+{% elif key == 'title' %}<span data-i18n="voting.title">Purchase voting</span>
+{% elif key == 'intro' %}<span data-i18n="voting.intro">Propose your approved stocks and vote for or against a purchase.</span>
+{% elif key == 'new' %}<span data-i18n="voting.new">Propose a purchase</span>
+{% elif key == 'current' %}<span data-i18n="voting.current">Active proposals</span>
+{% elif key == 'eligible_stocks' %}<span data-i18n="voting.eligible_stocks">Eligible stocks</span>
+{% elif key == 'history' %}<span data-i18n="voting.history">History</span>
+{% elif key == 'board_rule' %}<span data-i18n="voting.board_rule">New proposals require more Board votes for than against.</span>
+{% elif key == 'approved_rule' %}<span data-i18n="voting.approved_rule">New proposals require approved status: watchlist or portfolio.</span>
+{% elif key == 'for' %}<span data-i18n="voting.for">For</span>
+{% elif key == 'against' %}<span data-i18n="voting.against">Against</span>
+{% elif key == 'until' %}<span data-i18n="voting.until">Valid until</span>
+{% elif key == 'withdrawn_state' %}<span data-i18n="voting.withdrawn_state">Withdrawn</span>
+{% elif key == 'expired' %}<span data-i18n="voting.expired">Expired</span>
+{% elif key == 'active' %}<span data-i18n="voting.active">Active</span>
+{% elif key == 'for_purchase' %}<span data-i18n="voting.for_purchase">For purchase</span>
+{% elif key == 'against_purchase' %}<span data-i18n="voting.against_purchase">Against purchase</span>
+{% elif key == 'remove_vote' %}<span data-i18n="voting.remove_vote">Remove my vote</span>
+{% elif key == 'detail' %}<span data-i18n="voting.detail">Details and history</span>
+{% elif key == 'manage' %}<span data-i18n="voting.manage">Manage my proposal</span>
+{% elif key == 'extend_help' %}<span data-i18n="voting.extend_help">Set a new expiry 7–30 days from now. It must be later than the current expiry; votes stay attached.</span>
+{% elif key == 'days_from_now' %}<span data-i18n="voting.days_from_now">Days from now</span>
+{% elif key == 'extend' %}<span data-i18n="voting.extend">Extend validity</span>
+{% elif key == 'withdraw' %}<span data-i18n="voting.withdraw">Withdraw proposal</span>
+{% elif key == 'empty_history' %}<span data-i18n="voting.empty_history">No expired or withdrawn proposals yet.</span>
+{% elif key == 'empty' %}<span data-i18n="voting.empty">No active proposals yet.</span>
+{% elif key == 'company' %}<span data-i18n="voting.company">Company</span>
+{% elif key == 'analysis_date' %}<span data-i18n="voting.analysis_date">Analysis date</span>
+{% elif key == 'board_result' %}<span data-i18n="voting.board_result">Board for / against</span>
+{% elif key == 'my_analysis' %}<span data-i18n="voting.my_analysis">My analysis</span>
+{% elif key == 'already_active' %}<span data-i18n="voting.already_active">Already proposed</span>
+{% elif key == 'propose' %}<span data-i18n="voting.propose">Propose</span>
+{% elif key == 'no_eligible' %}<span data-i18n="voting.no_eligible">No stocks currently meet this condition.</span>
+{% elif key == 'history_help' %}<span data-i18n="voting.history_help">Expired and withdrawn proposals. Previous votes remain available.</span>
+{% elif key == 'sort_help' %}<span data-i18n="voting.sort_help">Most votes for first. Counts refresh automatically.</span>
+{% elif key == 'previous' %}<span data-i18n="voting.previous">Previous</span>
+{% elif key == 'next' %}<span data-i18n="voting.next">Next</span>
+{% elif key == 'create_help' %}<span data-i18n="voting.create_help">Choose one of your eligible analyses and validity of 7–30 days. You can have multiple active proposals for different companies.</span>
+{% elif key == 'analysis' %}<span data-i18n="voting.analysis">My approved analysis</span>
+{% elif key == 'choose' %}<span data-i18n="voting.choose">Choose an analysis</span>
+{% elif key == 'days' %}<span data-i18n="voting.days">Validity in days</span>
+{% elif key == 'rationale' %}<span data-i18n="voting.rationale">Reason for buying now (optional)</span>
+{% elif key == 'publish' %}<span data-i18n="voting.publish">Publish or renew proposal</span>
+{% elif key == 'settings' %}<span data-i18n="voting.settings">Administrator settings</span>
+{% elif key == 'condition' %}<span data-i18n="voting.condition">Condition for new proposals</span>
+{% elif key == 'board_option' %}<span data-i18n="voting.board_option">Board approval (for &gt; against)</span>
+{% elif key == 'approved_option' %}<span data-i18n="voting.approved_option">Approved analyses (watchlist / portfolio)</span>
+{% elif key == 'save' %}<span data-i18n="voting.save">Save condition</span>
+{% elif key == 'settings_help' %}<span data-i18n="voting.settings_help">Applies to new proposals. Existing windows and their votes remain unchanged.</span>
+{% elif key == 'back' %}<span data-i18n="voting.back">← Back to voting</span>
+{% elif key == 'created_at' %}<span data-i18n="voting.created_at">Created</span>
+{% elif key == 'board_at_creation' %}<span data-i18n="voting.board_at_creation">Board approval for this window</span>
+{% elif key == 'approved_at_creation' %}<span data-i18n="voting.approved_at_creation">Created under the approved-status condition.</span>
+{% elif key == 'event_history' %}<span data-i18n="voting.event_history">Proposal history</span>
+{% elif key == 'vote_removed' %}<span data-i18n="voting.vote_removed">Vote removed</span>
+{% elif key == 'timezone' %}<span data-i18n="voting.timezone">Times are in Europe/Prague.</span>
+{% elif key == 'no_owned' %}<span data-i18n="voting.no_owned">You have no eligible analysis without an active proposal.</span>
+{% elif key == 'refresh_error' %}<span data-i18n="voting.refresh_error">Automatic refresh unavailable; reload the page.</span>
+{% elif key == 'created' %}<span data-i18n="voting.created">Proposal created.</span>
+{% elif key == 'voted' %}<span data-i18n="voting.voted">Vote saved.</span>
+{% elif key == 'removed' %}<span data-i18n="voting.removed">Vote removed.</span>
+{% elif key == 'extended' %}<span data-i18n="voting.extended">Validity extended.</span>
+{% elif key == 'withdrawn' %}<span data-i18n="voting.withdrawn">Proposal withdrawn.</span>
+{% elif key == 'settings_saved' %}<span data-i18n="voting.settings_saved">Condition saved.</span>
+{% elif key == 'ballot' %}<span data-i18n="voting.ballot">Ballot updated</span>
+{% elif key == 'invalid' %}<span data-i18n="voting.invalid">Check the fields. Validity must be 7–30 days.</span>
+{% elif key == 'not_eligible' %}<span data-i18n="voting.not_eligible">Only your own analyses meeting the current condition may be proposed.</span>
+{% elif key == 'duplicate' %}<span data-i18n="voting.duplicate">You already have an active proposal for this company. Extend it instead.</span>
+{% elif key == 'closed' %}<span data-i18n="voting.closed">This proposal has ended. Its votes are preserved. The author may renew it with the same votes.</span>
+{% elif key == 'not_later' %}<span data-i18n="voting.not_later">The new expiry must be later than the current expiry.</span>
+{% endif %}{%- endmacro %}
