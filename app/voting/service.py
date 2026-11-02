@@ -6,6 +6,7 @@ from sqlalchemy.orm import joinedload
 from ..extensions import db
 from ..models import (Analysis, Company, CompanyTickerMapping, Vote, SystemSettings,
                       PurchaseRecommendation as Proposal, PurchaseRecommendationVote as Ballot,
+                      PurchaseRecommendationAttachment as Attachment,
                       analysis_analysts)
 
 MODES = ('board', 'approved')
@@ -53,8 +54,11 @@ def proposal_rows(user_id, history=False, page=1, now=None):
         func.sum(case((Ballot.vote.is_(True), 1), else_=0)).label('yes'),
         func.sum(case((Ballot.vote.is_(False), 1), else_=0)).label('no')).group_by(Ballot.recommendation_id).subquery()
     mine = db.session.query(Ballot.recommendation_id, Ballot.vote).filter(Ballot.user_id == user_id).subquery()
-    query = db.session.query(Proposal, func.coalesce(counts.c.yes, 0), func.coalesce(counts.c.no, 0), mine.c.vote).outerjoin(
-        counts, counts.c.recommendation_id == Proposal.id).outerjoin(mine, mine.c.recommendation_id == Proposal.id)
+    files = db.session.query(Attachment.recommendation_id,func.count(Attachment.id).label('count')).group_by(Attachment.recommendation_id).subquery()
+    query = db.session.query(Proposal, func.coalesce(counts.c.yes, 0), func.coalesce(counts.c.no, 0), mine.c.vote,
+                             func.coalesce(files.c.count,0)).outerjoin(
+        counts, counts.c.recommendation_id == Proposal.id).outerjoin(mine, mine.c.recommendation_id == Proposal.id).outerjoin(
+        files, files.c.recommendation_id == Proposal.id)
     condition = (Proposal.withdrawn_at.is_(None)) & (Proposal.expires_at > now)
     if history:
         query = query.filter(~condition).order_by(func.coalesce(Proposal.withdrawn_at, Proposal.expires_at).desc(), Proposal.id.desc())
@@ -63,4 +67,4 @@ def proposal_rows(user_id, history=False, page=1, now=None):
     total = query.count()
     rows = query.options(joinedload(Proposal.analysis).joinedload(Analysis.company), joinedload(Proposal.author)).offset((page-1)*25).limit(25).all()
     return [dict(proposal=p, yes=yes, no=no, mine=mine_vote, expires_local=local_time(p.expires_at),
-                 created_local=local_time(p.created_at)) for p, yes, no, mine_vote in rows], total
+                 created_local=local_time(p.created_at),attachment_count=file_count) for p, yes, no, mine_vote, file_count in rows], total

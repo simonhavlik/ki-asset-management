@@ -798,3 +798,19 @@ class PurchaseRecommendationEvent(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     details = db.Column(db.JSON, nullable=False, default=dict)
     actor = db.relationship('User')
+
+
+class PurchaseRecommendationAttachment(db.Model):
+    """Metadata only. The binary object lives in private Cloudflare R2."""
+    __tablename__ = 'purchase_recommendation_attachments'
+    id = db.Column(db.Integer, primary_key=True)
+    recommendation_id = db.Column(db.Integer, db.ForeignKey('purchase_recommendations.id'), nullable=False, index=True)
+    uploaded_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    filename = db.Column(db.String(255), nullable=False)
+    object_key = db.Column(db.String(255), nullable=False, unique=True)
+    content_type = db.Column(db.String(150), nullable=False)
+    size_bytes = db.Column(db.Integer, nullable=False)
+    sha256 = db.Column(db.String(64), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    uploader = db.relationship('User')
+    __table_args__ = (db.UniqueConstraint('recommendation_id', 'sha256', name='uq_recommendation_attachment_digest'),)

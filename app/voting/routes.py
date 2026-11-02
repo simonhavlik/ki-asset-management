@@ -222,8 +222,71 @@ def settings():
 
 @voting_bp.get('/<int:proposal_id>')
 def detail(proposal_id):
+    from .forms import AttachmentForm
+    from . import storage
+    from ..models import PurchaseRecommendationAttachment as Attachment
     p = db.get_or_404(Proposal,proposal_id)
     votes = Ballot.query.filter_by(recommendation_id=p.id).all()
     events = Event.query.options(joinedload(Event.actor)).filter_by(recommendation_id=p.id).order_by(Event.created_at,Event.id).all()
     return render_template('voting/detail.html',p=p,yes=sum(v.vote for v in votes),no=sum(not v.vote for v in votes),
-                           events=events,is_active=active(p),local_time=local_time)
+                           events=events,is_active=active(p),local_time=local_time,
+                           attachments=Attachment.query.filter_by(recommendation_id=p.id).order_by(Attachment.created_at).all(),
+                           attachment_form=AttachmentForm(),storage_ready=storage.configured(),
+                           attachment_notice=request.args.get('notice')=='attachment_added')
+
+
+@voting_bp.post('/<int:proposal_id>/attachments')
+def attach(proposal_id):
+    from .forms import AttachmentForm
+    from . import storage
+    from ..models import PurchaseRecommendationAttachment as Attachment
+    from sqlalchemy import func
+    form=AttachmentForm()
+    if not form.validate_on_submit():return outcome('attachment_type',400)
+    p=db.get_or_404(Proposal,proposal_id)
+    if p.author_id!=current_user.id and not current_user.is_admin:abort(403)
+    if not storage.configured():return outcome('attachment_unavailable',503)
+    try:metadata=storage.validate_upload(form.file.data)
+    except ValueError as exc:return outcome(str(exc),400)
+    def check_limits():
+        query=Attachment.query.filter_by(recommendation_id=proposal_id)
+        if query.filter_by(sha256=metadata['sha256']).first():return 'attachment_duplicate'
+        count,total=db.session.query(func.count(Attachment.id),func.coalesce(func.sum(Attachment.size_bytes),0)).filter_by(recommendation_id=proposal_id).one()
+        if count>=storage.MAX_FILES or total+metadata['size_bytes']>storage.MAX_PROPOSAL_BYTES:return 'attachment_quota'
+    error=check_limits()
+    if error:return outcome(error,409)
+    db.session.commit()  # do not hold a PostgreSQL connection while uploading
+    key=None
+    try:
+        key=storage.upload(form.file.data,metadata,proposal_id)
+        p=locked_proposal(proposal_id)
+        error=check_limits()  # serialize quota/deduplication across concurrent uploads
+        if error:
+            db.session.rollback();storage.delete_uploaded(key);key=None
+            return outcome(error,409)
+        row=Attachment(recommendation_id=p.id,uploaded_by=current_user.id,object_key=key,
+                       **{name:metadata[name] for name in ('filename','content_type','size_bytes','sha256')})
+        db.session.add(row);db.session.flush()
+        event(p,'attachment_added',attachment_id=row.id,filename=row.filename,size_bytes=row.size_bytes)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        if key:
+            try:storage.delete_uploaded(key)
+            except Exception:
+                from flask import current_app
+                current_app.logger.warning('Could not clean up unattached R2 object')
+        from flask import current_app
+        current_app.logger.exception('Private recommendation attachment upload failed')
+        return outcome('attachment_failed',503)
+    return redirect(url_for('voting.detail',proposal_id=proposal_id,notice='attachment_added'),code=303)
+
+
+@voting_bp.get('/attachments/<int:attachment_id>/download')
+def attachment_download(attachment_id):
+    from . import storage
+    from ..models import PurchaseRecommendationAttachment
+    row=db.get_or_404(PurchaseRecommendationAttachment,attachment_id)
+    if not storage.configured():return outcome('attachment_unavailable',503)
+    try:return redirect(storage.download_url(row),code=302)
+    except Exception:return outcome('attachment_failed',503)

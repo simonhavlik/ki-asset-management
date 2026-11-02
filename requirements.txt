@@ -70,3 +70,6 @@ gunicorn==21.2.0
 # pytest-cov==4.1.0
 # flake8==6.1.0
 # black==23.7.0
+
+# Private attachment object storage (lazy-loaded on upload/download only)
+boto3==1.43.123
