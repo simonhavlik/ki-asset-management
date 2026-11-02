@@ -2,7 +2,7 @@
 {% from 'voting/_labels.html' import label %}
 {% block default_lang %}cs{% endblock %}
 {% block title %}Hlasování – KI AM{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static',filename='css/voting.css',v='20261102b') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static',filename='css/voting.css',v='20261102c') }}">{% endblock %}
 {% block content %}<div class="voting-page">
 <header class="voting-header"><div><span class="voting-kicker">KI AM / <span data-i18n="voting.club">Analyst team</span></span><h1 data-i18n="voting.title">Purchase voting</h1></div><a class="btn btn-sm btn-success" href="#new-proposal" data-i18n="voting.new_short">Propose</a></header><p class="voting-intro" data-i18n="voting.intro">Propose your approved stocks and vote for or against a purchase.</p>
 {% if notice %}<div class="alert alert-success">{{ label(notice) }}</div>{% endif %}

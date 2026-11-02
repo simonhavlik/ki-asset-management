@@ -1,4 +1,5 @@
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileField, FileRequired
 from wtforms import IntegerField, TextAreaField, SelectField
 from wtforms.validators import InputRequired, NumberRange, Length, Optional
 
@@ -23,3 +24,7 @@ class EligibilityForm(FlaskForm):
 
 class WithdrawForm(FlaskForm):
     pass
+
+
+class AttachmentForm(FlaskForm):
+    file = FileField(validators=[FileRequired()])

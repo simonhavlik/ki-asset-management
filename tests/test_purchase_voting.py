@@ -6,7 +6,7 @@ from flask import g
 from app import create_app
 from app.extensions import db
 from app.models import (Analysis, Company, CompanyTickerMapping, User, Vote, PortfolioPurchase, SystemSettings,
-    PurchaseRecommendation as Proposal, PurchaseRecommendationVote as Ballot, PurchaseRecommendationEvent as Event,
+    PurchaseRecommendationAttachment as Attachment, PurchaseRecommendation as Proposal, PurchaseRecommendationVote as Ballot, PurchaseRecommendationEvent as Event,
     analysis_analysts)
 
 
@@ -43,6 +43,7 @@ def voting_case():
         yield app,author,voter,admin,dict(approved=approved,second=second,other_author=other_author,portfolio=portfolio,tie=tie,rejected=rejected,future=future,event=event,opponent=opponent,neutral=neutral)
         aids=[a.id for a in analyses]
         pids=[p.id for p in Proposal.query.filter(Proposal.analysis_id.in_(aids)).all()]
+        Attachment.query.filter(Attachment.recommendation_id.in_(pids)).delete(synchronize_session=False)
         Event.query.filter(Event.recommendation_id.in_(pids)).delete(synchronize_session=False)
         Ballot.query.filter(Ballot.recommendation_id.in_(pids)).delete(synchronize_session=False)
         Proposal.query.filter(Proposal.id.in_(pids)).delete(synchronize_session=False)
@@ -233,3 +234,135 @@ def test_reanalysis_of_same_company_reuses_recommendation(voting_case):
         Vote.query.filter_by(analysis_id=newer.id).delete()
         db.session.execute(analysis_analysts.delete().where(analysis_analysts.c.analysis_id==newer.id))
         db.session.delete(newer);db.session.commit()
+
+
+@pytest.fixture()
+def fake_attachment_storage(monkeypatch):
+    from app.voting import storage
+    class Fake:
+        def __init__(self):self.objects={};self.puts=0;self.signed=0
+        def put_object(self,**kwargs):self.objects[kwargs['Key']]=kwargs['Body'].read();self.puts+=1
+        def delete_object(self,**kwargs):self.objects.pop(kwargs['Key'],None)
+        def generate_presigned_url(self,operation,Params,ExpiresIn):
+            assert operation=='get_object' and ExpiresIn==60
+            assert Params['ResponseContentDisposition'].startswith('attachment;')
+            self.signed+=1
+            return 'https://storage.example.invalid/private-download?temporary=1'
+    fake=Fake();monkeypatch.setattr(storage,'configured',lambda:True)
+    monkeypatch.setattr(storage,'client',lambda:fake);monkeypatch.setattr(storage,'setting',lambda name:'private-test-bucket')
+    return fake
+
+
+def test_attachments_owner_upload_private_download_and_renewal(voting_case,fake_attachment_storage):
+    import io
+    app,author,voter,admin,a=voting_case
+    owner=client_for(app,author);p=create(owner,a['approved'])
+    payload=b'%PDF-1.4\nExample attachment\n%%EOF'
+    def data():return {'file':(io.BytesIO(payload),'../Příloha.pdf')}
+    assert client_for(app,voter).post(f'/voting/{p.id}/attachments',data=data()).status_code==403
+    owner=client_for(app,author)
+    assert owner.post(f'/voting/{p.id}/attachments',data=data()).status_code==303
+    row=Attachment.query.filter_by(recommendation_id=p.id).one()
+    assert row.filename=='Příloha.pdf' and row.size_bytes==len(payload)
+    assert row.content_type=='application/pdf' and row.object_key.startswith(f'purchase-recommendations/{p.id}/')
+    assert len(fake_attachment_storage.objects)==1
+    assert 'Příloha.pdf' in owner.get(f'/voting/{p.id}').get_data(as_text=True)
+    assert owner.post(f'/voting/{p.id}/attachments',data=data()).status_code==409
+    assert fake_attachment_storage.puts==1
+    assert client_for(app).get(f'/voting/attachments/{row.id}/download').status_code in (302,401)
+    # An authenticated voter can download; signing does not proxy the file via Flask.
+    member=client_for(app,voter)
+    response=member.get(f'/voting/attachments/{row.id}/download')
+    assert response.status_code==302 and response.location.startswith('https://storage.example.invalid/')
+    assert fake_attachment_storage.signed==1 and response.headers['Cache-Control']=='no-store'
+    p.expires_at=datetime.utcnow()-timedelta(seconds=1);db.session.commit()
+    owner=client_for(app,author)
+    assert owner.post(f'/voting/{p.id}/renew',data={'days':14}).status_code==303
+    assert Attachment.query.filter_by(recommendation_id=p.id).count()==1
+    assert Event.query.filter_by(recommendation_id=p.id,kind='attachment_added').count()==1
+    from app.voting.service import proposal_rows
+    assert next(r for r in proposal_rows(author.id)[0] if r['proposal'].id==p.id)['attachment_count']==1
+
+
+@pytest.mark.parametrize('name,payload',[
+    ('bad.pdf',b'<html>not a PDF</html>'),('bad.svg',b'<svg/>'),('bad.png',b'not an image'),
+    ('bad.csv',b'\x00binary'),('bad.docx',b'not a zip'),('bad.exe',b'MZ'),('empty.txt',b'')])
+def test_attachment_types_rejected_before_storage(voting_case,fake_attachment_storage,name,payload):
+    import io
+    app,author,voter,admin,a=voting_case
+    owner=client_for(app,author);p=create(owner,a['approved'])
+    assert owner.post(f'/voting/{p.id}/attachments',data={'file':(io.BytesIO(payload),name)}).status_code==400
+    assert not fake_attachment_storage.objects and Attachment.query.filter_by(recommendation_id=p.id).count()==0
+
+
+def test_attachment_limits_outage_and_csrf(voting_case,fake_attachment_storage,monkeypatch):
+    import io
+    from app.voting import storage
+    app,author,voter,admin,a=voting_case
+    owner=client_for(app,author);p=create(owner,a['approved'])
+    monkeypatch.setattr(storage,'MAX_FILE_BYTES',32)
+    assert owner.post(f'/voting/{p.id}/attachments',data={'file':(io.BytesIO(b'%PDF-'+b'a'*40),'large.pdf')}).status_code==400
+    monkeypatch.setattr(storage,'MAX_FILE_BYTES',1024)
+    def data(value=b'one'):return {'file':(io.BytesIO(value),'note.txt')}
+    assert owner.post(f'/voting/{p.id}/attachments',data=data()).status_code==303
+    monkeypatch.setattr(storage,'MAX_FILES',1)
+    assert owner.post(f'/voting/{p.id}/attachments',data=data(b'two')).status_code==409
+    assert fake_attachment_storage.puts==1
+    monkeypatch.setattr(storage,'MAX_FILES',20);monkeypatch.setattr(storage,'MAX_PROPOSAL_BYTES',4)
+    assert owner.post(f'/voting/{p.id}/attachments',data=data(b'two')).status_code==409
+    app.config['WTF_CSRF_ENABLED']=True
+    assert owner.post(f'/voting/{p.id}/attachments',data=data()).status_code==400
+    app.config['WTF_CSRF_ENABLED']=False
+    monkeypatch.setattr(storage,'configured',lambda:False)
+    assert owner.post(f'/voting/{p.id}/attachments',data=data()).status_code==503
+
+
+def test_failed_upload_or_db_commit_does_not_create_attachment(voting_case,fake_attachment_storage,monkeypatch):
+    import io
+    from app.voting import storage
+    app,author,voter,admin,a=voting_case
+    owner=client_for(app,author);p=create(owner,a['approved'])
+    def data():return {'file':(io.BytesIO(b'proof'),'proof.txt')}
+    def fail(*args,**kwargs):raise RuntimeError('Storage unavailable')
+    monkeypatch.setattr(fake_attachment_storage,'put_object',fail)
+    assert owner.post(f'/voting/{p.id}/attachments',data=data()).status_code==503
+    assert Attachment.query.filter_by(recommendation_id=p.id).count()==0
+
+
+@pytest.mark.parametrize('name,payload',[
+    ('screenshot.png',b'\x89PNG\r\n\x1a\nimage'),('photo.jpg',b'\xff\xd8\xffimage'),
+    ('animation.gif',b'GIF89aimage'),('image.webp',b'RIFFabcdWEBPimage'),
+    ('note.txt','Český komentář'.encode()),('table.csv',b'name,value\nA,1')])
+def test_valid_attachment_formats(name,payload):
+    import io
+    from werkzeug.datastructures import FileStorage
+    from app.voting.storage import validate_upload
+    result=validate_upload(FileStorage(stream=io.BytesIO(payload),filename=name))
+    assert result['size_bytes']==len(payload) and result['filename']==name
+
+
+def test_office_attachment_container_validation():
+    import io,zipfile
+    from werkzeug.datastructures import FileStorage
+    from app.voting.storage import validate_upload
+    stream=io.BytesIO()
+    with zipfile.ZipFile(stream,'w') as package:
+        package.writestr('[Content_Types].xml','<Types/>');package.writestr('xl/workbook.xml','<workbook/>')
+    stream.seek(0)
+    assert validate_upload(FileStorage(stream=stream,filename='valuation.xlsx'))['extension']=='.xlsx'
+
+
+def test_failed_db_commit_cleans_up_new_r2_object(voting_case,fake_attachment_storage,monkeypatch):
+    import io
+    app,author,voter,admin,a=voting_case
+    owner=client_for(app,author);p=create(owner,a['approved'])
+    original=db.session.commit;calls=[]
+    def commit():
+        calls.append(True)
+        if len(calls)==2:raise RuntimeError('Example DB save failure')
+        return original()
+    monkeypatch.setattr(db.session,'commit',commit)
+    response=owner.post(f'/voting/{p.id}/attachments',data={'file':(io.BytesIO(b'proof'),'proof.txt')})
+    assert response.status_code==503 and fake_attachment_storage.puts==1
+    assert fake_attachment_storage.objects=={}
+    assert Attachment.query.filter_by(recommendation_id=p.id).count()==0
