@@ -268,6 +268,8 @@ def create_app(config_name=None):
     app.register_blueprint(main_bp)
     app.register_blueprint(presentation_bp, url_prefix='/presentation')
     app.register_blueprint(blog_bp, url_prefix='/blog')
+    from .voting import voting_bp
+    app.register_blueprint(voting_bp, url_prefix='/voting')
 
     # Key-secured server-to-server API (force incremental price refresh).
     # CSRF-exempt: it is authenticated by REFRESH_API_KEY, not a browser session.

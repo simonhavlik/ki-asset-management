@@ -1,0 +1,1 @@
+{% extends 'base.html' %}{% from 'voting/_labels.html' import label %}{% block default_lang %}cs{% endblock %}{% block content %}<div class="container py-4"><div class="alert alert-warning alert-permanent">{{ label(message_key|replace('voting.','')) }}</div><a href="{{ url_for('voting.index') }}" data-i18n="voting.back">← Back to voting</a></div>{% endblock %}
