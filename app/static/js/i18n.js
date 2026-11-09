@@ -34,6 +34,13 @@
 
     var TEXTS = {
     "en": {
+        "team.jan_role": "Analyst",
+        "team.jan_note": "A slower growth scenario helps us see how much optimism is already reflected in the share price. It is a useful check before the team decides whether to invest.",
+        "team.editorial_note": "From the team",
+        "team.jiri_role": "Analyst",
+        "team.jiri_note": "When we value a company, we spell out the assumptions behind the numbers. The next set of results gives us a chance to see which ones still hold.",
+        "team.barbora_role": "Analyst",
+        "team.barbora_note": "Discussing an investment idea together helps us see which conclusions are well supported and where we still need information. That gives the team specific questions to look into before a vote.",
         "overview.club": "Club portfolio",
         "overview.title": "Portfolio overview",
         "overview.intro": "Portfolio returns, sector results and analyst rankings.",
@@ -1165,6 +1172,13 @@
         "polish.collected": "Retrieved"
     },
     "cs": {
+        "team.jan_role": "Analytik",
+        "team.jan_note": "Scénář pomalejšího růstu nám pomáhá zjistit, jak vysoká očekávání se už promítají do ceny akcie. Je to užitečná kontrola před rozhodnutím o nákupu.",
+        "team.editorial_note": "Poznámka týmu",
+        "team.jiri_role": "Analytik",
+        "team.jiri_note": "Při ocenění firmy si ujasňujeme, na kterých předpokladech stojí naše čísla. Až vyjdou další výsledky, můžeme ověřit, které z nich ještě platí.",
+        "team.barbora_role": "Analytička",
+        "team.barbora_note": "Při společné diskusi se ukáže, které závěry jsou dobře podložené a kde ještě chybějí informace. Před hlasováním tak víme, co má smysl dál prověřit.",
         "overview.club": "Portfolio klubu",
         "overview.title": "Přehled portfolia",
         "overview.intro": "Výkonnost portfolia, výsledky sektorů a žebříčky analytiků.",

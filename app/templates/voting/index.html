@@ -2,7 +2,7 @@
 {% from 'voting/_labels.html' import label %}
 {% block default_lang %}cs{% endblock %}
 {% block title %}Hlasování – KI AM{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static',filename='css/voting.css',v='20261109b') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static',filename='css/voting.css',v='20261109d') }}">{% endblock %}
 {% block content %}<div class="voting-page">
 <header class="voting-header"><div><span class="voting-kicker">KI AM / <span data-i18n="voting.club">Analyst team</span></span><h1 data-i18n="voting.title">Purchase voting</h1></div><a class="btn btn-sm btn-success" href="#new-proposal" data-i18n="voting.new_short">Propose</a></header><p class="voting-intro" data-i18n="voting.intro">Propose eligible stocks and vote for or against a purchase.</p>
 {% if notice %}<div class="alert alert-success">{{ label(notice) }}</div>{% endif %}
@@ -14,7 +14,7 @@
   <table class="voting-approved">
     <thead><tr>
       <th data-i18n="voting.company">Company</th>
-      <th data-i18n="voting.analysis_date">Analysis date</th>
+      <th scope="col"><button type="button" data-sort-analysis-date data-i18n="voting.analysis_date">Analysis date</button></th>
       <th data-i18n="voting.team_tally">Everyone for / against</th>
       <th data-i18n="voting.board_result">Board for / against</th>
       <th data-i18n="voting.proposal_action">Proposal</th>
@@ -24,7 +24,7 @@
       {% set tally = analyst_tallies[analysis.id] %}
       <tr>
         <td>{{ analysis.company.name }} <small>{{ analysis.company.ticker_symbol or '—' }}</small></td>
-        <td>{{ analysis.analysis_date.strftime('%d.%m.%Y') }}</td>
+        <td><time datetime="{{ analysis.analysis_date.isoformat() }}">{{ analysis.analysis_date.strftime('%d.%m.%Y') }}</time></td>
         <td>{% if tally is not none %}<strong class="yes">{{ tally[0] }}</strong> / <strong class="no">{{ tally[1] }}</strong>{% else %}—{% endif %}</td>
         <td>{{ yes }} / {{ no }}</td>
         <td>{% if analysis.id in proposable %}
@@ -43,4 +43,4 @@
 {% if not can_propose %}<p data-i18n="voting.no_owned">There are no eligible analyses you can propose right now.</p>{% endif %}
 <form method="post" action="{{ url_for('voting.propose') }}" enctype="multipart/form-data">{{ create_form.csrf_token }}<label><span data-i18n="voting.proposal_analysis">Analysis for the proposal</span><select name="analysis_id" id="proposal-analysis" required><option value="" data-i18n="voting.choose">Choose an analysis</option>{% for a,yes,no in approved %}{% if a.id in proposable and a.id not in active_owned %}<option value="{{ a.id }}">{{ a.company.name }} · {{ a.analysis_date.strftime('%d.%m.%Y') }}</option>{% endif %}{% endfor %}</select></label><label><span data-i18n="voting.days">Validity in days</span><input type="number" name="days" min="7" max="30" value="14" required></label><label class="voting-rationale"><span data-i18n="voting.rationale">Reason for buying now (optional)</span><textarea name="rationale" maxlength="2000" rows="2"></textarea></label><label class="voting-file"><span data-i18n="voting.proposal_attachment">Attachment (optional)</span><input type="file" name="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.xlsx,.docx,.pptx,.csv,.txt"><small data-i18n="voting.proposal_attachment_help">PDF, screenshot, Office document, CSV or TXT · up to 20 MB. More files can be added in the proposal detail.</small></label><button class="btn btn-success btn-sm" {% if not can_propose %}disabled{% endif %} data-i18n="voting.publish">Publish or renew proposal</button></form></details>
 {% if can_administer %}<details class="voting-settings"><summary data-i18n="voting.settings">Administrator settings</summary><form method="post" action="{{ url_for('voting.settings') }}">{{ csrf_form.csrf_token }}<label><span data-i18n="voting.condition">Condition for new proposals</span><select name="mode"><option value="board" {% if mode=='board' %}selected{% endif %} data-i18n="voting.board_option">Board approval (for &gt; against)</option><option value="approved" {% if mode=='approved' %}selected{% endif %} data-i18n="voting.approved_option">Approved analyses (watchlist / portfolio)</option></select></label><button class="btn btn-sm btn-outline-success" data-i18n="voting.save">Save condition</button></form><p data-i18n="voting.settings_help">Applies to new proposals. Existing windows and their votes remain unchanged.</p></details>{% endif %}
-</div><script defer src="{{ url_for('static',filename='js/voting.js',v='20261109b') }}"></script>{% endblock %}
+</div><script defer src="{{ url_for('static',filename='js/voting.js',v='20261109d') }}"></script>{% endblock %}
