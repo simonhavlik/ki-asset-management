@@ -1049,7 +1049,7 @@ def overview():
     - incremental: Realistic portfolio simulation with rebalancing
     - equal: Simple equal-weighted average
     """
-    from ..utils.overview_cache import get_cache_status, get_overview_cache_any
+    from ..utils.overview_cache import get_overview_cache_any
 
     # Get filter and method from request
     current_filter = request.args.get('filter', 'board_approved')
@@ -1091,9 +1091,6 @@ def overview():
         positive_ratio = 0
         total_with_perf = 0
         from_cache = False
-    # Get cache status for admin
-    cache_status = get_cache_status() if current_user.is_admin else None
-    
     # Show cache age info (but never auto-refresh)
     needs_refresh = cache_age_days is not None  # Just informational now
     
@@ -1137,7 +1134,7 @@ def overview():
                            club_alpha=club_alpha,
                            refreshing=False,
                            from_cache=from_cache,
-                           cache_status=cache_status,
+                           cache_age_days=cache_age_days,
                            needs_refresh=needs_refresh,
                            scoring=scoring,
                            scoring_key=scoring_key,
