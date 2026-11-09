@@ -233,10 +233,23 @@ class PortfolioPurchase(db.Model):
     analysis = db.relationship('Analysis', backref='portfolio_purchases')
     user = db.relationship('User', backref='portfolio_purchases')
 
+    costs = db.relationship('PortfolioPurchaseCosts', uselist=False, cascade='all, delete-orphan')
+
     __table_args__ = (db.UniqueConstraint('analysis_id', name='unique_purchase_per_analysis'),)
 
     def __repr__(self):
         return f'<PortfolioPurchase {self.analysis_id} {self.purchase_date}>'
+
+
+class PortfolioPurchaseCosts(db.Model):
+    """Recorded acquisition amounts, independent of market price snapshots."""
+
+    __tablename__ = 'portfolio_purchase_costs'
+    purchase_id = db.Column(db.Integer, db.ForeignKey('portfolio_purchases.id'), primary_key=True)
+    unit_price = db.Column(db.Numeric(18, 6))
+    price_currency = db.Column(db.String(3))
+    ancillary_costs = db.Column(db.Numeric(18, 6))
+    costs_currency = db.Column(db.String(3))
 
 
 class BenchmarkPrice(db.Model):

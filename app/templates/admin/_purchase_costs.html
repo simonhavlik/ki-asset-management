@@ -1,0 +1,57 @@
+{% macro amount(value) %}{{ ('%f'|format(value)).rstrip('0').rstrip('.') if value is not none else '' }}{% endmacro %}
+<section class="results-leaderboard" id="purchased-positions">
+  <div class="results-section-head">
+    <div>
+      <h2 data-i18n="board.public_purchased">Purchased positions</h2>
+      <p data-i18n="board.costs_help">Enter the broker’s price per share and total ancillary costs for each purchase. Use the currency shown on the confirmation.</p>
+    </div>
+    <span class="results-coverage">{{ purchases|length }}</span>
+  </div>
+  {% if costs_notice == 'saved' %}
+  <p class="board-notice positive" role="status" data-i18n="board.costs_saved">Purchase costs saved.</p>
+  {% elif costs_notice == 'invalid' %}
+  <p class="board-notice negative" role="alert" data-i18n="board.costs_invalid">Enter a positive price or nonnegative costs, each with a three-letter currency code.</p>
+  {% endif %}
+  <div class="results-table-scroll">
+    <table class="results-table board-costs">
+      <thead><tr>
+        <th data-i18n="results.company">Company</th>
+        <th class="board-cost-date" data-i18n="board.purchase_date">Purchase date</th>
+        <th data-i18n="board.unit_price">Purchase price per share</th>
+        <th data-i18n="board.ancillary_costs">Ancillary acquisition costs</th>
+        <th data-i18n="board.actions">Actions</th>
+      </tr></thead>
+      <tbody>
+      {% for purchase in purchases %}
+        {% set costs = purchase.costs %}
+        {% set quote = purchase_quotes.get(purchase.analysis.company_id) %}
+        <tr id="purchase-{{ purchase.id }}">
+          <th>
+            {{ purchase.analysis.company.name }} <small class="board-symbol">{{ purchase.analysis.company.ticker_symbol or '' }}</small>
+            <small class="board-cost-mobile-date">{{ purchase.purchase_date.strftime('%d.%m.%Y') }}</small>
+            {% if quote %}<small class="board-cost-quote"><span data-i18n="board.latest_quote">Last saved price</span> {{ quote['values']['regularMarketPrice'] }} · {{ quote.cached_at.strftime('%d.%m.') }}</small>{% endif %}
+          </th>
+          <td class="board-cost-date">{{ purchase.purchase_date.strftime('%d.%m.%Y') }}</td>
+          <td>{% if costs and costs.unit_price is not none %}{{ amount(costs.unit_price) }} {{ costs.price_currency }}{% else %}—{% endif %}</td>
+          <td>{% if costs and costs.ancillary_costs is not none %}{{ amount(costs.ancillary_costs) }} {{ costs.costs_currency }}{% else %}—{% endif %}</td>
+          <td><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#purchase-costs-{{ purchase.id }}" aria-expanded="false" aria-controls="purchase-costs-{{ purchase.id }}" data-i18n="board.edit_costs">Edit costs</button></td>
+        </tr>
+        <tr class="collapse board-cost-editor" id="purchase-costs-{{ purchase.id }}">
+          <td colspan="5">
+            <form class="board-cost-form" method="post" action="{{ url_for('admin.update_purchase_costs', purchase_id=purchase.id) }}">
+              {% if costs_form.csrf_token is defined %}{{ costs_form.csrf_token(id='costs-csrf-' ~ purchase.id) }}{% endif %}
+              <label><span data-i18n="board.unit_price">Purchase price per share</span><input class="form-control form-control-sm" name="unit_price" inputmode="decimal" maxlength="19" value="{{ amount(costs.unit_price if costs else none) }}"></label>
+              <label><span data-i18n="board.currency">Currency</span><input class="form-control form-control-sm" name="price_currency" maxlength="3" value="{{ costs.price_currency or '' if costs else '' }}" placeholder="USD"></label>
+              <label><span data-i18n="board.ancillary_costs">Ancillary acquisition costs</span><input class="form-control form-control-sm" name="ancillary_costs" inputmode="decimal" maxlength="19" value="{{ amount(costs.ancillary_costs if costs else none) }}"></label>
+              <label><span data-i18n="board.currency">Currency</span><input class="form-control form-control-sm" name="costs_currency" maxlength="3" value="{{ costs.costs_currency or '' if costs else '' }}" placeholder="CZK"></label>
+              <button class="btn btn-sm btn-success" data-i18n="board.save_costs">Save costs</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" data-i18n="board.no_purchases">No purchases have been recorded.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>

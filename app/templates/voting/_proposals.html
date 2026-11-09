@@ -6,6 +6,9 @@
   <div class="ballot-actions">
   {% if not history %}<form method="post" action="{{ url_for('voting.vote',proposal_id=p.id) }}">{{ csrf_form.csrf_token }}<button name="vote" value="yes" class="{{ 'selected yes' if row.mine is sameas true else '' }}" aria-pressed="{{ 'true' if row.mine is sameas true else 'false' }}" data-i18n="voting.for_purchase">For purchase</button><button name="vote" value="no" class="{{ 'selected no' if row.mine is sameas false else '' }}" aria-pressed="{{ 'true' if row.mine is sameas false else 'false' }}" data-i18n="voting.against_purchase">Against purchase</button>{% if row.mine is not none %}<button name="vote" value="remove" class="ballot-remove" data-i18n="voting.remove_vote">Remove my vote</button>{% endif %}</form>{% endif %}
   {% if history and p.author_id==current_user.id %}<form method="post" action="{{ url_for('voting.renew',proposal_id=p.id) }}">{{ csrf_form.csrf_token }}<input type="number" name="days" min="7" max="30" value="14" required aria-label="Validity in days" data-i18n-aria-label="voting.days" class="ballot-renew-days"><button data-i18n="voting.renew">Renew recommendation</button></form>{% endif %}
+  {% if not history and (p.author_id==current_user.id or can_administer) %}
+  <a class="ballot-detail-link" href="{{ url_for('voting.detail',proposal_id=p.id,edit='1',_anchor='edit-proposal') }}" data-i18n="voting.edit_text">Edit proposal text</a>
+  {% endif %}
   {% if row.attachment_count %}<a class="ballot-detail-link" href="{{ url_for('voting.detail',proposal_id=p.id) }}#attachments"><i class="bi bi-paperclip" aria-hidden="true"></i> {{ row.attachment_count }} <span data-i18n="voting.attachments">Attachments</span></a>{% endif %}
   <a class="ballot-detail-link" href="{{ url_for('voting.detail',proposal_id=p.id) }}" data-i18n="voting.detail">Details and history</a>
   </div>

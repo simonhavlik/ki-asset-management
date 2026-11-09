@@ -6,13 +6,13 @@
 {% set _cid = chart_id if chart_id is defined else 'analystPerfChart' %}
 <div class="term-panel">
     <div class="term-bar">
-        <span class="term-dots"><i></i><i></i><i></i></span>
-        <span class="term-title">PERFORMANCE TERMINAL</span>
+        {% if not light_terminal %}<span class="term-dots"><i></i><i></i><i></i></span>{% endif %}
+        <span class="term-title" data-i18n="desk.portfolio">Personal portfolio</span>
         <span class="term-sym">{{ primary_index.ticker }}</span>
-        <span class="term-chg {{ 'up' if (benchmark_comparison.primary_diff or 0) >= 0 else 'down' }}">
+        {% if benchmark_comparison.primary_diff is not none %}<span class="term-chg {{ 'up' if (benchmark_comparison.primary_diff or 0) >= 0 else 'down' }}">
             {{ '▲' if (benchmark_comparison.primary_diff or 0) >= 0 else '▼' }}
             {{ "%+.1f"|format(benchmark_comparison.primary_diff or 0) }}%
-        </span>
+        </span>{% endif %}
     </div>
 
     <div class="term-kpis">
@@ -36,7 +36,7 @@
         </div>
         <div class="term-kpi">
             <span class="term-kpi-label">Rank</span>
-            <span class="term-kpi-value">#{{ analyst_rank }}<small>/{{ total_analysts }}</small></span>
+            <span class="term-kpi-value">{% if analyst_rank and total_analysts %}#{{ analyst_rank }}<small>/{{ total_analysts }}</small>{% else %}—{% endif %}</span>
         </div>
         <div class="term-kpi">
             <span class="term-kpi-label">Win rate</span>
@@ -64,12 +64,12 @@
     </div>
     {% endif %}
 
-    <div class="term-note">
+    {% if primary_index.total %}<div class="term-note">
         <i class="bi bi-info-circle"></i>
         Closest index for your coverage: <strong>{{ primary_index.label }}</strong>
         ({{ primary_index.matched }}/{{ primary_index.total }} covered tickers classified as {{ primary_index.region }}).
         S&amp;P 500 shown for reference — not a substitute.
-    </div>
+    </div>{% endif %}
 </div>
 
 {% if performance_chart %}
@@ -90,7 +90,7 @@
                 labels: data.dates,
                 datasets: [
                     { label: 'Your portfolio', data: data.portfolio, borderColor: '#2cce7e', backgroundColor: 'rgba(44,206,126,0.12)', borderWidth: 2.5, fill: true, tension: 0.35, pointRadius: 0 },
-                    { label: '{{ performance_chart.primary_label }}', data: data.primary, borderColor: '#d4a520', backgroundColor: 'transparent', borderWidth: 2, borderDash: [6, 4], tension: 0.35, pointRadius: 0 },
+                    { label: {{ performance_chart.primary_label|tojson }}, data: data.primary, borderColor: '#d4a520', backgroundColor: 'transparent', borderWidth: 2, borderDash: [6, 4], tension: 0.35, pointRadius: 0 },
                     { label: 'S&P 500', data: data.spy, borderColor: '#6b7682', backgroundColor: 'transparent', borderWidth: 1.5, tension: 0.35, pointRadius: 0 }
                 ]
             },
@@ -99,12 +99,12 @@
                 maintainAspectRatio: false,
                 interaction: { mode: 'index', intersect: false },
                 plugins: {
-                    legend: { labels: { color: '#c5cdd4', boxWidth: 12 } },
+                    legend: { labels: { color: {{ ('#526e60' if light_terminal else '#c5cdd4')|tojson }}, boxWidth: 12 } },
                     tooltip: { callbacks: { label: function (c) { return c.dataset.label + ': ' + (c.parsed.y >= 0 ? '+' : '') + c.parsed.y.toFixed(1) + '%'; } } }
                 },
                 scales: {
-                    x: { ticks: { color: '#6b7682', maxTicksLimit: 6 }, grid: { color: 'rgba(255,255,255,0.05)' } },
-                    y: { ticks: { color: '#6b7682', callback: function (v) { return v + '%'; } }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                    x: { ticks: { color: '#6b7682', maxTicksLimit: 6 }, grid: { color: {{ ('#e5ede7' if light_terminal else 'rgba(255,255,255,0.05)')|tojson }} } },
+                    y: { ticks: { color: '#6b7682', callback: function (v) { return v + '%'; } }, grid: { color: {{ ('#e5ede7' if light_terminal else 'rgba(255,255,255,0.05)')|tojson }} } }
                 }
             }
         });

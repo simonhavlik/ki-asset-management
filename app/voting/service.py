@@ -1,4 +1,5 @@
 """Time-windowed purchase ballots. No pricing, trades or Board-vote writes."""
+import re
 from datetime import datetime, date
 from zoneinfo import ZoneInfo
 from sqlalchemy import case, func
@@ -34,6 +35,19 @@ def eligible_analyses(mode=None, author_id=None):
         query = query.join(analysis_analysts, analysis_analysts.c.analysis_id == Analysis.id).filter(
             analysis_analysts.c.user_id == author_id, analysis_analysts.c.role == 'analyst')
     return query.options(joinedload(Analysis.company)).order_by(Company.name, Analysis.analysis_date.desc()).all()
+
+
+def analyst_vote_counts(comment):
+    """Read the club tally imported from Notion: for, neutral, against, absent."""
+    text = (comment or '').strip()
+    current = re.fullmatch(r'(\d+)\s*[-–]\s*\d+\s*[-–]\s*(\d+)\s*[-–]\s*\d+', text)
+    if current:
+        return int(current[1]), int(current[2])
+    older = re.fullmatch(
+        r'(\d+)\s+pro\s*[-–]\s*\d+\s+neu(?:trálně)?\s*[-–]\s*(\d+)\s+proti',
+        text, re.IGNORECASE,
+    )
+    return (int(older[1]), int(older[2])) if older else None
 
 
 def active(proposal, now=None):

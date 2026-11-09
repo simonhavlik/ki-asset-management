@@ -8,12 +8,15 @@ import csv
 import logging
 import secrets
 from datetime import datetime, date, timedelta
+from decimal import Decimal
 from sqlalchemy import desc, func
+from sqlalchemy.orm import joinedload, selectinload
 
 from ..extensions import db
-from ..models import User, ActivityLog, CsvUpload, Analysis, Company, PerformanceCalculation, AnalystMapping, CompanyTickerMapping, Vote, PortfolioPurchase, Idea, IdeaComment, BenchmarkPrice, StockPrice, analysis_analysts, CompanySectorCache, SystemSettings
-from .forms import UserEditForm, CreateUserForm, CsvUploadForm, AnalystMappingForm, CompanyTickerForm, SitePartnersForm, PublicPortfolioForm, MaintenanceScheduleForm
+from ..models import User, ActivityLog, CsvUpload, Analysis, Company, PerformanceCalculation, AnalystMapping, CompanyTickerMapping, Vote, PortfolioPurchase, PortfolioPurchaseCosts, Idea, IdeaComment, BenchmarkPrice, StockPrice, analysis_analysts, CompanySectorCache, SystemSettings
+from .forms import UserEditForm, CreateUserForm, CsvUploadForm, AnalystMappingForm, CompanyTickerForm, SitePartnersForm, PublicPortfolioForm, MaintenanceScheduleForm, PortfolioCostsForm
 from ..utils.site_content import get_partners, get_public_portfolio_mode
+from ..utils.company_fundamentals import fundamentals_context
 from ..utils.csv_import import CsvImporter
 from ..utils.performance import PerformanceCalculator, get_vote_counts_for_analyses
 from ..utils.email_normalization import normalize_email
@@ -653,7 +656,6 @@ def performance():
     total_analyses = sum(p['num_analyses'] for p in analyst_performance)
     avg_returns = [p['avg_return'] for p in analyst_performance if p['avg_return'] is not None]
     overall_avg = sum(avg_returns) / len(avg_returns) if avg_returns else None
-    from ..utils.company_fundamentals import fundamentals_context
     companies = [company for analysis, perf, company in
                  calculator.get_analyst_analysis_performance(None, filter_param)]
     return render_template('admin/performance.html', 
@@ -1081,20 +1083,36 @@ def board():
     """Board voting interface for portfolio decisions."""
     # Get analyses ready for Board vote (On Watchlist status)
     # Exclude analyses for companies marked as Other events
-    analyses = Analysis.query.filter_by(status='On Watchlist').\
-        join(Company, Analysis.company_id == Company.id).\
-        outerjoin(CompanyTickerMapping, Company.name == CompanyTickerMapping.company_name).\
-        filter(
-            (CompanyTickerMapping.is_other_event.is_(None)) | (CompanyTickerMapping.is_other_event == False)
-        ).\
-        order_by(Analysis.analysis_date.desc()).all()
-    
-    # Get current user's votes (as a set of analysis IDs that user has voted on)
-    user_votes = {v.analysis_id for v in Vote.query.filter_by(user_id=current_user.id).all()}
+    analyses = (Analysis.query.filter_by(status='On Watchlist')
+                .join(Company, Analysis.company_id == Company.id)
+                .outerjoin(CompanyTickerMapping, Company.name == CompanyTickerMapping.company_name)
+                .filter(CompanyTickerMapping.is_other_event.is_not(True))
+                .options(joinedload(Analysis.company), selectinload(Analysis.votes))
+                .order_by(Analysis.analysis_date.desc()).all())
+
+    analysis_ids = [analysis.id for analysis in analyses]
+    analyst_names = {}
+    if analysis_ids:
+        assignments = (db.session.query(analysis_analysts.c.analysis_id, User.full_name, User.email)
+                       .join(User, User.id == analysis_analysts.c.user_id)
+                       .filter(analysis_analysts.c.analysis_id.in_(analysis_ids))
+                       .distinct().order_by(User.full_name, User.email))
+        for analysis_id, full_name, email in assignments:
+            analyst_names.setdefault(analysis_id, []).append(full_name or email)
+    user_votes = {analysis.id for analysis in analyses
+                  if any(vote.user_id == current_user.id for vote in analysis.votes)}
     
     # Get portfolio purchases
-    purchases = PortfolioPurchase.query.order_by(PortfolioPurchase.purchase_date.desc()).all()
+    purchases = PortfolioPurchase.query.options(
+        joinedload(PortfolioPurchase.analysis).joinedload(Analysis.company),
+        joinedload(PortfolioPurchase.costs),
+    ).order_by(PortfolioPurchase.purchase_date.desc(), PortfolioPurchase.id.desc()).all()
     purchased_ids = {p.analysis_id for p in purchases}
+    purchase_quotes = {
+        item['company'].id: item
+        for item in fundamentals_context([p.analysis.company for p in purchases])['fundamentals']
+        if item['numeric']['regularMarketPrice'] is not None
+    }
     
     # Use cached portfolio calculations for better performance
     from ..utils.neon_cache import (
@@ -1156,8 +1174,11 @@ def board():
     return render_template('admin/board.html',
                          analyses=analyses,
                          user_votes=user_votes,
+                         analyst_names=analyst_names,
                          purchases=purchases,
                          purchased_ids=purchased_ids,
+                         purchase_by_analysis={p.analysis_id: p for p in purchases},
+                         purchase_quotes=purchase_quotes,
                          portfolio_performance=portfolio_performance,
                          portfolio_series_all=portfolio_series_all,
                          portfolio_series_1y=portfolio_series_1y,
@@ -1165,6 +1186,8 @@ def board():
                          purchased_series_all=purchased_series_all,
                          purchased_series_1y=purchased_series_1y,
                          last_recalc=last_recalc,
+                         costs_form=PortfolioCostsForm(),
+                         costs_notice=request.args.get('costs'),
                          public_portfolio_form=PublicPortfolioForm(mode=get_public_portfolio_mode()))
 
 
@@ -1261,6 +1284,34 @@ def update_purchase_date(analysis_id):
             db.session.commit()
             flash('Purchase date updated.', 'success')
     return redirect(url_for('admin.board'))
+
+
+@admin_bp.post('/board/purchases/<int:purchase_id>/costs')
+@admin_required
+def update_purchase_costs(purchase_id):
+    """Record broker amounts for an existing position without touching performance data."""
+    purchase = PortfolioPurchase.query.filter_by(id=purchase_id).with_for_update().first_or_404()
+    form = PortfolioCostsForm()
+    target = {'_anchor': f'purchase-{purchase_id}'}
+    if not form.validate_on_submit():
+        return redirect(url_for('admin.board', costs='invalid', **target), code=303)
+    unit_price = Decimal(form.unit_price.data.replace(',', '.')) if form.unit_price.data else None
+    ancillary = Decimal(form.ancillary_costs.data.replace(',', '.')) if form.ancillary_costs.data else None
+    price_currency = form.price_currency.data or None
+    costs_currency = form.costs_currency.data or None
+    if ((unit_price is None) != (price_currency is None)
+            or (ancillary is None) != (costs_currency is None)
+            or unit_price == 0):
+        return redirect(url_for('admin.board', costs='invalid', **target), code=303)
+
+    costs = purchase.costs
+    if costs is None:
+        costs = PortfolioPurchaseCosts()
+        purchase.costs = costs
+    costs.unit_price, costs.price_currency = unit_price, price_currency
+    costs.ancillary_costs, costs.costs_currency = ancillary, costs_currency
+    db.session.commit()
+    return redirect(url_for('admin.board', costs='saved', **target), code=303)
 
 
 @admin_bp.route('/board/remove/<int:analysis_id>', methods=['POST'])
@@ -1379,7 +1430,6 @@ def analyst_details(analyst_id):
     analyses_chart_data = [dict(label=company.name, return_pct=analysis_returns[analysis.id],
                                 date=analysis.analysis_date.isoformat())
                            for analysis, perf, company in analyses_with_perf]
-    from ..utils.company_fundamentals import fundamentals_context
     
     # Build analyst dict matching template expectations
     analyst_dict = {
@@ -1423,7 +1473,6 @@ def analyst_details(analyst_id):
 @login_required
 def company_fundamentals(company_id):
     """On-demand detail from the central snapshot; never a provider request."""
-    from ..utils.company_fundamentals import fundamentals_context
     company = db.get_or_404(Company, company_id)
     context = fundamentals_context([company])
     return render_template('admin/_fundamentals_detail.html',

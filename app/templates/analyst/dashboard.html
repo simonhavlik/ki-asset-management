@@ -1,338 +1,123 @@
-{% extends "base.html" %}
-
-{% block title %}Analyst Dashboard – KI Asset Management{% endblock %}
-
-{% block content %}
-<div class="container-fluid">
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="mb-1"><i class="bi bi-speedometer2"></i> {% if current_user.is_admin and not session.get('admin_view_as_user') %}Admin & Analyst{% else %}Analyst{% endif %} Dashboard</h1>
-            <p class="text-muted mb-0">Welcome back, {{ current_user.full_name or current_user.email.split('@')[0] }}</p>
-        </div>
-        <div class="d-flex gap-2">
-            {% if current_user.is_admin and not session.get('admin_view_as_user') %}
-            <a href="{{ url_for('admin.users') }}" class="btn btn-outline-dark">
-                <i class="bi bi-shield-lock"></i> User Management
-            </a>
-            {% endif %}
-            <a href="https://meet.google.com/new" target="_blank" class="btn btn-outline-success">
-                <i class="bi bi-camera-video"></i> Start Meeting
-            </a>
-            <a href="{{ url_for('admin.analyst_details', analyst_id=current_user.id) }}" class="btn btn-outline-primary">
-                <i class="bi bi-bar-chart"></i> Detailed Performance
-            </a>
-        </div>
-    </div>
-
-    {% if current_user.is_admin and admin_stats and not session.get('admin_view_as_user') %}
-    <!-- Admin Section -->
-    <div class="card mb-4 border-dark">
-        <div class="card-header bg-dark text-white">
-            <h5 class="mb-0"><i class="bi bi-shield-lock"></i> Admin Overview</h5>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-2 mb-3">
-                    <div class="text-center">
-                        <h3 class="text-primary">{{ admin_stats.total_users }}</h3>
-                        <small class="text-muted">Total Users</small>
-                    </div>
-                </div>
-                <div class="col-md-2 mb-3">
-                    <div class="text-center">
-                        <h3 class="text-success">{{ admin_stats.active_users }}</h3>
-                        <small class="text-muted">Active Users</small>
-                    </div>
-                </div>
-                <div class="col-md-2 mb-3">
-                    <div class="text-center">
-                        <h3 class="text-info">{{ admin_stats.total_analyses }}</h3>
-                        <small class="text-muted">Total Analyses</small>
-                    </div>
-                </div>
-                <div class="col-md-2 mb-3">
-                    <div class="text-center">
-                        <h3 class="text-warning">{{ admin_stats.approved_analyses }}</h3>
-                        <small class="text-muted">Approved</small>
-                    </div>
-                </div>
-                <div class="col-md-2 mb-3">
-                    <div class="text-center">
-                        <h3 class="text-secondary">{{ admin_stats.total_companies }}</h3>
-                        <small class="text-muted">Companies</small>
-                    </div>
-                </div>
-                <div class="col-md-2 mb-3">
-                    <div class="text-center">
-                        <h3 class="text-dark">{{ admin_stats.csv_uploads }}</h3>
-                        <small class="text-muted">CSV Uploads</small>
-                    </div>
-                </div>
-            </div>
-            <div class="mt-3">
-                <a href="{{ url_for('admin.users') }}" class="btn btn-sm btn-outline-primary">Users</a>
-                <a href="{{ url_for('admin.upload_csv') }}" class="btn btn-sm btn-outline-primary">Upload CSV</a>
-                <a href="{{ url_for('admin.performance') }}" class="btn btn-sm btn-outline-primary">Performance</a>
-                <a href="{{ url_for('admin.board') }}" class="btn btn-sm btn-outline-primary">Board</a>
-                <a href="{{ url_for('presentation.index') }}" class="btn btn-sm btn-outline-success">
-                    <i class="bi bi-easel"></i> Presentations
-                </a>
-                <a href="{{ url_for('admin.debug_performance') }}" class="btn btn-sm btn-outline-warning">Debug Data</a>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Key figures (compact) -->
-    <div class="stat-strip mb-4">
-        <div class="stat-cell">
-            <span class="stat-cell-label">Analyses</span>
-            <span class="stat-cell-value">{{ total_analyses }}</span>
-        </div>
-        <div class="stat-cell">
-            <span class="stat-cell-label">Approved</span>
-            <span class="stat-cell-value up">{{ approved_analyses }}</span>
-        </div>
-        <div class="stat-cell">
-            <span class="stat-cell-label">Avg return</span>
-            <span class="stat-cell-value {{ 'up' if (performance.avg_return or 0) >= 0 else 'down' }}">
-                {% if performance.avg_return is not none %}{{ "%.1f"|format(performance.avg_return) }}%{% else %}—{% endif %}
-            </span>
-        </div>
-        <div class="stat-cell">
-            <span class="stat-cell-label">Win rate</span>
-            <span class="stat-cell-value">{% if performance.win_rate is not none %}{{ "%.0f"|format(performance.win_rate) }}%{% else %}—{% endif %}</span>
-        </div>
-    </div>
-
-    <div class="row">
-        <!-- Left Column -->
-        <div class="col-lg-8">
-            {# Shared terminal panel - same design as /performance #}
-            {% include 'analyst/_terminal.html' %}
-
-            <!-- Club context (compact) -->
-            <div class="club-panel mb-4">
-                <div class="club-panel-head"><i class="bi bi-people-fill"></i> Club</div>
-                <div class="stat-strip" style="border:0;border-radius:0;">
-                    <div class="stat-cell">
-                        <span class="stat-cell-label">Active analysts</span>
-                        <span class="stat-cell-value">{{ club.members }}</span>
-                    </div>
-                    <div class="stat-cell">
-                        <span class="stat-cell-label">Analyses</span>
-                        <span class="stat-cell-value">{{ club.analyses }}</span>
-                    </div>
-                    <div class="stat-cell">
-                        <span class="stat-cell-label">Board approved</span>
-                        <span class="stat-cell-value up">{{ club.approved }}</span>
-                    </div>
-                    <div class="stat-cell">
-                        <span class="stat-cell-label">Companies</span>
-                        <span class="stat-cell-value">{{ club.companies }}</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Stock Impact Analysis -->
-            {% if stock_impacts %}
-            <div class="stock-impact-card mb-4">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Stock Impact on Your Portfolio</h5>
-                    <small class="text-muted">Click a stock to isolate impact</small>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Stock</th>
-                                <th class="text-end">Return</th>
-                                <th class="text-end">Weight</th>
-                                <th class="text-end">Contribution</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for stock in stock_impacts %}
-                            <tr class="stock-row" data-ticker="{{ stock.ticker }}" style="cursor: pointer;">
-                                <td>
-                                    <strong>{{ stock.name }}</strong>
-                                    <span class="text-muted">({{ stock.ticker }})</span>
-                                </td>
-                                <td class="text-end">
-                                    <span class="{% if stock.return_pct > 0 %}text-success{% elif stock.return_pct < 0 %}text-danger{% endif %}">
-                                        {{ "%.1f"|format(stock.return_pct) }}%
-                                    </span>
-                                </td>
-                                <td class="text-end">{{ "%.1f"|format(stock.weight * 100) }}%</td>
-                                <td class="text-end">
-                                    <span class="fw-bold {% if stock.contribution > 0 %}text-success{% elif stock.contribution < 0 %}text-danger{% endif %}">
-                                        {{ "+%.2f"|format(stock.contribution) if stock.contribution > 0 else "%.2f"|format(stock.contribution) }}%
-                                    </span>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                <div class="alert alert-light border mt-3 mb-0">
-                    <small class="text-muted">
-                        <i class="bi bi-info-circle"></i> 
-                        <strong>Understanding impact:</strong> Weight = portion of your approved analyses. 
-                        Contribution = how much this stock added/subtracted from your total return.
-                    </small>
-                </div>
-            </div>
-            {% endif %}
-
-            <!-- Recent Analyses -->
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="bi bi-clock-history"></i> Recent Analyses</h5>
-                    <a href="{{ url_for('analyst.analyses') }}" class="btn btn-sm btn-outline-primary">View All</a>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Date</th>
-                                    <th>Company</th>
-                                    <th>Status</th>
-                                    <th>Return</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for analysis in recent_analyses %}
-                                <tr>
-                                    <td>{{ analysis.analysis_date.strftime('%Y‑%m‑%d') }}</td>
-                                    <td>
-                                        <strong>{{ analysis.company.name }}</strong>
-                                        {% if analysis.company.ticker_symbol %}
-                                            <br><small class="text-muted">{{ analysis.company.ticker_symbol }}</small>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if analysis.status == 'On Watchlist' %}
-                                            <span class="badge bg-success">Watchlist</span>
-                                        {% else %}
-                                            <span class="badge bg-secondary">{{ analysis.status }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% set pc = analysis.performance_calculations|sort(attribute='calculation_date', reverse=true)|first %}
-                                        {% if pc %}
-                                            <span class="fw-bold {% if pc.return_pct >= 0 %}text-success{% else %}text-danger{% endif %}">
-                                                {{ pc.return_pct }}%
-                                            </span>
-                                        {% else %}
-                                            <span class="text-muted">—</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <a href="#" class="btn btn-sm btn-outline-primary">
-                                            <i class="bi bi-eye"></i>
-                                        </a>
-                                    </td>
-                                </tr>
-                                {% else %}
-                                <tr>
-                                    <td colspan="5" class="text-center text-muted py-4">No analyses found.</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Right Column -->
-        <div class="col-lg-4">
-            <!-- AI Insights -->
-            {% if ai_insights %}
-            <div class="ai-insights-card mb-4">
-                <div class="ai-insights-title">
-                    <i class="bi bi-stars"></i> AI Performance Insights
-                </div>
-                {% for insight in ai_insights %}
-                <div class="ai-insight-item">
-                    <div class="ai-insight-type">{{ insight.type }}</div>
-                    <p class="ai-insight-text">{{ insight.text }}</p>
-                </div>
-                {% endfor %}
-            </div>
-            {% endif %}
-
-            <!-- Profile Card -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-person-circle"></i> Profile</h5>
-                </div>
-                <div class="card-body">
-                    <div class="text-center mb-3">
-                        <div class="d-inline-flex align-items-center justify-content-center bg-primary text-white rounded-circle mb-2" 
-                             style="width: 80px; height: 80px; font-size: 2rem;">
-                            {{ (current_user.full_name or current_user.email)[0]|upper }}
-                        </div>
-                        <h5 class="mb-0">{{ current_user.full_name or current_user.email.split('@')[0] }}</h5>
-                        <small class="text-muted">{{ current_user.email }}</small>
-                    </div>
-                    <hr>
-                    <div class="row text-center">
-                        <div class="col-6">
-                            <div class="h4 mb-0">{{ performance.num_analyses }}</div>
-                            <small class="text-muted">Analyses</small>
-                        </div>
-                        <div class="col-6">
-                            <div class="h4 mb-0">{{ "%.1f"|format(performance.median_return or 0) }}%</div>
-                            <small class="text-muted">Median Return</small>
-                        </div>
-                    </div>
-                    <hr>
-                    <div class="d-flex justify-content-between">
-                        <span>Best:</span>
-                        <span class="text-success fw-bold">{{ "%.1f"|format(performance.best_return or 0) }}%</span>
-                    </div>
-                    <div class="d-flex justify-content-between">
-                        <span>Worst:</span>
-                        <span class="text-danger fw-bold">{{ "%.1f"|format(performance.worst_return or 0) }}%</span>
-                    </div>
-                    <div class="d-flex justify-content-between mt-2">
-                        <span>Member since:</span>
-                        <span>{{ current_user.created_at.strftime('%b %Y') }}</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Quick Links (slim row) -->
-            <div class="card">
-                <div class="card-body py-3">
-                    <div class="quick-row">
-                        <a href="https://www.notion.so/klubinvestoru/Asset-Management-11a8c7709a728099bda4c7bb296dea92" target="_blank" rel="noopener"><i class="bi bi-journal-text"></i> Notion</a>
-                        <a href="https://app.slack.com/client/T019TTXV71D/C01AYFNJB08" target="_blank" rel="noopener"><i class="bi bi-slack"></i> Slack</a>
-                        <a href="https://www.facebook.com/messages/t/8451226848295959" target="_blank" rel="noopener"><i class="bi bi-messenger"></i> Messenger</a>
-                        <a href="https://meet.google.com/new" target="_blank" rel="noopener"><i class="bi bi-camera-video"></i> Meet</a>
-                        <a href="{{ url_for('blog.index') }}"><i class="bi bi-journals"></i> Research</a>
-                        <a href="{{ url_for('analyst.performance') }}"><i class="bi bi-bar-chart"></i> Performance</a>
-                        <a href="{{ url_for('main.wall') }}"><i class="bi bi-chat-square-text"></i> Ideas Wall</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+{% extends 'base.html' %}
+{% from 'admin/_results_labels.html' import label as result_label %}
+{% block default_lang %}cs{% endblock %}
+{% block title %}Přehled analytika – KI AM{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/results.css', v='20261109a') }}">
 {% endblock %}
+{% block content %}
+<div class="results-page analyst-desk">
+  <header class="results-header">
+    <div>
+      <span class="results-kicker">KI AM / <span data-i18n="desk.title">Analyst dashboard</span></span>
+      <h1>{{ current_user.full_name or current_user.email.split('@')[0] }}</h1>
+      <p><span data-i18n="results.approved">Watchlist and portfolio</span> · <span data-i18n="desk.published_results">Published results</span></p>
+    </div>
+    <div class="results-header-actions">
+      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('analyst.analyses') }}" data-i18n="desk.all_analyses">My analyses</a>
+      <a class="btn btn-sm btn-outline-success" href="{{ url_for('admin.analyst_details', analyst_id=current_user.id) }}" data-i18n="desk.detailed">Detailed results</a>
+    </div>
+  </header>
 
-{% block extra_js %}
+  <div class="results-stat-strip">
+    <div><span data-i18n="desk.scored">Analyses with returns</span><strong>{{ performance.num_analyses if performance.num_analyses is not none else '—' }}</strong></div>
+    {% for key in ['avg_return', 'median_return', 'win_rate', 'best_return', 'worst_return'] %}
+    <div><span>{{ result_label(key) }}</span><strong class="{% if key!='win_rate' and performance[key] is not none %}{{ 'positive' if performance[key]>=0 else 'negative' }}{% endif %}">{{ '%.1f'|format(performance[key]) ~ '%' if performance[key] is not none else '—' }}</strong></div>
+    {% endfor %}
+  </div>
+
+  <div class="desk-charts">
+    {% set light_terminal = true %}
+    {% include 'analyst/_terminal.html' %}
+    <section class="desk-return-panel">
+      <h2 data-i18n="results.per_analysis">Return per analysis</h2>
+      {% if analysis_chart_returns %}
+      <div class="results-chart"><canvas id="dashboardReturns"></canvas></div>
+      <script type="application/json" data-analyst-returns>{{ analysis_chart_returns|tojson }}</script>
+      {% else %}<p class="results-footnote" data-i18n="results.no_analyses">No analyses match this selection.</p>{% endif %}
+    </section>
+  </div>
+
+  <div class="desk-context">
+    <span><span data-i18n="desk.total_analyses">My analyses</span> <strong>{{ total_analyses if total_analyses is not none else '—' }}</strong></span>
+    <span><span data-i18n="desk.club_members">Active members</span> <strong>{{ club.members if club.members is not none else '—' }}</strong></span>
+    <span><span data-i18n="desk.club_analyses">Club analyses</span> <strong>{{ club.analyses if club.analyses is not none else '—' }}</strong></span>
+    <span><span data-i18n="desk.club_watchlist">Club watchlist</span> <strong>{{ club.approved if club.approved is not none else '—' }}</strong></span>
+    <span><span data-i18n="desk.club_companies">Companies</span> <strong>{{ club.companies if club.companies is not none else '—' }}</strong></span>
+  </div>
+
+  {% include 'admin/_results_fundamentals.html' %}
+
+  <section class="results-leaderboard">
+    <div class="results-section-head">
+      <h2 data-i18n="desk.recent">Recent analyses</h2>
+      <a href="{{ url_for('analyst.analyses') }}" class="btn btn-sm btn-outline-secondary" data-i18n="desk.all_analyses">My analyses</a>
+    </div>
+    <div class="results-table-scroll">
+      <table class="results-table">
+        <thead><tr><th data-i18n="results.company">Company</th><th data-i18n="results.analysis_date">Analysis date</th><th data-i18n="results.status">Decision</th><th data-i18n="results.return">Return</th></tr></thead>
+        <tbody>
+          {% for analysis in recent_analyses %}
+          {% set company = analysis.company %}
+          {% set result = analysis.performance_calculations|sort(attribute='calculation_date', reverse=true)|first %}
+          <tr>
+            <th><button type="button" class="company-detail-toggle" data-details-url="{{ url_for('admin.company_fundamentals',company_id=company.id) }}" aria-haspopup="dialog"><span>{{ company.name }}</span><small>{{ company.ticker_symbol or '—' }} <span aria-hidden="true">＋</span></small></button></th>
+            <td>{{ analysis.analysis_date.strftime('%d.%m.%Y') }}</td>
+            <td>{{ analysis.status }}</td>
+            <td class="{% if result and result.return_pct is not none %}{{ 'positive' if result.return_pct >= 0 else 'negative' }}{% endif %}">{{ '%.2f'|format(result.return_pct) ~ '%' if result and result.return_pct is not none else '—' }}</td>
+          </tr>
+          {% else %}<tr><td colspan="4" data-i18n="results.no_analyses">No analyses match this selection.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  {% if stock_impacts %}
+  <details class="results-analysis-list">
+    <summary data-i18n="desk.stock_impact">Position contributions</summary>
+    <div class="results-table-scroll"><table class="results-table">
+      <thead><tr><th data-i18n="results.company">Company</th><th data-i18n="results.return">Return</th><th data-i18n="desk.weight">Weight</th><th data-i18n="desk.contribution">Contribution</th></tr></thead>
+      <tbody>{% for stock in stock_impacts %}
+      {% set company = companies_by_ticker.get(stock.ticker) %}
+      <tr><th>
+        {% if company %}<button type="button" class="company-detail-toggle" data-details-url="{{ url_for('admin.company_fundamentals',company_id=company.id) }}" aria-haspopup="dialog"><span>{{ stock.name }}</span><small>{{ stock.ticker }} <span aria-hidden="true">＋</span></small></button>
+        {% else %}{{ stock.name }} <small>{{ stock.ticker }}</small>{% endif %}
+      </th><td>{{ '%+.1f'|format(stock.return_pct) }}%</td><td>{{ '%.1f'|format(stock.weight * 100) }}%</td><td class="{{ 'positive' if stock.contribution>=0 else 'negative' }}">{{ '%+.2f'|format(stock.contribution) }}%</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+  </details>
+  {% endif %}
+
+  {% if admin_stats %}
+  <details class="results-analysis-list">
+    <summary data-i18n="desk.admin">Administration</summary>
+    <div class="desk-context">
+      <span><span data-i18n="desk.users">Users</span> <strong>{{ admin_stats.active_users }}/{{ admin_stats.total_users }}</strong></span>
+      <span><span data-i18n="desk.club_analyses">Club analyses</span> <strong>{{ admin_stats.total_analyses }}</strong></span>
+      <span><span data-i18n="desk.club_watchlist">Club watchlist</span> <strong>{{ admin_stats.approved_analyses }}</strong></span>
+      <span><span data-i18n="desk.club_companies">Companies</span> <strong>{{ admin_stats.total_companies }}</strong></span>
+      <span>CSV <strong>{{ admin_stats.csv_uploads }}</strong></span>
+    </div>
+    <div class="results-header-actions">
+      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin.users') }}" data-i18n="desk.manage_users">Manage users</a>
+      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin.upload_csv') }}" data-i18n="desk.upload_csv">Upload CSV</a>
+      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin.performance') }}" data-i18n="results.title">Results</a>
+      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin.board') }}" data-i18n="board.title">Board portfolio</a>
+      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('presentation.index') }}" data-i18n="desk.presentations">Presentations</a>
+      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin.debug_performance') }}" data-i18n="maintenance.diagnostics">Calculation diagnostics</a>
+    </div>
+  </details>
+  {% endif %}
+  <nav class="desk-links">
+    <a href="https://www.notion.so/klubinvestoru/Asset-Management-11a8c7709a728099bda4c7bb296dea92" target="_blank" rel="noopener">Notion</a>
+    <a href="https://app.slack.com/client/T019TTXV71D/C01AYFNJB08" target="_blank" rel="noopener">Slack</a>
+    <a href="https://www.facebook.com/messages/t/8451226848295959" target="_blank" rel="noopener">Messenger</a>
+    <a href="https://meet.google.com/new" target="_blank" rel="noopener">Meet</a>
+    <a href="{{ url_for('blog.index') }}" data-i18n="results.research">Equity research</a>
+    <a href="{{ url_for('analyst.performance') }}" data-i18n="desk.portfolio">Personal portfolio</a>
+    <a href="{{ url_for('main.wall') }}" data-i18n="desk.ideas">Ideas wall</a>
+  </nav>
+</div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-// Stock row click handler for impact isolation
-document.querySelectorAll('.stock-row').forEach(row => {
-    row.addEventListener('click', function() {
-        console.log('Clicked on stock:', this.dataset.ticker);
-    });
-});
-</script>
+<script defer src="{{ url_for('static', filename='js/results.js', v='20261109a') }}"></script>
 {% endblock %}

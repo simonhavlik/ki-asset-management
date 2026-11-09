@@ -8,6 +8,11 @@ class RecommendationForm(FlaskForm):
     analysis_id = IntegerField(validators=[InputRequired()])
     days = IntegerField(validators=[InputRequired(), NumberRange(min=7, max=30)])
     rationale = TextAreaField(validators=[Optional(), Length(max=2000)])
+    file = FileField(validators=[Optional()])
+
+
+class EditRecommendationForm(FlaskForm):
+    rationale = TextAreaField(validators=[Optional(), Length(max=2000)])
 
 
 class ExtendForm(FlaskForm):

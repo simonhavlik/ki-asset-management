@@ -1,12 +1,17 @@
 from datetime import datetime, timedelta
-from flask import Blueprint, abort, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, abort, current_app, jsonify, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required
+from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 from ..extensions import db
 from ..models import (Analysis, SystemSettings, PurchaseRecommendation as Proposal,
-                      PurchaseRecommendationVote as Ballot, PurchaseRecommendationEvent as Event)
-from .forms import RecommendationForm, ExtendForm, BallotForm, EligibilityForm, WithdrawForm
-from .service import active, eligibility_mode, eligible_analyses, local_time, proposal_rows
+                      PurchaseRecommendationVote as Ballot, PurchaseRecommendationEvent as Event,
+                      PurchaseRecommendationAttachment as Attachment)
+from .forms import (AttachmentForm, BallotForm, EditRecommendationForm, EligibilityForm,
+                    ExtendForm, RecommendationForm, WithdrawForm)
+from . import storage
+from .service import (active, analyst_vote_counts, eligibility_mode, eligible_analyses, local_time,
+                      proposal_rows)
 
 voting_bp = Blueprint('voting', __name__)
 
@@ -42,18 +47,28 @@ def locked_proposal(proposal_id):
     return row
 
 
+def can_administer():
+    return current_user.is_admin and not session.get('admin_view_as_user')
+
+
+def can_edit_proposal(proposal):
+    return active(proposal) and (proposal.author_id == current_user.id or can_administer())
+
+
 def page_context(history=False):
     page = max(1, request.args.get('page', 1, type=int))
     rows, total = proposal_rows(current_user.id, history, page)
     mode = eligibility_mode()
     approved = eligible_analyses(mode)
     owned = {a.id for a, yes, no in eligible_analyses(mode, current_user.id)}
+    proposable = {a.id for a, _, _ in approved} if can_administer() else owned
     active_companies = {cid for cid, in db.session.query(Proposal.company_id).filter(
         Proposal.author_id == current_user.id, Proposal.withdrawn_at.is_(None), Proposal.expires_at > datetime.utcnow()).all()}
     active_owned = {a.id for a, yes, no in approved if a.company_id in active_companies}
     return dict(rows=rows, total=total, page=page, has_more=page*25<total, history=history,
                 mode=mode, approved=approved, owned=owned, active_owned=active_owned,
-                can_propose=bool(owned-active_owned),
+                proposable=proposable, can_administer=can_administer(),
+                can_propose=bool(proposable-active_owned),
                 csrf_form=WithdrawForm(), create_form=RecommendationForm(),
                 notice=request.args.get('notice') if request.args.get('notice') in ('created','voted','removed','extended','renewed','withdrawn','settings_saved') else None)
 
@@ -70,7 +85,10 @@ def history():
 
 @voting_bp.get('/approved')
 def approved():
-    return render_template('voting/index.html', approved_view=True, **page_context())
+    context = page_context()
+    tallies = {a.id: analyst_vote_counts(a.comment) for a, _, _ in context['approved']}
+    return render_template('voting/index.html', approved_view=True, analyst_tallies=tallies,
+                           **context)
 
 
 @voting_bp.get('/live')
@@ -78,7 +96,7 @@ def live():
     history = request.args.get('history') == '1'
     page = max(1, request.args.get('page',1,type=int))
     rows, total = proposal_rows(current_user.id, history, page)
-    response = jsonify(html=render_template('voting/_proposals.html', rows=rows, history=history, csrf_form=WithdrawForm()), total=total)
+    response = jsonify(html=render_template('voting/_proposals.html', rows=rows, history=history, can_administer=can_administer(), csrf_form=WithdrawForm()), total=total)
     response.headers['Cache-Control'] = 'no-store'
     return response
 
@@ -88,13 +106,22 @@ def propose():
     form = RecommendationForm()
     if not form.validate_on_submit():
         return outcome('invalid', 400)
+    metadata = None
+    if form.file.data:
+        if not storage.configured():
+            return outcome('attachment_unavailable', 503)
+        try:
+            metadata = storage.validate_upload(form.file.data)
+        except ValueError as exc:
+            return outcome(str(exc), 400)
     # Company-level lock also covers two analyses of the same stock.
     from ..models import Company
     company_id = db.session.query(Analysis.company_id).filter_by(id=form.analysis_id.data).scalar()
     if company_id is None: return outcome('not_eligible',403)
     db.session.query(Company).filter_by(id=company_id).with_for_update().first()
     mode = eligibility_mode()
-    match = next(((a, yes, no) for a, yes, no in eligible_analyses(mode, current_user.id) if a.id == form.analysis_id.data), None)
+    author_filter = None if can_administer() else current_user.id
+    match = next(((a, yes, no) for a, yes, no in eligible_analyses(mode, author_filter) if a.id == form.analysis_id.data), None)
     if match is None:
         return outcome('not_eligible', 403)
     now = datetime.utcnow()
@@ -102,10 +129,14 @@ def propose():
     if previous and active(previous, now):
         return outcome('duplicate', 409)
     analysis, yes, no = match
+    if previous and metadata:
+        error = attachment_limits(previous.id, metadata)
+        if error:
+            return outcome(error, 409)
     if previous:
         renew_proposal(previous, form.days.data, mode, yes, no, now, form.rationale.data, analysis.id)
         db.session.commit()
-        return outcome('renewed')
+        return finish_proposal(previous.id, 'renewed', form.file.data, metadata)
     p = Proposal(analysis_id=analysis.id, company_id=analysis.company_id, author_id=current_user.id, created_at=now,
                  window_started_at=now,
                  expires_at=now+timedelta(days=form.days.data), rationale=(form.rationale.data or '').strip(),
@@ -113,7 +144,17 @@ def propose():
     db.session.add(p); db.session.flush()
     event(p, 'created', days=form.days.data, expires_at=p.expires_at.isoformat(), eligibility_mode=mode, board_yes=yes, board_no=no)
     db.session.commit()
-    return outcome('created')
+    return finish_proposal(p.id, 'created', form.file.data, metadata)
+
+
+def finish_proposal(proposal_id, notice, file, metadata):
+    if metadata is None:
+        return outcome(notice)
+    error, _ = store_attachment(proposal_id, file, metadata)
+    # The recommendation is already saved: retry only the file, never the proposal.
+    return redirect(url_for('voting.detail', proposal_id=proposal_id,
+                            notice='proposal_attachment_failed' if error else 'attachment_added',
+                            _anchor='attachments'), code=303)
 
 
 def renew_proposal(p, days, mode, yes, no, now, rationale=None, analysis_id=None):
@@ -138,7 +179,7 @@ def renew(proposal_id):
     now=datetime.utcnow()
     if active(p,now): return outcome('duplicate',409)
     mode=eligibility_mode()
-    candidates=eligible_analyses(mode,current_user.id)
+    candidates=eligible_analyses(mode, None if can_administer() else current_user.id)
     match=next(((a,yes,no) for a,yes,no in candidates if a.id==p.analysis_id),None)
     if match is None:
         match=next(((a,yes,no) for a,yes,no in candidates if a.company_id==p.company_id),None)
@@ -205,7 +246,7 @@ def withdraw(proposal_id):
 
 @voting_bp.post('/settings')
 def settings():
-    if not current_user.is_admin: abort(403)
+    if not can_administer(): abort(403)
     form = EligibilityForm()
     if not form.validate_on_submit(): return outcome('invalid',400)
     # This single validated setting and its activity record commit together.
@@ -222,9 +263,6 @@ def settings():
 
 @voting_bp.get('/<int:proposal_id>')
 def detail(proposal_id):
-    from .forms import AttachmentForm
-    from . import storage
-    from ..models import PurchaseRecommendationAttachment as Attachment
     p = db.get_or_404(Proposal,proposal_id)
     votes = Ballot.query.filter_by(recommendation_id=p.id).all()
     events = Event.query.options(joinedload(Event.actor)).filter_by(recommendation_id=p.id).order_by(Event.created_at,Event.id).all()
@@ -232,61 +270,97 @@ def detail(proposal_id):
                            events=events,is_active=active(p),local_time=local_time,
                            attachments=Attachment.query.filter_by(recommendation_id=p.id).order_by(Attachment.created_at).all(),
                            attachment_form=AttachmentForm(),storage_ready=storage.configured(),
-                           attachment_notice=request.args.get('notice')=='attachment_added')
+                           can_administer=can_administer(), can_edit=can_edit_proposal(p),
+                           edit_form=EditRecommendationForm(rationale=p.rationale),
+                           text_saved=request.args.get('notice')=='text_saved',
+                           attachment_notice=request.args.get('notice')=='attachment_added',
+                           attachment_retry=request.args.get('notice')=='proposal_attachment_failed')
+
+
+@voting_bp.post('/<int:proposal_id>/edit')
+def edit(proposal_id):
+    form = EditRecommendationForm()
+    if not form.validate_on_submit():
+        return outcome('invalid_text', 400)
+    proposal = locked_proposal(proposal_id)
+    if proposal.author_id != current_user.id and not can_administer():
+        abort(403)
+    if not active(proposal):
+        return outcome('closed', 409)
+    rationale = (form.rationale.data or '').strip()
+    if proposal.rationale != rationale:
+        event(proposal, 'text_edited', previous_rationale=proposal.rationale)
+        proposal.rationale = rationale
+        db.session.commit()
+    return redirect(url_for('voting.detail', proposal_id=proposal_id, notice='text_saved'),
+                    code=303)
 
 
 @voting_bp.post('/<int:proposal_id>/attachments')
 def attach(proposal_id):
-    from .forms import AttachmentForm
-    from . import storage
-    from ..models import PurchaseRecommendationAttachment as Attachment
-    from sqlalchemy import func
     form=AttachmentForm()
     if not form.validate_on_submit():return outcome('attachment_type',400)
     p=db.get_or_404(Proposal,proposal_id)
-    if p.author_id!=current_user.id and not current_user.is_admin:abort(403)
+    if p.author_id!=current_user.id and not can_administer():abort(403)
     if not storage.configured():return outcome('attachment_unavailable',503)
     try:metadata=storage.validate_upload(form.file.data)
     except ValueError as exc:return outcome(str(exc),400)
-    def check_limits():
-        query=Attachment.query.filter_by(recommendation_id=proposal_id)
-        if query.filter_by(sha256=metadata['sha256']).first():return 'attachment_duplicate'
-        count,total=db.session.query(func.count(Attachment.id),func.coalesce(func.sum(Attachment.size_bytes),0)).filter_by(recommendation_id=proposal_id).one()
-        if count>=storage.MAX_FILES or total+metadata['size_bytes']>storage.MAX_PROPOSAL_BYTES:return 'attachment_quota'
-    error=check_limits()
-    if error:return outcome(error,409)
-    db.session.commit()  # do not hold a PostgreSQL connection while uploading
-    key=None
+    error, status = store_attachment(proposal_id, form.file.data, metadata)
+    if error:
+        return outcome(error, status)
+    return redirect(url_for('voting.detail',proposal_id=proposal_id,notice='attachment_added'),code=303)
+
+
+def attachment_limits(proposal_id, metadata):
+    query = Attachment.query.filter_by(recommendation_id=proposal_id)
+    if query.filter_by(sha256=metadata['sha256']).first():
+        return 'attachment_duplicate'
+    count, total = db.session.query(
+        func.count(Attachment.id), func.coalesce(func.sum(Attachment.size_bytes), 0)
+    ).filter_by(recommendation_id=proposal_id).one()
+    if count >= storage.MAX_FILES or total + metadata['size_bytes'] > storage.MAX_PROPOSAL_BYTES:
+        return 'attachment_quota'
+
+
+def store_attachment(proposal_id, file, metadata):
+    """Store one validated file without holding a database connection during R2 I/O."""
+    error = attachment_limits(proposal_id, metadata)
+    if error:
+        return error, 409
+    db.session.commit()
+    key = None
     try:
-        key=storage.upload(form.file.data,metadata,proposal_id)
-        p=locked_proposal(proposal_id)
-        error=check_limits()  # serialize quota/deduplication across concurrent uploads
+        key = storage.upload(file, metadata, proposal_id)
+        p = locked_proposal(proposal_id)
+        error = attachment_limits(proposal_id, metadata)
         if error:
-            db.session.rollback();storage.delete_uploaded(key);key=None
-            return outcome(error,409)
-        row=Attachment(recommendation_id=p.id,uploaded_by=current_user.id,object_key=key,
-                       **{name:metadata[name] for name in ('filename','content_type','size_bytes','sha256')})
-        db.session.add(row);db.session.flush()
-        event(p,'attachment_added',attachment_id=row.id,filename=row.filename,size_bytes=row.size_bytes)
+            db.session.rollback()
+            storage.delete_uploaded(key)
+            key = None
+            return error, 409
+        row = Attachment(recommendation_id=p.id, uploaded_by=current_user.id, object_key=key,
+                         **{name: metadata[name] for name in
+                            ('filename', 'content_type', 'size_bytes', 'sha256')})
+        db.session.add(row)
+        db.session.flush()
+        event(p, 'attachment_added', attachment_id=row.id, filename=row.filename,
+              size_bytes=row.size_bytes)
         db.session.commit()
     except Exception:
         db.session.rollback()
         if key:
-            try:storage.delete_uploaded(key)
+            try:
+                storage.delete_uploaded(key)
             except Exception:
-                from flask import current_app
                 current_app.logger.warning('Could not clean up unattached R2 object')
-        from flask import current_app
         current_app.logger.exception('Private recommendation attachment upload failed')
-        return outcome('attachment_failed',503)
-    return redirect(url_for('voting.detail',proposal_id=proposal_id,notice='attachment_added'),code=303)
+        return 'attachment_failed', 503
+    return None, 303
 
 
 @voting_bp.get('/attachments/<int:attachment_id>/download')
 def attachment_download(attachment_id):
-    from . import storage
-    from ..models import PurchaseRecommendationAttachment
-    row=db.get_or_404(PurchaseRecommendationAttachment,attachment_id)
+    row=db.get_or_404(Attachment,attachment_id)
     if not storage.configured():return outcome('attachment_unavailable',503)
     try:return redirect(storage.download_url(row),code=302)
     except Exception:return outcome('attachment_failed',503)

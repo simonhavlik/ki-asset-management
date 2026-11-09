@@ -3,3 +3,101 @@
 @media(max-width:900px){.results-page{padding:16px}.results-charts{grid-template-columns:1fr 1fr}.results-charts article:first-child{grid-column:1/-1}.results-chart{height:180px}.results-stat-strip strong{font-size:23px}.results-stat-strip>div{padding:10px}.results-table{font-size:11px}.fundamental-metric-groups{grid-template-columns:repeat(2,minmax(0,1fr))}.fundamentals-tools{align-items:start}.results-tabs button{padding:6px 8px}}
 @media(max-width:550px){.results-page{padding:12px 10px 30px}.results-header{gap:10px;align-items:start;margin-bottom:12px}.results-header h1{font-size:24px}.results-header p{font-size:11px}.results-header-actions .btn{font-size:11px;padding:5px 7px}.results-filters{gap:9px;flex-wrap:wrap;padding:9px}.results-filters>label:first-child{flex:1 1 100%}.results-filters select{min-width:0;width:100%;font-size:12px}.results-filters .results-check{flex:1;padding:0}.results-stat-strip{grid-template-columns:repeat(3,1fr);margin:12px 0}.results-stat-strip>div{padding:8px 10px!important;border-bottom:1px solid #e2eae4}.results-stat-strip strong{font-size:23px}.results-stat-strip span{font-size:9px;letter-spacing:.3px}.results-charts{gap:8px}.results-charts article{padding:9px 7px}.results-charts h2{font-size:11px;min-height:26px}.results-chart{height:155px}.results-charts article:first-child .results-chart{height:170px}.results-chart-legend{gap:9px;margin-bottom:16px}.results-chart-legend small{width:100%;font-size:10px}.results-section-head{align-items:start}.results-page h2{font-size:15px}.results-section-head p{font-size:10px}.results-coverage{font-size:10px}.fundamentals-tools{flex-wrap:wrap;gap:8px}.fundamentals-tools>input{width:100%}.results-tabs{gap:0}.results-tabs button{padding:6px 7px;font-size:11px}.company-column{min-width:135px;max-width:165px}.results-table th,.results-table td{padding:8px}.company-detail-toggle{font-size:11px}.results-table-scroll{max-height:540px}.fundamental-expanded{padding:12px}.fundamental-expanded>header{flex-wrap:wrap;gap:7px}.fundamental-metric-groups{gap:14px}.fundamental-metric-groups dl>div{font-size:10px;gap:5px}.fundamental-metric-groups h3{font-size:11px}.results-footnote{font-size:10px}.results-table thead th{position:sticky;top:0}.results-table thead .company-column{z-index:3}}
 @media(max-width:550px){.results-header{flex-wrap:wrap}.results-header>div:first-child{flex:1 1 100%}.results-header-actions{width:100%}.results-header>.refresh-widget{margin-top:-3px}.results-header p{font-size:12px}}
+
+.fundamentals-dialog {
+  width: min(720px, calc(100% - 24px));
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  border: 1px solid #bfd4c5;
+  border-radius: 4px;
+  color: #18312a;
+  background: #fff;
+  box-shadow: 0 18px 56px #172b2533;
+}
+.fundamentals-dialog::backdrop { background: #142a2266; }
+.fundamentals-dialog > header {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #f4f8f5;
+  border-bottom: 1px solid #dbe7df;
+}
+.fundamentals-dialog > header h2 { font-size: 17px; margin: 0; overflow-wrap: anywhere; }
+.fundamentals-dialog .fundamental-expanded { padding: 12px 14px; }
+.fundamentals-dialog .results-tabs { margin: 10px 0; }
+.fundamental-company-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; font-size: 11px; color: #597466; }
+.fundamental-company-meta a { color: #186d45; }
+.fundamental-detail-group dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; margin: 0; }
+.fundamental-detail-group dl > div { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid #e2ebe5; font-size: 11px; }
+.fundamental-detail-group dt { color: #536a5f; font-weight: 500; overflow-wrap: anywhere; }
+.fundamental-detail-group dd { margin: 0; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fundamentals-dialog .fundamental-raw { margin-top: 12px; padding-top: 4px; }
+
+.desk-charts { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 12px; }
+.desk-return-panel { min-width: 0; padding: 12px; border: 1px solid #dce6df; border-radius: 3px; }
+.desk-return-panel .results-chart { height: 260px; margin-top: 10px; }
+.analyst-desk .term-panel { min-width: 0; margin: 0; color: #18312a; background: white; border: 1px solid #dce6df; border-radius: 3px; box-shadow: none; }
+.analyst-desk .term-bar { padding: 9px 12px; background: #f3f7f4; border-color: #dce6df; }
+.analyst-desk .term-title, .analyst-desk .term-kpi-value, .analyst-desk .term-note strong { color: #18312a; }
+.analyst-desk .term-sym, .analyst-desk .term-kpi-value.up, .analyst-desk .term-chg.up { color: #148654; }
+.analyst-desk .term-kpi-value.down, .analyst-desk .term-chg.down { color: #ba3d46; }
+.analyst-desk .term-kpis { background: #e4ede7; }
+.analyst-desk .term-kpi { background: #fff; padding: 7px 10px; gap: 2px; }
+.analyst-desk .term-kpi-label { letter-spacing: .3px; }
+.analyst-desk .term-kpi-value { font-size: 15px; }
+.analyst-desk .term-chart { height: 205px; background: white; padding: 9px 10px; }
+.analyst-desk .term-note { padding: 7px 10px; border-color: #e4ede7; font-size: 10px; }
+.desk-context, .desk-links, .board-benchmarks { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 9px 0; font-size: 11px; color: #587165; }
+.desk-context strong, .board-benchmarks strong { color: #244c39; margin-left: 3px; font-variant-numeric: tabular-nums; }
+.desk-links { margin-top: 14px; border-top: 1px solid #e4ede7; }
+.desk-links a { color: #426553; }
+
+.board-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 3px; }
+.board-benchmarks { margin: 2px 0 7px; }
+.board-charts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.board-charts .results-chart { height: 250px; }
+.board-page .board-queue .btn, .board-page .board-costs .btn { font-size: 11px; padding: 4px 8px; }
+.board-page .board-queue td, .board-page .board-costs td, .board-page .board-costs th { padding: 6px 9px; }
+.board-tag { padding: 1px 4px; background: #f1f6f2; color: #597466; }
+.board-symbol { color: #647e70; font: 10px ui-monospace, monospace; }
+.board-cost-form { display: grid; grid-template-columns: minmax(105px, 1fr) 68px minmax(135px, 1fr) 68px auto; align-items: end; gap: 8px; text-align: left; padding: 6px 0; }
+.board-cost-form label > span { display: block; font-size: 10px; white-space: normal; margin-bottom: 3px; }
+.board-cost-editor td { background: #f4f8f5; }
+.board-notice { font-size: 12px; padding: 5px 0; margin: 0 0 5px; }
+
+@media (max-width: 900px) {
+  .desk-charts { grid-template-columns: minmax(0, 1fr); }
+  .board-charts article:first-child { grid-column: auto; }
+}
+@media (max-width: 550px) {
+  .fundamental-detail-group dl { grid-template-columns: 1fr; }
+  .fundamentals-dialog > header h2 { font-size: 15px; }
+  .desk-return-panel .results-chart { height: 155px; }
+  .analyst-desk .term-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .analyst-desk .term-kpi { padding: 5px 6px; }
+  .analyst-desk .term-kpi-label { font-size: 8px; }
+  .analyst-desk .term-kpi-value { font-size: 12px; }
+  .analyst-desk .term-chart { height: 165px; }
+  .board-performance .results-section-head { flex-wrap: wrap; }
+  .board-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .board-charts { grid-template-columns: minmax(0, 1fr); }
+  .board-charts .results-chart { height: 170px; }
+  .board-cost-form { grid-template-columns: minmax(0, 1fr) 65px; }
+  .board-cost-form button { justify-self: start; }
+  .board-costs th:first-child { min-width: 106px; }
+}
+
+.board-cost-quote, .board-cost-mobile-date { display: block; font-size: 10px; color: #60796b; font-weight: 400; }
+.board-cost-mobile-date { display: none; }
+@media (max-width: 550px) {
+  .board-costs .board-cost-date { display: none; }
+  .board-costs .board-cost-mobile-date { display: block; }
+  .board-costs thead th, .board-costs th:first-child, .board-costs .btn { white-space: normal; }
+  .board-costs .board-cost-quote { white-space: normal; }
+  .board-page .board-costs td, .board-page .board-costs th { padding: 6px; }
+}
