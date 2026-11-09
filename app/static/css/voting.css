@@ -18,3 +18,16 @@
 .ballot-editor label span { display: block; margin-bottom: 4px; color: #526c59; font-size: 11px; }
 .ballot-editor textarea { display: block; width: 100%; resize: vertical; }
 .ballot-editor-actions { display: flex; gap: 7px; margin-top: 7px; }
+
+.voting-approved [data-sort-analysis-date] {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.voting-approved [data-sort-analysis-date]::after { content: ' ↕'; }
+.voting-approved [aria-sort="descending"] [data-sort-analysis-date]::after { content: ' ↓'; }
+.voting-approved [aria-sort="ascending"] [data-sort-analysis-date]::after { content: ' ↑'; }
+.voting-approved [aria-sort] [data-sort-analysis-date] { color: #17683e; }

@@ -34,6 +34,16 @@
 
     var TEXTS = {
     "en": {
+        "team.jan_education": "Finance at VŠE",
+        "team.barbora_education": "Bocconi University",
+        "team.jiri_education": "Finance at Masaryk University",
+        "team.jan_role": "Chief Editor & Event Organizer",
+        "team.jan_note": "We want readers and event audiences to be able to follow how we reached an investment conclusion. A good question during editing or from the audience can show where we need to explain more.",
+        "team.editorial_note": "From the team",
+        "team.jiri_role": "Analyst",
+        "team.jiri_note": "When we value a company, we spell out the assumptions behind the numbers. The next set of results gives us a chance to see which ones still hold.",
+        "team.barbora_role": "Founding member",
+        "team.barbora_note": "Discussing an investment idea together helps us see which conclusions are well supported and where we still need information. That gives the team specific questions to look into before a vote.",
         "overview.club": "Club portfolio",
         "overview.title": "Portfolio overview",
         "overview.intro": "Portfolio returns, sector results and analyst rankings.",
@@ -1165,6 +1175,16 @@
         "polish.collected": "Retrieved"
     },
     "cs": {
+        "team.jan_education": "Finance na VŠE",
+        "team.barbora_education": "Bocconi",
+        "team.jiri_education": "Finance na Masarykově univerzitě",
+        "team.jan_role": "Šéfredaktor a organizátor eventů",
+        "team.jan_note": "Chceme, aby čtenáři i posluchači rozuměli, jak jsme k investičnímu závěru došli. Dobrá otázka při editaci textu nebo na akci často ukáže, co ještě potřebujeme vysvětlit.",
+        "team.editorial_note": "Poznámka týmu",
+        "team.jiri_role": "Analytik",
+        "team.jiri_note": "Při ocenění firmy si ujasňujeme, na kterých předpokladech stojí naše čísla. Až vyjdou další výsledky, můžeme ověřit, které z nich ještě platí.",
+        "team.barbora_role": "Zakládající členka",
+        "team.barbora_note": "Při společné diskusi se ukáže, které závěry jsou dobře podložené a kde ještě chybějí informace. Před hlasováním tak víme, co má smysl dál prověřit.",
         "overview.club": "Portfolio klubu",
         "overview.title": "Přehled portfolia",
         "overview.intro": "Výkonnost portfolia, výsledky sektorů a žebříčky analytiků.",

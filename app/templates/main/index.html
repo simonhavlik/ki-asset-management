@@ -4,7 +4,7 @@
 
 {% block body_class %}index-page{% endblock %}
 {% block default_lang %}cs{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css', v='20261031j') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css', v='20261109d') }}">{% endblock %}
 {% block content %}
 <div class="ki-atmosphere" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
 <button class="motion-toggle" id="kiMotion" type="button" aria-pressed="false" data-i18n="polish.motion">Pause background</button>
@@ -1032,6 +1032,66 @@
                     </a>
                 </div>
             </div>
+
+            <div class="team-card reveal">
+                <div class="team-profile-head">
+                    <div class="team-image-wrapper">
+                        <img src="{{ url_for('static', filename='images/jiri-kopriva.webp') }}"
+                             alt="Jiří Kopřiva" class="team-image" width="320" height="320"
+                             loading="lazy" decoding="async">
+                    </div>
+                    <div class="team-details">
+                        <h3 class="team-name">Jiří Kopřiva</h3>
+                        <div class="team-role" data-i18n="team.jiri_role">Analyst</div>
+                        <div class="team-edu"><i class="bi bi-mortarboard" aria-hidden="true"></i> <span data-i18n="team.jiri_education">Finance at Masaryk University</span></div>
+                    </div>
+                </div>
+                <div class="team-content">
+                    <p class="team-editorial-label" data-i18n="team.editorial_note">From the team</p>
+                    <p class="team-editorial-note" data-i18n="team.jiri_note">When we value a company, we spell out the assumptions behind the numbers. The next set of results gives us a chance to see which ones still hold.</p>
+                    <a href="https://www.linkedin.com/in/ji%C5%99%C3%AD-kop%C5%99iva-343aa138b/" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary"><i class="bi bi-linkedin" aria-hidden="true"></i> LinkedIn</a>
+                </div>
+            </div>
+
+            <div class="team-card reveal">
+                <div class="team-profile-head">
+                    <div class="team-image-wrapper">
+                        <img src="{{ url_for('static', filename='images/barbora-jelinkova.webp') }}"
+                             alt="Barbora Jelínková" class="team-image" width="320" height="320"
+                             loading="lazy" decoding="async">
+                    </div>
+                    <div class="team-details">
+                        <h3 class="team-name">Barbora Jelínková</h3>
+                        <div class="team-role" data-i18n="team.barbora_role">Founding member</div>
+                        <div class="team-edu"><i class="bi bi-mortarboard" aria-hidden="true"></i> <span data-i18n="team.barbora_education">Bocconi University</span></div>
+                    </div>
+                </div>
+                <div class="team-content">
+                    <p class="team-editorial-label" data-i18n="team.editorial_note">From the team</p>
+                    <p class="team-editorial-note" data-i18n="team.barbora_note">Discussing an investment idea together helps us see which conclusions are well supported and where we still need information. That gives the team specific questions to look into before a vote.</p>
+                    <a href="https://www.linkedin.com/in/barborajelinkova/" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary"><i class="bi bi-linkedin" aria-hidden="true"></i> LinkedIn</a>
+                </div>
+            </div>
+
+            <div class="team-card reveal">
+                <div class="team-profile-head">
+                    <div class="team-image-wrapper">
+                        <img src="{{ url_for('static', filename='images/jan-kremser.webp') }}"
+                             alt="Jan Kremser" class="team-image" width="320" height="320"
+                             loading="lazy" decoding="async">
+                    </div>
+                    <div class="team-details">
+                        <h3 class="team-name">Jan Kremser</h3>
+                        <div class="team-role" data-i18n="team.jan_role">Chief Editor &amp; Event Organizer</div>
+                        <div class="team-edu"><i class="bi bi-mortarboard" aria-hidden="true"></i> <span data-i18n="team.jan_education">Finance at VŠE</span></div>
+                    </div>
+                </div>
+                <div class="team-content">
+                    <p class="team-editorial-label" data-i18n="team.editorial_note">From the team</p>
+                    <p class="team-editorial-note" data-i18n="team.jan_note">We want readers and event audiences to be able to follow how we reached an investment conclusion. A good question during editing or from the audience can show where we need to explain more.</p>
+                    <a href="https://www.linkedin.com/in/jankremser/" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary"><i class="bi bi-linkedin" aria-hidden="true"></i> LinkedIn</a>
+                </div>
+            </div>
         </div>
     </div>
 </section>
@@ -1352,8 +1412,8 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/landing.js', v='20261031j') }}"></script>
-<script defer src="{{ url_for('static', filename='js/hero-stories.js', v='20261031j') }}"></script>
+<script src="{{ url_for('static', filename='js/landing.js', v='20261109d') }}"></script>
+<script defer src="{{ url_for('static', filename='js/hero-stories.js', v='20261109d') }}"></script>
 <script>
 // Section navigation: bottom-right "Jump to" menu + left vertical rail.
 (function () {

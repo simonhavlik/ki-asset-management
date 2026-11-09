@@ -11,6 +11,24 @@
     });
   });
 
+  const sortDate = document.querySelector('[data-sort-analysis-date]');
+  if (sortDate) {
+    sortDate.addEventListener('click', () => {
+      const heading = sortDate.closest('th');
+      const body = heading.closest('table').tBodies[0];
+      const descending = heading.getAttribute('aria-sort') !== 'descending';
+      const rows = Array.from(body.rows, row => ({
+        row,
+        date: row.querySelector('time[datetime]')?.dateTime,
+      })).filter(entry => entry.date);
+      if (!rows.length) return;
+      const direction = descending ? -1 : 1;
+      rows.sort((a, b) => a.date.localeCompare(b.date) * direction);
+      heading.setAttribute('aria-sort', descending ? 'descending' : 'ascending');
+      rows.forEach(({row}) => body.append(row));
+    });
+  }
+
   const list = document.querySelector('[data-ballot-list]');
   if (!list) return;
 
