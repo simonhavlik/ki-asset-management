@@ -1,17 +1,35 @@
 {% for row in rows %}{% set p=row.proposal %}
-<article class="ballot-row" data-proposal="{{ p.id }}">
+{% set can_edit = p.author_id == current_user.id or can_administer %}
+<article class="ballot-row" id="proposal-{{ p.id }}" data-proposal="{{ p.id }}">
   <div class="ballot-stock"><a href="{{ url_for('voting.detail',proposal_id=p.id) }}">{{ p.analysis.company.name }}</a><small>{{ p.analysis.company.ticker_symbol or '—' }} · {{ p.author.full_name or p.author.email.split('@')[0] }}</small>{% if p.rationale %}<p>{{ p.rationale }}</p>{% endif %}</div>
   <div class="ballot-score"><div><strong class="yes">{{ row.yes }}</strong><span data-i18n="voting.for">For</span></div><div><strong class="no">{{ row.no }}</strong><span data-i18n="voting.against">Against</span></div></div>
   <div class="ballot-window"><span data-i18n="voting.until">Valid until</span><time datetime="{{ p.expires_at.isoformat() }}Z">{{ row.expires_local }}</time>{% if p.withdrawn_at %}<small data-i18n="voting.withdrawn_state">Withdrawn</small>{% elif history %}<small data-i18n="voting.expired">Expired</small>{% endif %}</div>
   <div class="ballot-actions">
   {% if not history %}<form method="post" action="{{ url_for('voting.vote',proposal_id=p.id) }}">{{ csrf_form.csrf_token }}<button name="vote" value="yes" class="{{ 'selected yes' if row.mine is sameas true else '' }}" aria-pressed="{{ 'true' if row.mine is sameas true else 'false' }}" data-i18n="voting.for_purchase">For purchase</button><button name="vote" value="no" class="{{ 'selected no' if row.mine is sameas false else '' }}" aria-pressed="{{ 'true' if row.mine is sameas false else 'false' }}" data-i18n="voting.against_purchase">Against purchase</button>{% if row.mine is not none %}<button name="vote" value="remove" class="ballot-remove" data-i18n="voting.remove_vote">Remove my vote</button>{% endif %}</form>{% endif %}
   {% if history and p.author_id==current_user.id %}<form method="post" action="{{ url_for('voting.renew',proposal_id=p.id) }}">{{ csrf_form.csrf_token }}<input type="number" name="days" min="7" max="30" value="14" required aria-label="Validity in days" data-i18n-aria-label="voting.days" class="ballot-renew-days"><button data-i18n="voting.renew">Renew recommendation</button></form>{% endif %}
-  {% if not history and (p.author_id==current_user.id or can_administer) %}
-  <a class="ballot-detail-link" href="{{ url_for('voting.detail',proposal_id=p.id,edit='1',_anchor='edit-proposal') }}" data-i18n="voting.edit_text">Edit proposal text</a>
+  {% if can_edit %}
+  <button type="button" class="ballot-edit-toggle" data-edit-toggle aria-controls="proposal-editor-{{ p.id }}" aria-expanded="false"><i class="bi bi-pencil" aria-hidden="true"></i> <span data-i18n="voting.edit_text">Edit proposal text</span></button>
+  {% endif %}
+  {% if request.args.get('edited') == (p.id|string) %}
+  <span class="ballot-edit-status" role="status" data-i18n="voting.text_saved">Proposal text saved.</span>
   {% endif %}
   {% if row.attachment_count %}<a class="ballot-detail-link" href="{{ url_for('voting.detail',proposal_id=p.id) }}#attachments"><i class="bi bi-paperclip" aria-hidden="true"></i> {{ row.attachment_count }} <span data-i18n="voting.attachments">Attachments</span></a>{% endif %}
   <a class="ballot-detail-link" href="{{ url_for('voting.detail',proposal_id=p.id) }}" data-i18n="voting.detail">Details and history</a>
   </div>
+  {% if can_edit %}
+  <form class="ballot-editor" id="proposal-editor-{{ p.id }}" method="post" action="{{ url_for('voting.edit', proposal_id=p.id) }}" hidden>
+    {{ csrf_form.csrf_token }}
+    <input type="hidden" name="return_to" value="{{ 'history' if history else 'index' }}">
+    <input type="hidden" name="page" value="{{ page }}">
+    <label><span data-i18n="voting.rationale">Reason for buying now (optional)</span>
+      <textarea name="rationale" rows="3" maxlength="2000">{{ p.rationale or '' }}</textarea>
+    </label>
+    <div class="ballot-editor-actions">
+      <button class="btn btn-sm btn-success" type="submit" data-i18n="voting.save_text">Save text</button>
+      <button class="btn btn-sm btn-outline-secondary" type="button" data-edit-cancel data-i18n="voting.cancel_edit">Cancel</button>
+    </div>
+  </form>
+  {% endif %}
   {% if not history and p.author_id==current_user.id %}<details class="ballot-owner"><summary data-i18n="voting.manage">Manage my proposal</summary><a class="ballot-detail-link" href="{{ url_for('voting.detail',proposal_id=p.id) }}#attachments" data-i18n="voting.add_attachment">Add an attachment</a><p data-i18n="voting.extend_help">Set a new expiry 7–30 days from now. It must be later than the current expiry; votes stay attached.</p><form method="post" action="{{ url_for('voting.extend',proposal_id=p.id) }}">{{ csrf_form.csrf_token }}<label><span data-i18n="voting.days_from_now">Days from now</span><input type="number" name="days" min="7" max="30" value="30" required></label><button data-i18n="voting.extend">Extend validity</button></form><form method="post" action="{{ url_for('voting.withdraw',proposal_id=p.id) }}">{{ csrf_form.csrf_token }}<button class="ballot-remove" data-i18n="voting.withdraw">Withdraw proposal</button></form></details>{% endif %}
 </article>
 {% else %}<div class="ballot-empty">{% if history %}<span data-i18n="voting.empty_history">No expired or withdrawn proposals yet.</span>{% else %}<span data-i18n="voting.empty">No active proposals yet.</span>{% endif %}</div>{% endfor %}

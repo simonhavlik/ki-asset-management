@@ -52,7 +52,7 @@ def can_administer():
 
 
 def can_edit_proposal(proposal):
-    return active(proposal) and (proposal.author_id == current_user.id or can_administer())
+    return proposal.author_id == current_user.id or can_administer()
 
 
 def page_context(history=False):
@@ -96,7 +96,7 @@ def live():
     history = request.args.get('history') == '1'
     page = max(1, request.args.get('page',1,type=int))
     rows, total = proposal_rows(current_user.id, history, page)
-    response = jsonify(html=render_template('voting/_proposals.html', rows=rows, history=history, can_administer=can_administer(), csrf_form=WithdrawForm()), total=total)
+    response = jsonify(html=render_template('voting/_proposals.html', rows=rows, history=history, page=page, can_administer=can_administer(), csrf_form=WithdrawForm()), total=total)
     response.headers['Cache-Control'] = 'no-store'
     return response
 
@@ -283,15 +283,18 @@ def edit(proposal_id):
     if not form.validate_on_submit():
         return outcome('invalid_text', 400)
     proposal = locked_proposal(proposal_id)
-    if proposal.author_id != current_user.id and not can_administer():
+    if not can_edit_proposal(proposal):
         abort(403)
-    if not active(proposal):
-        return outcome('closed', 409)
     rationale = (form.rationale.data or '').strip()
     if proposal.rationale != rationale:
         event(proposal, 'text_edited', previous_rationale=proposal.rationale)
         proposal.rationale = rationale
         db.session.commit()
+    list_view = 'index' if active(proposal) else 'history'
+    if request.form.get('return_to') == list_view:
+        page = max(1, request.form.get('page', 1, type=int))
+        return redirect(url_for('voting.' + list_view, page=page, edited=proposal_id,
+                                _anchor=f'proposal-{proposal_id}'), code=303)
     return redirect(url_for('voting.detail', proposal_id=proposal_id, notice='text_saved'),
                     code=303)
 

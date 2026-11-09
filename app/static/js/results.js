@@ -23,22 +23,33 @@
         row.hidden = !row.dataset.search.includes(needle);
       });
     });
+  });
 
-    panel.querySelectorAll('[data-sort-metric]').forEach(button => {
-      button.addEventListener('click', () => {
-        const ascending = button.dataset.direction !== 'asc';
-        button.dataset.direction = ascending ? 'asc' : 'desc';
-        const rows = Array.from(panel.querySelectorAll('[data-company-row]'));
-        const cell = '[data-metric="' + button.dataset.sortMetric + '"]';
-        rows.sort((a, b) => {
-          const left = a.querySelector(cell).dataset.value;
-          const right = b.querySelector(cell).dataset.value;
-          if (left === '') return right === '' ? 0 : 1;
-          if (right === '') return -1;
-          return (Number(left) - Number(right)) * (ascending ? 1 : -1);
-        });
-        rows.forEach(row => row.parentElement.append(row));
+  document.querySelectorAll('.results-table [data-sort-metric]').forEach(button => {
+    button.addEventListener('click', () => {
+      const header = button.closest('th');
+      const table = header.closest('table');
+      const body = table.tBodies[0];
+      const current = header.getAttribute('aria-sort');
+      const direction = current === 'ascending' ? 'descending'
+        : current === 'descending' ? 'ascending'
+        : table.dataset.sortDefault || 'ascending';
+      const multiplier = direction === 'ascending' ? 1 : -1;
+      const selector = '[data-metric="' + button.dataset.sortMetric + '"]';
+      const rows = Array.from(body.rows, row => ({
+        row,
+        value: row.querySelector(selector)?.dataset.value,
+      })).filter(entry => entry.value !== undefined);
+      if (!rows.length) return;
+
+      rows.sort((a, b) => {
+        if (a.value === '') return b.value === '' ? 0 : 1;
+        if (b.value === '') return -1;
+        return (Number(a.value) - Number(b.value)) * multiplier;
       });
+      table.querySelector('th[aria-sort]')?.removeAttribute('aria-sort');
+      header.setAttribute('aria-sort', direction);
+      rows.forEach(({row}) => body.append(row));
     });
   });
 
