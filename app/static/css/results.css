@@ -101,3 +101,7 @@
   .board-costs .board-cost-quote { white-space: normal; }
   .board-page .board-costs td, .board-page .board-costs th { padding: 6px; }
 }
+
+.results-table th[aria-sort] button[data-sort-metric] { color: #17653c; }
+.results-table th[aria-sort="ascending"] button[data-sort-metric]::after { content: ' ↑'; opacity: 1; }
+.results-table th[aria-sort="descending"] button[data-sort-metric]::after { content: ' ↓'; opacity: 1; }

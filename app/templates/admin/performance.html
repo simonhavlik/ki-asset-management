@@ -1,13 +1,41 @@
 {% extends "base.html" %}
+{% from "admin/_results_labels.html" import label as result_label %}
 {% block default_lang %}cs{% endblock %}
 {% block title %}Results – KI AM{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static',filename='css/results.css',v='20261109a') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static',filename='css/results.css',v='20261109b') }}">{% endblock %}
 {% block content %}<div class="results-page">
 <header class="results-header"><div><span class="results-kicker">KI AM / <span data-i18n="results.research">Equity research</span></span><h1 data-i18n="results.title">Results</h1><p data-i18n="results.intro">Analyst performance, company valuations and balance-sheet strength.</p></div><div class="results-header-actions">{% include 'analyst/_refresh_button.html' %}<a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin.export_csv',filter=current_filter,annualized='true' if annualized else 'false') }}">CSV</a><a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin.export_comprehensive') }}">Excel</a>{% if current_user.is_admin %}<div class="dropdown"><button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" data-i18n="results.tools">Tools</button><ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item" href="{{ url_for('admin.company_tickers') }}" data-i18n="maintenance.manage_tickers">Manage ticker mappings</a></li><li><a class="dropdown-item" href="{{ url_for('admin.debug_performance') }}" data-i18n="maintenance.diagnostics">Calculation diagnostics</a></li><li><a class="dropdown-item" href="{{ url_for('admin.export_comprehensive',fresh='true') }}" data-i18n="results.fresh_excel">Generate fresh Excel</a></li></ul></div>{% endif %}</div></header>
 {% include 'admin/_results_filters.html' %}
-<section class="results-leaderboard"><div class="results-section-head"><h2 data-i18n="results.analysts">Analysts</h2><span>{{ total_analyses }} <span data-i18n="results.analyst_entries">analyst participations</span></span></div><p class="results-footnote" data-i18n="results.participations_note">A co-authored analysis counts once for each contributing analyst. Company statistics below are shown once per company.</p><div class="results-table-scroll"><table class="results-table"><thead><tr><th data-i18n="results.analyst">Analyst</th><th data-i18n="results.analyses">Analyses</th><th data-i18n="results.avg_return">Average return</th><th data-i18n="results.median_return">Median return</th><th data-i18n="results.win_rate">Win rate</th><th data-i18n="results.best_return">Best return</th><th data-i18n="results.worst_return">Worst return</th></tr></thead><tbody>
-{% for analyst in analyst_performance %}<tr><th><a href="{{ url_for('admin.analyst_details',analyst_id=analyst.analyst_id,filter=current_filter,annualized='true' if annualized else 'false') }}">{{ analyst.analyst_name }} ↗</a></th><td>{{ analyst.num_analyses }}</td>{% for key in ['avg_return','median_return','win_rate','best_return','worst_return'] %}<td class="{% if key!='win_rate' and analyst[key] is not none %}{{ 'positive' if analyst[key]>=0 else 'negative' }}{% endif %}">{{ '%.2f'|format(analyst[key]) ~ '%' if analyst[key] is not none else '—' }}</td>{% endfor %}</tr>{% else %}<tr><td colspan="7" data-i18n="results.no_analyses">No analyses match this selection.</td></tr>{% endfor %}
-</tbody></table></div></section>
+{% set analyst_metrics = [('num_analyses', 'analyses'), ('avg_return', 'avg_return'),
+  ('median_return', 'median_return'), ('win_rate', 'win_rate'), ('best_return', 'best_return'),
+  ('worst_return', 'worst_return')] %}
+<section class="results-leaderboard">
+  <div class="results-section-head"><h2 data-i18n="results.analysts">Analysts</h2><span>{{ total_analyses }} <span data-i18n="results.analyst_entries">analyst participations</span></span></div>
+  <p class="results-footnote" data-i18n="results.participations_note">A co-authored analysis counts once for each contributing analyst. Company statistics below are shown once per company.</p>
+  <div class="results-table-scroll">
+    <table class="results-table" data-sort-default="descending">
+      <thead><tr>
+        <th scope="col" data-i18n="results.analyst">Analyst</th>
+        {% for key, label_key in analyst_metrics %}
+        <th scope="col"{% if key == 'avg_return' %} aria-sort="descending"{% endif %}><button type="button" data-sort-metric="{{ key }}">{{ result_label(label_key) }}</button></th>
+        {% endfor %}
+      </tr></thead>
+      <tbody>
+        {% for analyst in analyst_performance %}
+        <tr>
+          <th scope="row"><a href="{{ url_for('admin.analyst_details',analyst_id=analyst.analyst_id,filter=current_filter,annualized='true' if annualized else 'false') }}">{{ analyst.analyst_name }} ↗</a></th>
+          {% for key, label_key in analyst_metrics %}
+          {% set value = analyst[key] %}
+          <td data-metric="{{ key }}" data-value="{{ value if value is not none else '' }}"{% if key not in ('num_analyses', 'win_rate') and value is not none %} class="{{ 'positive' if value>=0 else 'negative' }}"{% endif %}>
+            {% if value is none %}—{% elif key == 'num_analyses' %}{{ value }}{% else %}{{ '%.2f'|format(value) }}%{% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% else %}<tr><td colspan="7" data-i18n="results.no_analyses">No analyses match this selection.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
 {% include 'admin/_results_fundamentals.html' %}
-</div><script defer src="{{ url_for('static',filename='js/results.js',v='20261109a') }}"></script>{% endblock %}
+</div><script defer src="{{ url_for('static',filename='js/results.js',v='20261109b') }}"></script>{% endblock %}
 {% block modals %}{% include 'analyst/_refresh_modal.html' %}{% endblock %}

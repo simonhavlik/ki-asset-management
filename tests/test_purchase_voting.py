@@ -498,6 +498,20 @@ def test_edit_proposal_text_keeps_ballot_and_window(voting_case):
     assert client_for(app, admin).post(url, data={'rationale': ''}).status_code == 303
     assert proposal.rationale == ''
 
+    proposal.expires_at = datetime.utcnow() - timedelta(seconds=1)
+    db.session.commit()
+    expiry = proposal.expires_at
+    assert f'id="proposal-editor-{proposal.id}"' in owner.get('/voting/history').text
+    assert f'id="proposal-editor-{proposal.id}"' not in voter_client.get('/voting/history').text
+    response = owner.post(url, data={'rationale': 'Historical correction',
+                                     'return_to': 'history', 'page': 1})
+    assert response.status_code == 303
+    assert response.location.startswith('/voting/history?')
+    assert response.location.endswith(f'#proposal-{proposal.id}')
+    assert 'Historical correction' in owner.get(response.location).text
+    assert proposal.expires_at == expiry
+    assert Ballot.query.filter_by(recommendation_id=proposal.id, vote=True).count() == 1
+
 
 def test_eligible_list_shows_notion_tally_separate_from_board(voting_case):
     app, author, voter, admin, analyses = voting_case
