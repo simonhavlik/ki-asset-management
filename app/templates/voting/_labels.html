@@ -1,5 +1,8 @@
 {% macro label(key) -%}
-{% if key == 'renew' %}<span data-i18n="voting.renew">Renew recommendation</span>
+{% if key == 'proposal_attachment' %}<span data-i18n="voting.proposal_attachment">Attachment (optional)</span>
+{% elif key == 'proposal_attachment_help' %}<span data-i18n="voting.proposal_attachment_help">PDF, screenshot, Office document, CSV or TXT · up to 20 MB. More files can be added in the proposal detail.</span>
+{% elif key == 'proposal_attachment_failed' %}<span data-i18n="voting.proposal_attachment_failed">The proposal is saved, but the attachment could not be uploaded. Add the file again below.</span>
+{% elif key == 'renew' %}<span data-i18n="voting.renew">Renew recommendation</span>
 {% elif key == 'renewed' %}<span data-i18n="voting.renewed">Recommendation renewed; previous votes retained.</span>
 {% elif key == 'window_start' %}<span data-i18n="voting.window_start">Current validity started</span>
 {% elif key == 'carried_votes' %}<span data-i18n="voting.carried_votes">votes retained</span>
@@ -84,8 +87,10 @@
 {% elif key == 'settings_saved' %}<span data-i18n="voting.settings_saved">Condition saved.</span>
 {% elif key == 'ballot' %}<span data-i18n="voting.ballot">Ballot updated</span>
 {% elif key == 'invalid' %}<span data-i18n="voting.invalid">Check the fields. Validity must be 7–30 days.</span>
-{% elif key == 'not_eligible' %}<span data-i18n="voting.not_eligible">Only your own analyses meeting the current condition may be proposed.</span>
+{% elif key == 'not_eligible' %}<span data-i18n="voting.not_eligible">This analysis does not meet the conditions for your proposal.</span>
 {% elif key == 'duplicate' %}<span data-i18n="voting.duplicate">You already have an active proposal for this company. Extend it instead.</span>
 {% elif key == 'closed' %}<span data-i18n="voting.closed">This proposal has ended. Its votes are preserved. The author may renew it with the same votes.</span>
 {% elif key == 'not_later' %}<span data-i18n="voting.not_later">The new expiry must be later than the current expiry.</span>
+{% elif key == 'text_edited' %}<span data-i18n="voting.text_edited">Proposal text edited</span>
+{% elif key == 'invalid_text' %}<span data-i18n="voting.invalid_text">The proposal text may contain up to 2,000 characters.</span>
 {% endif %}{%- endmacro %}

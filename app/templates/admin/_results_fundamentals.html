@@ -10,11 +10,19 @@
     <th data-i18n="results.updated">Updated</th>
   </tr></thead><tbody>
     {% for item in fundamentals %}<tr data-company-row data-search="{{ (item.company.name ~ ' ' ~ item.ticker)|lower }}">
-      <th class="company-column"><button type="button" class="company-detail-toggle" data-details-url="{{ url_for('admin.company_fundamentals',company_id=item.company.id) }}" aria-expanded="false" aria-controls="fundamental-detail-{{ item.company.id }}"><span>{{ item.company.name }}</span><small>{{ item.ticker or '—' }} <span aria-hidden="true">＋</span></small></button></th>
+      <th class="company-column"><button type="button" class="company-detail-toggle" data-details-url="{{ url_for('admin.company_fundamentals',company_id=item.company.id) }}" aria-haspopup="dialog"><span>{{ item.company.name }}</span><small>{{ item.ticker or '—' }} <span aria-hidden="true">＋</span></small></button></th>
       {% for group, keys in metric_columns.items() %}{% for key in keys %}<td data-metric-group="{{ group }}" data-metric="{{ key }}" data-value="{{ item.numeric[key] if item.numeric[key] is not none else '' }}" {% if group!='valuation' %}hidden{% endif %}>{{ item['values'][key] }}</td>{% endfor %}{% endfor %}
       <td class="fundamental-date">{% if item.cached_at %}<time datetime="{{ item.cached_at.isoformat() }}Z" title="{{ item.cached_at.isoformat() }} UTC">{{ item.cached_at.strftime('%d.%m.%Y') }}</time>{% if item.stale %}<small data-i18n="results.stale">Older data</small>{% endif %}{% else %}<span data-i18n="results.pending">Not available</span>{% endif %}</td>
-    </tr><tr id="fundamental-detail-{{ item.company.id }}" class="fundamental-detail-row" hidden><td colspan="60"><div data-detail-content></div></td></tr>
-    {% else %}<tr><td colspan="60" data-i18n="results.no_companies">No companies match this selection.</td></tr>{% endfor %}
+    </tr>
+    {% else %}<tr><td colspan="9" data-i18n="results.no_companies">No companies match this selection.</td></tr>{% endfor %}
   </tbody></table></div>
   <p class="results-footnote" data-i18n="results.fundamentals_note">Open a company for all available statistics. Refreshed with the central recalculation; opening this page makes no Yahoo requests. Ratios are not equally meaningful across sectors.</p>
 </section>
+
+<dialog class="fundamentals-dialog" data-company-dialog aria-labelledby="company-dialog-title">
+  <header>
+    <h2 id="company-dialog-title"></h2>
+    <form method="dialog"><button class="btn btn-sm btn-outline-secondary" data-i18n="results.close_detail">Close</button></form>
+  </header>
+  <div data-company-content></div>
+</dialog>

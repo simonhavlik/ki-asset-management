@@ -1,12 +1,14 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify, session
 from flask_login import login_required, current_user
 from sqlalchemy import desc, func
+from sqlalchemy.orm import joinedload, selectinload
 from datetime import date, timedelta, datetime
 from typing import Optional, Dict, Any, List
 import logging
 
 from ..extensions import db
 from ..models import Analysis, PerformanceCalculation, Company, StockPrice, analysis_analysts, User, ActivityLog, CsvUpload, Vote, PortfolioPurchase, BenchmarkPrice
+from ..utils.company_fundamentals import fundamentals_context
 from ..utils.performance import PerformanceCalculator, get_vote_counts_for_analyses
 from ..utils.sector_helper import get_company_sector, get_sector_distribution
 from ..security import rate_limit
@@ -865,8 +867,7 @@ def dashboard():
 
     # Admin extras (admin only, cheap - not cached)
     admin_stats = None
-    recent_activity = None
-    if current_user.is_admin:
+    if current_user.is_admin and not session.get('admin_view_as_user'):
         admin_stats = {
             'total_users': User.query.count(),
             'active_users': User.query.filter_by(is_active=True).count(),
@@ -876,19 +877,34 @@ def dashboard():
             'total_companies': Company.query.count(),
             'csv_uploads': CsvUpload.query.count(),
         }
-        recent_activity = ActivityLog.query.order_by(ActivityLog.timestamp.desc()).limit(10).all()
 
     # Recent analyses (cheap one query; the template uses the ORM objects)
     recent = db.session.query(Analysis).join(
         analysis_analysts, Analysis.id == analysis_analysts.c.analysis_id
     ).filter(
         analysis_analysts.c.user_id == current_user.id
-    ).order_by(desc(Analysis.analysis_date)).limit(10).all()
+    ).options(joinedload(Analysis.company), selectinload(Analysis.performance_calculations)
+    ).order_by(desc(Analysis.analysis_date), desc(Analysis.id)).limit(10).all()
+
+    # Reuse Results' stored returns and valuations; the published dashboard
+    # snapshot continues to supply the portfolio series and risk figures.
+    rows = PerformanceCalculator().get_analyst_analysis_performance(current_user.id, 'all_stock')
+    approved_rows = [(analysis, result, company) for analysis, result, company in rows
+                     if analysis.status in ('On Watchlist', 'Portfolio')]
+    returns = [{'name': company.name, 'ticker': company.ticker_symbol,
+                'date': analysis.analysis_date.strftime('%d.%m.%Y'),
+                'value': float(result.return_pct)}
+               for analysis, result, company in approved_rows]
+    companies = [company for _, _, company in rows]
+    companies_by_ticker = {company.ticker_symbol: company for company in companies
+                           if company.ticker_symbol}
 
     return render_template('analyst/dashboard.html',
                            recent_analyses=recent,
                            admin_stats=admin_stats,
-                           recent_activity=recent_activity,
+                           analysis_chart_returns=returns,
+                           companies_by_ticker=companies_by_ticker,
+                           **fundamentals_context(companies),
                            **data)
 
 

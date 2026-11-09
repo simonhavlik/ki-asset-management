@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block default_lang %}cs{% endblock %}
 {% block title %}Results – KI AM{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static',filename='css/results.css',v='20261102a') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static',filename='css/results.css',v='20261109a') }}">{% endblock %}
 {% block content %}<div class="results-page">
 <header class="results-header"><div><span class="results-kicker">KI AM / <span data-i18n="results.research">Equity research</span></span><h1 data-i18n="results.title">Results</h1><p data-i18n="results.intro">Analyst performance, company valuations and balance-sheet strength.</p></div><div class="results-header-actions">{% include 'analyst/_refresh_button.html' %}<a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin.export_csv',filter=current_filter,annualized='true' if annualized else 'false') }}">CSV</a><a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin.export_comprehensive') }}">Excel</a>{% if current_user.is_admin %}<div class="dropdown"><button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" data-i18n="results.tools">Tools</button><ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item" href="{{ url_for('admin.company_tickers') }}" data-i18n="maintenance.manage_tickers">Manage ticker mappings</a></li><li><a class="dropdown-item" href="{{ url_for('admin.debug_performance') }}" data-i18n="maintenance.diagnostics">Calculation diagnostics</a></li><li><a class="dropdown-item" href="{{ url_for('admin.export_comprehensive',fresh='true') }}" data-i18n="results.fresh_excel">Generate fresh Excel</a></li></ul></div>{% endif %}</div></header>
 {% include 'admin/_results_filters.html' %}
@@ -9,5 +9,5 @@
 {% for analyst in analyst_performance %}<tr><th><a href="{{ url_for('admin.analyst_details',analyst_id=analyst.analyst_id,filter=current_filter,annualized='true' if annualized else 'false') }}">{{ analyst.analyst_name }} ↗</a></th><td>{{ analyst.num_analyses }}</td>{% for key in ['avg_return','median_return','win_rate','best_return','worst_return'] %}<td class="{% if key!='win_rate' and analyst[key] is not none %}{{ 'positive' if analyst[key]>=0 else 'negative' }}{% endif %}">{{ '%.2f'|format(analyst[key]) ~ '%' if analyst[key] is not none else '—' }}</td>{% endfor %}</tr>{% else %}<tr><td colspan="7" data-i18n="results.no_analyses">No analyses match this selection.</td></tr>{% endfor %}
 </tbody></table></div></section>
 {% include 'admin/_results_fundamentals.html' %}
-</div><script defer src="{{ url_for('static',filename='js/results.js',v='20261102a') }}"></script>{% endblock %}
+</div><script defer src="{{ url_for('static',filename='js/results.js',v='20261109a') }}"></script>{% endblock %}
 {% block modals %}{% include 'analyst/_refresh_modal.html' %}{% endblock %}

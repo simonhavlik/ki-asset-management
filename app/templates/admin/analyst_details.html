@@ -2,7 +2,7 @@
 {% extends "base.html" %}
 {% block default_lang %}cs{% endblock %}
 {% block title %}{{ analyst.analyst_name }} – KI AM{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/results.css',v='20261102a') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/results.css',v='20261109a') }}">{% endblock %}
 {% block content %}
 <div class="results-page">
 <header class="results-header"><div><a class="results-back" href="{{ url_for('admin.performance',filter=current_filter,annualized='true' if annualized else 'false') }}" data-i18n="results.back">← All analysts</a><h1>{{ analyst.analyst_name }}</h1><p data-i18n="results.analyst_intro">Analysis returns and the current fundamentals of covered companies.</p></div>{% include 'analyst/_refresh_button.html' %}</header>
@@ -24,7 +24,7 @@
 </tbody></table></div></details>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script defer src="{{ url_for('static',filename='js/results.js',v='20261102a') }}"></script>
+<script defer src="{{ url_for('static',filename='js/results.js',v='20261109a') }}"></script>
 {% endblock %}
 {% block modals %}{% include 'analyst/_refresh_modal.html' %}{% endblock %}
 {% block extra_js %}

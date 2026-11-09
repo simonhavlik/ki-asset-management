@@ -1,7 +1,7 @@
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileRequired, FileAllowed
 from wtforms import StringField, PasswordField, BooleanField, SelectField, SubmitField, TextAreaField, Form, FieldList, FormField
-from wtforms.validators import DataRequired, Email, Length, Optional, ValidationError
+from wtforms.validators import DataRequired, Email, Length, Optional, Regexp, ValidationError
 import re
 from urllib.parse import urlsplit
 
@@ -92,3 +92,22 @@ class MaintenanceScheduleForm(FlaskForm):
     day_of_week = SelectField(choices=[(day, day) for day in ('mon','tue','wed','thu','fri','sat','sun')], validators=[DataRequired()])
     hour = IntegerField(validators=[NumberRange(min=0, max=23)])
     minute = IntegerField(validators=[NumberRange(min=0, max=59)])
+
+
+class PortfolioCostsForm(FlaskForm):
+    """The execution price is per share. Ancillary costs are for the purchase."""
+    amount = r'[0-9]{1,12}(?:[.,][0-9]{1,6})?\Z'
+    currency = r'[A-Z]{3}\Z'
+
+    unit_price = StringField(filters=[lambda value: (value or "").strip()],
+                             validators=[Optional(), Regexp(amount)])
+    price_currency = StringField(
+        filters=[lambda value: value.strip().upper() if value else ''],
+        validators=[Optional(), Regexp(currency)],
+    )
+    ancillary_costs = StringField(filters=[lambda value: (value or "").strip()],
+                                  validators=[Optional(), Regexp(amount)])
+    costs_currency = StringField(
+        filters=[lambda value: value.strip().upper() if value else ''],
+        validators=[Optional(), Regexp(currency)],
+    )

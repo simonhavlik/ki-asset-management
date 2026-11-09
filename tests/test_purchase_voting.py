@@ -366,3 +366,185 @@ def test_failed_db_commit_cleans_up_new_r2_object(voting_case,fake_attachment_st
     assert response.status_code==503 and fake_attachment_storage.puts==1
     assert fake_attachment_storage.objects=={}
     assert Attachment.query.filter_by(recommendation_id=p.id).count()==0
+
+
+def test_admin_settings_not_rendered_for_members(voting_case):
+    app,author,voter,admin,a=voting_case
+    for user in [author,voter]:
+        member=client_for(app,user)
+        for path in ['/voting/','/voting/approved','/voting/history']:
+            html=member.get(path).get_data(as_text=True)
+            assert 'class="voting-settings"' not in html
+            assert 'action="/voting/settings"' not in html
+        assert member.post('/voting/settings',data={'mode':'approved'}).status_code==403
+    admin_client=client_for(app,admin)
+    assert 'class="voting-settings"' in admin_client.get('/voting/').get_data(as_text=True)
+
+
+def test_proposal_composer_uploads_attachment_and_renewal_keeps_votes(voting_case,fake_attachment_storage):
+    import io
+    app,author,voter,admin,a=voting_case
+    owner=client_for(app,author)
+    html=owner.get('/voting/').get_data(as_text=True)
+    assert 'enctype="multipart/form-data"' in html and 'name="file"' in html
+    response=owner.post('/voting/propose',data={'analysis_id':a['approved'].id,'days':14,
+        'rationale':'Updated valuation','file':(io.BytesIO(b'%PDF-1.4\nOriginal thesis'),'thesis.pdf')})
+    assert response.status_code==303 and 'notice=attachment_added' in response.location
+    p=Proposal.query.filter_by(author_id=author.id,company_id=a['approved'].company_id).one()
+    assert Attachment.query.filter_by(recommendation_id=p.id).one().filename=='thesis.pdf'
+    assert Event.query.filter_by(recommendation_id=p.id,kind='attachment_added').count()==1
+    client_for(app,voter).post(f'/voting/{p.id}/vote',data={'vote':'yes'})
+    p.expires_at=datetime.utcnow()-timedelta(seconds=1);db.session.commit()
+    owner=client_for(app,author)
+    response=owner.post('/voting/propose',data={'analysis_id':a['approved'].id,'days':21,
+        'file':(io.BytesIO('Nové výsledky'.encode()),'update.txt')})
+    assert response.status_code==303 and 'notice=attachment_added' in response.location
+    assert Proposal.query.filter_by(author_id=author.id).count()==1
+    assert Attachment.query.filter_by(recommendation_id=p.id).count()==2
+    assert Ballot.query.filter_by(recommendation_id=p.id,vote=True).count()==1
+    assert fake_attachment_storage.puts==2
+
+
+def test_invalid_composer_attachment_does_not_publish_or_renew(voting_case,fake_attachment_storage,monkeypatch):
+    import io
+    from app.voting import storage
+    app,author,voter,admin,a=voting_case
+    owner=client_for(app,author)
+    def data(payload=b'invalid',name='bad.pdf'):
+        return {'analysis_id':a['approved'].id,'days':14,'file':(io.BytesIO(payload),name)}
+    assert owner.post('/voting/propose',data=data()).status_code==400
+    assert Proposal.query.filter_by(author_id=author.id).count()==0
+    monkeypatch.setattr(storage,'configured',lambda:False)
+    assert owner.post('/voting/propose',data=data(b'note','note.txt')).status_code==503
+    assert Proposal.query.filter_by(author_id=author.id).count()==0
+    # No attachment remains optional even if storage is unavailable.
+    p=create(owner,a['approved']);p.expires_at=datetime.utcnow()-timedelta(days=1);db.session.commit()
+    old_expiry=p.expires_at
+    monkeypatch.setattr(storage,'configured',lambda:True)
+    assert owner.post('/voting/propose',data=data()).status_code==400
+    assert db.session.get(Proposal,p.id).expires_at==old_expiry
+    assert not fake_attachment_storage.objects
+
+
+def test_composer_upload_failure_saves_proposal_and_explains_retry(voting_case,fake_attachment_storage,monkeypatch):
+    import io
+    app,author,voter,admin,a=voting_case
+    owner=client_for(app,author)
+    def fail(**kwargs):raise RuntimeError('Example temporary upload failure')
+    monkeypatch.setattr(fake_attachment_storage,'put_object',fail)
+    response=owner.post('/voting/propose',data={'analysis_id':a['approved'].id,'days':14,
+        'file':(io.BytesIO(b'note'),'note.txt')})
+    assert response.status_code==303 and 'notice=proposal_attachment_failed' in response.location
+    assert response.location.endswith('#attachments')
+    p=Proposal.query.filter_by(author_id=author.id,company_id=a['approved'].company_id).one()
+    assert Attachment.query.filter_by(recommendation_id=p.id).count()==0
+    html=owner.get(response.location).get_data(as_text=True)
+    assert 'role="alert" data-i18n="voting.proposal_attachment_failed"' in html
+    assert '<details open>' in html
+    assert f'action="/voting/{p.id}/attachments"' in html
+
+
+def test_composer_duplicate_file_does_not_renew_window(voting_case,fake_attachment_storage):
+    import io
+    app,author,voter,admin,a=voting_case
+    owner=client_for(app,author)
+    def data():return {'analysis_id':a['approved'].id,'days':14,'file':(io.BytesIO(b'note'),'note.txt')}
+    assert owner.post('/voting/propose',data=data()).status_code==303
+    p=Proposal.query.filter_by(author_id=author.id).one()
+    p.expires_at=datetime.utcnow()-timedelta(days=1);db.session.commit();old=p.expires_at
+    assert owner.post('/voting/propose',data=data()).status_code==409
+    assert db.session.get(Proposal,p.id).expires_at==old
+    assert fake_attachment_storage.puts==1
+
+
+def test_admin_can_propose_eligible_foreign_analysis_in_own_name(voting_case):
+    app, author, voter, admin, analyses = voting_case
+    target = analyses['other_author']
+    admin_client = client_for(app, admin)
+    assert f'data-select-analysis="{target.id}"' in admin_client.get('/voting/approved').text
+    proposal = create(admin_client, target)
+    assert proposal.author_id == admin.id
+    assert admin_client.post('/voting/propose', data={
+        'analysis_id': analyses['rejected'].id, 'days': 14,
+    }).status_code == 403
+    with admin_client.session_transaction() as state:
+        state['admin_view_as_user'] = True
+    assert 'class="voting-settings"' not in admin_client.get('/voting/').text
+    assert admin_client.post('/voting/settings', data={'mode': 'approved'}).status_code == 403
+    assert admin_client.post('/voting/propose', data={
+        'analysis_id': analyses['second'].id, 'days': 14,
+    }).status_code == 403
+
+
+def test_edit_proposal_text_keeps_ballot_and_window(voting_case):
+    app, author, voter, admin, analyses = voting_case
+    owner = client_for(app, author)
+    proposal = create(owner, analyses['approved'])
+    expiry, previous_text = proposal.expires_at, proposal.rationale
+    voter_client = client_for(app, voter)
+    voter_client.post(f'/voting/{proposal.id}/vote', data={'vote': 'yes'})
+    url = f'/voting/{proposal.id}/edit'
+    assert voter_client.post(url, data={'rationale': 'Cannot edit'}).status_code == 403
+    assert owner.post(url, data={'rationale': 'x' * 2001}).status_code == 400
+    response = owner.post(url, data={'rationale': 'Revised rationale'})
+    assert response.status_code == 303
+    assert proposal.rationale == 'Revised rationale'
+    assert proposal.expires_at == expiry
+    assert Ballot.query.filter_by(recommendation_id=proposal.id, vote=True).count() == 1
+    log = Event.query.filter_by(recommendation_id=proposal.id, kind='text_edited').one()
+    assert log.details['previous_rationale'] == previous_text
+    assert log.actor_id == author.id
+    assert 'Revised rationale' in owner.get(response.location).text
+    assert client_for(app, admin).post(url, data={'rationale': ''}).status_code == 303
+    assert proposal.rationale == ''
+
+
+def test_eligible_list_shows_notion_tally_separate_from_board(voting_case):
+    app, author, voter, admin, analyses = voting_case
+    analyses['approved'].comment = '9-3-2-1'
+    analyses['second'].comment = '4 pro - 3 neu - 2 proti'
+    db.session.commit()
+    html = client_for(app, author).get('/voting/approved').text
+    assert 'data-i18n="voting.team_tally"' in html
+    assert '<strong class="yes">9</strong> / <strong class="no">2</strong>' in html
+    assert '<strong class="yes">4</strong> / <strong class="no">2</strong>' in html
+    assert '<td>1 / 0</td>' in html
+
+
+def test_board_costs_are_recorded_per_purchase_without_recalculation(voting_case, monkeypatch):
+    from decimal import Decimal
+    from app.admin import routes
+    from app.models import PortfolioPurchaseCosts
+
+    app, author, voter, admin, analyses = voting_case
+    def no_recalculation(*args, **kwargs):
+        pytest.fail('Recording or opening purchase costs must not recalculate performance')
+    monkeypatch.setattr(routes, 'get_portfolio_performance', no_recalculation)
+    monkeypatch.setattr(routes, 'get_portfolio_series', no_recalculation)
+    purchase = PortfolioPurchase(analysis_id=analyses['approved'].id,
+                                 purchase_date=date(2026, 1, 12), added_by=admin.id)
+    db.session.add(purchase)
+    db.session.commit()
+    purchase_id = purchase.id
+    url = f'/admin/board/purchases/{purchase_id}/costs'
+    valid = dict(unit_price='123,4567', price_currency='usd',
+                 ancillary_costs='0', costs_currency='CZK')
+    try:
+        assert client_for(app, voter).post(url, data=valid).status_code == 302
+        assert db.session.get(PortfolioPurchaseCosts, purchase_id) is None
+        board = client_for(app, admin)
+        for invalid in [dict(valid, unit_price='NaN'), dict(valid, costs_currency=''),
+                        dict(valid, ancillary_costs='-0.01'), dict(valid, unit_price='0')]:
+            assert 'costs=invalid' in board.post(url, data=invalid).location
+            assert db.session.get(PortfolioPurchaseCosts, purchase_id) is None
+        response = board.post(url, data=valid)
+        assert response.status_code == 303 and 'costs=saved' in response.location
+        costs = db.session.get(PortfolioPurchaseCosts, purchase_id)
+        assert (costs.unit_price, costs.price_currency) == (Decimal('123.4567'), 'USD')
+        assert (costs.ancillary_costs, costs.costs_currency) == (Decimal('0'), 'CZK')
+        assert db.session.get(PortfolioPurchase, purchase_id).purchase_date == date(2026, 1, 12)
+        html = board.get(response.location).text
+        assert '123.4567 USD' in html and '0 CZK' in html
+    finally:
+        db.session.delete(db.session.get(PortfolioPurchase, purchase_id))
+        db.session.commit()

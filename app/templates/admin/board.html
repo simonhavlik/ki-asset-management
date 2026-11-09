@@ -1,336 +1,74 @@
 {% extends "base.html" %}
-
-{% block title %}Board Portfolio – KI Asset Management{% endblock %}
-
+{% block default_lang %}cs{% endblock %}
+{% block title %}Výbor – KI Asset Management{% endblock %}
 {% block extra_css %}
-<style>
-.voting-card {
-    transition: all 0.2s ease;
-    border: 1px solid var(--gray-200);
-}
-
-.voting-card:hover {
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    transform: translateY(-2px);
-}
-
-.voting-card.purchased {
-    border-left: 4px solid var(--success);
-}
-
-.voting-card.rejected {
-    border-left: 4px solid var(--danger);
-}
-
-.voting-card.tie {
-    border-left: 4px solid var(--gray-400);
-}
-
-.vote-badge {
-    font-size: 0.75rem;
-    font-weight: 600;
-    padding: 0.25em 0.75em;
-}
-
-.portfolio-stat-card {
-    background: linear-gradient(135deg, #f8f9fa 0%, #fff 100%);
-    border: 1px solid var(--gray-200);
-    border-radius: 1rem;
-    padding: 1.5rem;
-    text-align: center;
-}
-
-.portfolio-stat-value {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--gray-900);
-    margin-bottom: 0.25rem;
-}
-
-.portfolio-stat-value.positive {
-    color: var(--success);
-}
-
-.portfolio-stat-value.negative {
-    color: var(--danger);
-}
-
-.portfolio-stat-label {
-    font-size: 0.875rem;
-    color: var(--gray-600);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.chart-container {
-    background: var(--white);
-    border-radius: 1rem;
-    padding: 1.5rem;
-    box-shadow: var(--shadow-sm);
-}
-
-.chart-toggle {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-}
-
-.chart-toggle .btn {
-    flex: 1;
-}
-
-.chart-toggle .btn.active {
-    background-color: var(--primary);
-    color: white;
-}
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/results.css', v='20261109a') }}">
 {% endblock %}
-
+{% set initial_view = 'approved' if portfolio_performance or not purchased_performance else 'purchased' %}
 {% block content %}
-<div class="container-fluid">
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<form action="{{ url_for('admin.public_portfolio') }}" method="post" class="border p-3 mb-4 d-flex flex-wrap align-items-end gap-3">
-    {{ public_portfolio_form.hidden_tag() }}
-    <div class="flex-grow-1">
-        <label for="public-portfolio-mode" class="form-label" data-i18n="board.public_title">Public homepage portfolio</label>
-        <select id="public-portfolio-mode" name="mode" class="form-select">
-            <option value="approved" {% if public_portfolio_form.mode.data == 'approved' %}selected{% endif %} data-i18n="board.public_approved">Board-approved positions</option>
-            <option value="purchased" {% if public_portfolio_form.mode.data == 'purchased' %}selected{% endif %} data-i18n="board.public_purchased">Purchased positions</option>
-        </select>
-        <p class="small text-muted mb-0 mt-2" data-i18n="board.public_help">Changes all homepage figures and both charts together. Uses centrally published results.</p>
-    </div>
-    <button class="btn btn-success" type="submit" data-i18n="board.public_save">Save selection</button>
-</form>
-
-<!-- Header -->
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="results-page board-page">
+  <header class="results-header">
     <div>
-        <h1><i class="bi bi-clipboard-check"></i> Board Portfolio</h1>
-        <p class="text-muted mb-0">Voting and performance tracking for Board-approved positions</p>
+      <span class="results-kicker">KI AM / <span data-i18n="board.governance">Investment committee</span></span>
+      <h1 data-i18n="board.title">Board portfolio</h1>
+      <p>{% if last_recalc %}<span data-i18n="board.updated">Calculated</span> <time>{{ last_recalc.strftime('%d.%m.%Y %H:%M UTC') }}</time>{% else %}<span data-i18n="board.pending">Awaiting the next calculation.</span>{% endif %}</p>
     </div>
-    <div class="d-flex gap-2">
-        <div class="dropdown">
-            <button class="btn btn-outline-success dropdown-toggle" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="bi bi-download"></i> Export
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="exportDropdown">
-                <li><h6 class="dropdown-header">Quick Export</h6></li>
-                <li><a class="dropdown-item" href="{{ url_for('admin.export_board_csv') }}">
-                    <i class="bi bi-filetype-csv"></i> Board CSV
-                </a></li>
-                <li><hr class="dropdown-divider"></li>
-                <li><h6 class="dropdown-header">Comprehensive Report</h6></li>
-                <li>
-                    <a class="dropdown-item" href="{{ url_for('admin.export_comprehensive') }}" id="downloadCachedLink">
-                        <i class="bi bi-filetype-xlsx"></i> Download Excel
-                        <small class="text-muted d-block" id="cacheStatus">Checking cache...</small>
-                    </a>
-                </li>
-                <li>
-                    <a class="dropdown-item" href="{{ url_for('admin.export_comprehensive', fresh='true') }}">
-                        <i class="bi bi-arrow-clockwise"></i> Generate Fresh Report
-                    </a>
-                </li>
-            </ul>
-        </div>
-        <form method="POST" action="{{ url_for('admin.update_benchmarks') }}" style="display: inline;">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-outline-info" onclick="return confirm('Fetch latest benchmark prices from Yahoo Finance?')">
-                <i class="bi bi-graph-up"></i> Update Benchmarks
-            </button>
-        </form>
-        <form method="POST" action="{{ url_for('admin.calculate_portfolio_performance') }}" style="display: inline;" id="updatePerformanceForm">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-primary" id="updatePerformanceBtn">
-                <i class="bi bi-calculator"></i> Update Performance
-            </button>
-        </form>
-    </div>
-</div>
-
-<script>
-// Check export cache status
-document.addEventListener('DOMContentLoaded', function() {
-    fetch('{{ url_for("admin.export_status") }}')
-        .then(response => response.json())
-        .then(data => {
-            const statusEl = document.getElementById('cacheStatus');
-            const comprehensive = data.comprehensive;
-            
-            if (comprehensive.has_cache && comprehensive.is_valid) {
-                statusEl.textContent = `Cached ${comprehensive.age_days} days ago`;
-                statusEl.className = 'text-success d-block';
-            } else if (comprehensive.has_cache) {
-                statusEl.textContent = `Cache expired (${comprehensive.age_days} days old)`;
-                statusEl.className = 'text-warning d-block';
-            } else {
-                statusEl.textContent = 'No cache - will generate new';
-                statusEl.className = 'text-muted d-block';
-            }
-        })
-        .catch(err => {
-            console.error('Error checking cache status:', err);
-        });
-});
-</script>
-
-<!-- Last Update Info -->
-<div class="alert alert-info mb-3 d-flex justify-content-between align-items-center">
-    <div>
-        <small><i class="bi bi-info-circle"></i> 
-        {% if last_recalc %}
-            Data last recalculated: <strong>{{ last_recalc.strftime('%Y-%m-%d %H:%M UTC') }}</strong>
-        {% else %}
-            No recalculation recorded yet
-        {% endif %}
-        <br><i class="bi bi-clock-history"></i> Automatic recalculation runs weekly (Sundays at 3:00 AM UTC)</small>
-    </div>
-    <form action="{{ url_for('admin.calculate_portfolio_performance') }}" method="post" class="ms-3">
+    <div class="results-header-actions">
+      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin.export_board_csv') }}">CSV</a>
+      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin.export_comprehensive') }}">Excel</a>
+      <a class="btn btn-sm btn-outline-success" href="#purchased-positions" data-i18n="board.public_purchased">Purchased positions</a>
+      <form method="post" action="{{ url_for('admin.calculate_portfolio_performance') }}" id="updatePerformanceForm">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="btn btn-warning btn-sm" onclick="return confirm('This will recalculate all performance data and refresh all caches. Continue?')">
-            <i class="bi bi-arrow-clockwise"></i> Recalculate Now
-        </button>
-    </form>
-</div>
-
-<!-- Portfolio Performance Summary -->
-{% if portfolio_performance %}
-<div class="card mb-4 border-0 shadow-sm">
-    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="bi bi-graph-up"></i> Portfolio Performance vs Benchmarks</h5>
-        
-        <!-- Portfolio Toggle -->
-        <div class="btn-group" role="group">
-            <button type="button" class="btn btn-outline-light active" id="btnApproved" onclick="togglePortfolio('approved')">
-                All Approved
-            </button>
-            <button type="button" class="btn btn-outline-light" id="btnPurchased" onclick="togglePortfolio('purchased')">
-                Purchased Only
-            </button>
-        </div>
+        <button class="btn btn-sm btn-success" data-i18n="board.recalculate">Recalculate</button>
+      </form>
     </div>
-    <div class="card-body">
-        <!-- Stats Row -->
-        <div class="row g-3 mb-4" id="statsRow">
-            <div class="col-md-3">
-                <div class="portfolio-stat-card">
-                    <div class="portfolio-stat-value" id="statPositions">{{ portfolio_performance.num_positions }}</div>
-                    <div class="portfolio-stat-label">Positions</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="portfolio-stat-card">
-                    <div class="portfolio-stat-value {% if (portfolio_performance.total_return or 0) >= 0 %}positive{% else %}negative{% endif %}" id="statReturn">
-                        {{ "%.2f"|format(portfolio_performance.total_return) }}%
-                    </div>
-                    <div class="portfolio-stat-label">Avg Return</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="portfolio-stat-card">
-                    <div class="portfolio-stat-value {% if (portfolio_performance.annualized_return or 0) >= 0 %}positive{% else %}negative{% endif %}" id="statAnnualized">
-                        {{ "%.2f"|format(portfolio_performance.annualized_return) }}%
-                    </div>
-                    <div class="portfolio-stat-label">Annualized</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="portfolio-stat-card">
-                    <div class="portfolio-stat-value" id="statInception">{{ portfolio_performance.start_date[:10] if portfolio_performance.start_date else '--' }}</div>
-                    <div class="portfolio-stat-label">Inception</div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Benchmark Comparison -->
-        <div class="row mb-4">
-            <div class="col-md-12">
-                <div class="d-flex justify-content-center gap-4 text-center flex-wrap" id="benchmarkRow">
-                    <div>
-                        <span class="badge bg-primary fs-6" id="benchPortfolio">
-                            Portfolio: {{ "%.2f"|format(portfolio_performance.total_return) }}%
-                        </span>
-                    </div>
-                    <div>
-                        <span class="badge bg-warning text-dark fs-6" id="benchSpy">
-                            S&P 500: {{ "%.2f"|format(portfolio_performance.benchmark_spy) }}%
-                        </span>
-                    </div>
-                    <div>
-                        <span class="badge bg-info fs-6" id="benchFtse">
-                            FTSE All-World: {{ "%.2f"|format(portfolio_performance.benchmark_ftse) }}%
-                        </span>
-                    </div>
-                    <div>
-                        <span class="badge bg-secondary fs-6" id="benchEems">
-                            EEMS: {{ "%.2f"|format(portfolio_performance.benchmark_eems) }}%
-                        </span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Charts -->
-        <div class="row">
-            <div class="col-lg-6 mb-4">
-                <div class="chart-container">
-                    <h6 class="mb-3 text-center">Portfolio Performance Since Inception</h6>
-                    <p class="text-muted small text-center mb-2">
-                        Each stock contributes from its purchase date. Portfolio = equal-weighted average of all holdings.
-                    </p>
-                    <canvas id="inceptionChart" height="250"></canvas>
-                </div>
-            </div>
-            <div class="col-lg-6 mb-4">
-                <div class="chart-container">
-                    <h6 class="mb-3 text-center">Portfolio Performance - Last 12 Months</h6>
-                    <p class="text-muted small text-center mb-2">
-                        Equal-weighted average of all active positions from their entry dates.
-                    </p>
-                    <canvas id="oneyearChart" height="250"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
+  </header>
 
-<!-- Info Card -->
-<div class="card mb-4">
-    <div class="card-body">
-        <div class="d-flex align-items-start">
-            <i class="bi bi-info-circle-fill text-primary fs-4 me-3 mt-1"></i>
-            <div>
-                <h5 class="mb-2">How Board Voting Works</h5>
-                <p class="mb-0 text-muted">
-                    This page shows all analyses with status <strong>"On Watchlist"</strong>. Board members vote on whether to add each stock to the portfolio.
-                    If more votes are in favor than against, the stock is considered <strong>purchased</strong> and included in portfolio performance calculations.
-                    Use the toggle above to switch between "All Approved" (all stocks with Yes majority) and "Purchased Only" (stocks marked as purchased).
-                </p>
-            </div>
-        </div>
+  <section class="board-performance">
+    <div class="results-section-head">
+      <h2 data-i18n="board.performance">Portfolio performance</h2>
+      <div class="results-tabs" role="group">
+        <button type="button" id="btnApproved" class="{{ 'active' if initial_view=='approved' else '' }}" aria-pressed="{{ 'true' if initial_view=='approved' else 'false' }}" onclick="togglePortfolio('approved')" data-i18n="board.public_approved">Board-approved positions</button>
+        <button type="button" id="btnPurchased" class="{{ 'active' if initial_view=='purchased' else '' }}" aria-pressed="{{ 'true' if initial_view=='purchased' else 'false' }}" onclick="togglePortfolio('purchased')" data-i18n="board.public_purchased">Purchased positions</button>
+      </div>
     </div>
-</div>
+    <div class="results-stat-strip board-stats" id="statsRow">
+      <div><span data-i18n="board.positions">Positions</span><strong id="statPositions">—</strong></div>
+      <div><span data-i18n="results.avg_return">Average return</span><strong class="portfolio-stat-value" id="statReturn">—</strong></div>
+      <div><span data-i18n="board.annualized">Annualized return</span><strong class="portfolio-stat-value" id="statAnnualized">—</strong></div>
+      <div><span data-i18n="board.inception">Since</span><strong id="statInception">—</strong></div>
+    </div>
+    <div class="board-benchmarks" id="benchmarkRow">
+      <span><span data-i18n="board.portfolio">Portfolio</span> <strong id="benchPortfolio">—</strong></span>
+      <span>S&amp;P 500 <strong id="benchSpy">—</strong></span>
+      <span>FTSE All-World <strong id="benchFtse">—</strong></span>
+      <span>EEMS <strong id="benchEems">—</strong></span>
+    </div>
+    <div class="results-charts board-charts">
+      <article><h2 data-i18n="board.chart_since">Since inception</h2><div class="results-chart"><canvas id="inceptionChart"></canvas></div></article>
+      <article><h2 data-i18n="board.chart_year">Entries in the last 12 months</h2><div class="results-chart"><canvas id="oneyearChart"></canvas></div></article>
+    </div>
+    <p class="results-footnote" data-i18n="board.chart_method">Equal-weighted returns use cached market prices from each position’s entry date.</p>
+  </section>
 
-<!-- Voting Table -->
+  {% include 'admin/_purchase_costs.html' %}
+  <!-- Voting Table -->
 {% if analyses %}
-<div class="card shadow-sm">
-    <div class="card-header bg-light">
-        <h5 class="mb-0"><i class="bi bi-list-check"></i> Voting Queue ({{ analyses|length }} stocks)</h5>
+<section class="results-leaderboard" id="board-queue">
+    <div class="results-section-head">
+      <h2 data-i18n="board.queue">Board voting queue</h2><span class="results-coverage">{{ analyses|length }}</span>
     </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover mb-0 align-middle">
-                <thead class="table-light">
+    <div class="results-table-scroll">
+            <table class="results-table board-queue">
+                <thead>
                     <tr>
-                        <th>Company</th>
+                        <th data-i18n="results.company">Company</th>
                         <th>Ticker</th>
-                        <th>Analysis Date</th>
-                        <th>Analysts</th>
-                        <th>Votes</th>
-                        <th>Status</th>
-                        <th>Actions</th>
+                        <th data-i18n="results.analysis_date">Analysis date</th>
+                        <th data-i18n="results.analysts">Analysts</th>
+                        <th data-i18n="board.votes">Board votes</th>
+                        <th data-i18n="board.position">Position</th>
+                        <th data-i18n="board.actions">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -341,15 +79,15 @@ document.addEventListener('DOMContentLoaded', function() {
                         </td>
                         <td>
                             {% if analysis.company.ticker_symbol %}
-                                <span class="badge bg-secondary">{{ analysis.company.ticker_symbol }}</span>
+                                <span class="board-symbol">{{ analysis.company.ticker_symbol }}</span>
                             {% else %}
                                 <span class="text-muted">—</span>
                             {% endif %}
                         </td>
                         <td>{{ analysis.analysis_date.strftime('%Y-%m-%d') }}</td>
                         <td>
-                            {% for analyst in analysis.analysts %}
-                                <span class="badge bg-info">{{ analyst.full_name or analyst.email }}</span>
+                            {% for name in analyst_names.get(analysis.id, []) %}
+                                <span class="board-tag">{{ name }}</span>
                             {% else %}
                                 <span class="text-muted">—</span>
                             {% endfor %}
@@ -358,22 +96,22 @@ document.addEventListener('DOMContentLoaded', function() {
                             {% set votes_yes = analysis.votes|selectattr('vote', 'equalto', true)|list|length %}
                             {% set votes_no = analysis.votes|selectattr('vote', 'equalto', false)|list|length %}
                             <div class="d-flex gap-1">
-                                <span class="vote-badge bg-success">{{ votes_yes }} Yes</span>
-                                <span class="vote-badge bg-danger">{{ votes_no }} No</span>
+                                <span class="positive">{{ votes_yes }} <span data-i18n="voting.for">For</span></span>
+                                <span class="negative">{{ votes_no }} <span data-i18n="voting.against">Against</span></span>
                                 {% if votes_yes > votes_no %}
-                                    <span class="vote-badge bg-primary">Approved</span>
+                                    <span class="board-tag" data-i18n="board.approved">Approved</span>
                                 {% elif votes_no > votes_yes %}
-                                    <span class="vote-badge bg-warning text-dark">Rejected</span>
+                                    <span class="board-tag" data-i18n="board.rejected">Rejected</span>
                                 {% else %}
-                                    <span class="vote-badge bg-secondary">Tie</span>
+                                    <span class="board-tag" data-i18n="board.tie">Tie</span>
                                 {% endif %}
                             </div>
                         </td>
                         <td>
                             {% if analysis.id in purchased_ids %}
-                                <span class="badge bg-success"><i class="bi bi-check-circle"></i> In Portfolio</span>
+                                <a href="#purchase-{{ purchase_by_analysis[analysis.id].id }}" data-i18n="board.in_portfolio">In portfolio</a>
                             {% else %}
-                                <span class="badge bg-light text-dark border"><i class="bi bi-circle"></i> Not Added</span>
+                                —
                             {% endif %}
                         </td>
                         <td>
@@ -396,7 +134,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </div>
                                 {% if analysis.id in purchased_ids %}
                                 <!-- Purchase Date Picker -->
-                                {% set purchase = purchases|selectattr('analysis_id', 'equalto', analysis.id)|first %}
+                                {% set purchase = purchase_by_analysis.get(analysis.id) %}
                                 <form method="POST" action="{{ url_for('admin.board_purchase', analysis_id=analysis.id) }}" class="d-inline d-flex align-items-center gap-1">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <input type="date" name="purchase_date" value="{{ purchase.purchase_date.strftime('%Y-%m-%d') if purchase else analysis.analysis_date.strftime('%Y-%m-%d') }}" 
@@ -434,59 +172,39 @@ document.addEventListener('DOMContentLoaded', function() {
                     {% endfor %}
                 </tbody>
             </table>
-        </div>
     </div>
-</div>
+</section>
 
-<div class="row mt-4">
-    <div class="col-md-6">
-        <div class="card h-100">
-            <div class="card-header bg-light">
-                <h6 class="mb-0"><i class="bi bi-question-circle"></i> Legend</h6>
-            </div>
-            <div class="card-body">
-                <ul class="mb-0">
-                    <li><strong>Approved</strong>: More Yes votes than No votes</li>
-                    <li><strong>Rejected</strong>: More No votes than Yes votes</li>
-                    <li><strong>In Portfolio</strong>: Stock has been marked as purchased</li>
-                    <li>Use the toggle at top to switch between All Approved / Purchased Only views</li>
-                </ul>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6">
-        <div class="card h-100">
-            <div class="card-header bg-light">
-                <h6 class="mb-0"><i class="bi bi-info-circle"></i> Portfolio Calculation</h6>
-            </div>
-            <div class="card-body">
-                <p class="mb-2">Each administrator can vote once per analysis. Changing your vote will replace your previous vote.</p>
-                <p class="mb-2 text-muted small">
-                    <strong>How the portfolio line works:</strong> When the first stock is added, the line shows its performance. 
-                    When a second stock enters, from that moment the line shows the average of both. With three stocks, 
-                    each contributes 33% to the portfolio performance. Each stock's contribution starts from its purchase date.
-                </p>
-                <p class="mb-0 text-muted small">
-                    Benchmarks (S&P 500, FTSE All-World, EEMS) are shown for comparison over the same time period.
-                </p>
-            </div>
-        </div>
-    </div>
-</div>
 
-{% else %}
-<div class="alert alert-info d-flex align-items-center">
-    <i class="bi bi-info-circle-fill me-2 fs-5"></i>
-    <div>
-        <strong>No analyses found.</strong> Upload a CSV with approved analyses to start voting.
-        <a href="{{ url_for('admin.upload_csv') }}" class="alert-link">Go to CSV Upload</a>
-    </div>
-</div>
-{% endif %}
-</div>
+  {% else %}
+  <p class="results-footnote" data-i18n="board.queue_empty">No analyses are waiting for a Board vote.</p>
+  {% endif %}
 
+  <details class="results-analysis-list">
+    <summary data-i18n="board.settings">Portfolio settings</summary>
+    <form action="{{ url_for('admin.public_portfolio') }}" method="post" class="results-filters">
+      {{ public_portfolio_form.hidden_tag() }}
+      <label><span data-i18n="board.public_title">Public homepage portfolio</span>
+        <select name="mode" class="form-select form-select-sm">
+          <option value="approved" {% if public_portfolio_form.mode.data == 'approved' %}selected{% endif %} data-i18n="board.public_approved">Board-approved positions</option>
+          <option value="purchased" {% if public_portfolio_form.mode.data == 'purchased' %}selected{% endif %} data-i18n="board.public_purchased">Purchased positions</option>
+        </select>
+      </label>
+      <button class="btn btn-sm btn-success" data-i18n="board.public_save">Save selection</button>
+    </form>
+    <p class="results-footnote" data-i18n="board.public_help">Changes all homepage figures and both charts together. Uses centrally published results.</p>
+    <div class="results-header-actions">
+      <a href="{{ url_for('admin.unified_update') }}" class="btn btn-sm btn-outline-secondary" data-i18n="board.schedule">Update schedule</a>
+      <a href="{{ url_for('admin.export_comprehensive', fresh='true') }}" class="btn btn-sm btn-outline-secondary" data-i18n="results.fresh_excel">Generate fresh Excel</a>
+      <form method="post" action="{{ url_for('admin.update_benchmarks') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-sm btn-outline-secondary" data-i18n="board.update_benchmarks">Update benchmarks</button>
+      </form>
+    </div>
+  </details>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 {% endblock %}
-
 {% block extra_js %}
 <script>
 // Portfolio data
@@ -502,7 +220,7 @@ const purchasedData = {
     series1y: {{ purchased_series_1y|tojson|safe }}
 };
 
-let currentView = 'approved';
+let currentView = {{ initial_view|tojson }};
 let inceptionChart = null;
 let oneYearChart = null;
 
@@ -668,8 +386,12 @@ function setStat(elementId, text, signed) {
     if (!el) return;
     el.textContent = text;
     if (signed) {
-        el.className = 'portfolio-stat-value ' + (parseFloat(text) >= 0 ? 'positive' : 'negative');
+        el.className = 'portfolio-stat-value ' + (Number.isNaN(parseFloat(text)) ? '' : (parseFloat(text) >= 0 ? 'positive' : 'negative'));
     }
+}
+
+function formatBoardReturn(value) {
+    return typeof value === 'number' && Number.isFinite(value) ? value.toFixed(2) + '%' : '—';
 }
 
 function renderPortfolioStats(performance) {
@@ -680,30 +402,33 @@ function renderPortfolioStats(performance) {
         setStat('statReturn', '--');
         setStat('statAnnualized', '--');
         setStat('statInception', '--');
-        document.getElementById('benchPortfolio').textContent = 'Portfolio: --';
-        document.getElementById('benchSpy').textContent = 'S&P 500: --';
-        document.getElementById('benchFtse').textContent = 'FTSE All-World: --';
-        document.getElementById('benchEems').textContent = 'EEMS: --';
+        document.getElementById('benchPortfolio').textContent = '—';
+        document.getElementById('benchSpy').textContent = '—';
+        document.getElementById('benchFtse').textContent = '—';
+        document.getElementById('benchEems').textContent = '—';
         return;
     }
 
     setStat('statPositions', performance.num_positions);
-    setStat('statReturn', performance.total_return.toFixed(2) + '%', true);
-    setStat('statAnnualized', performance.annualized_return.toFixed(2) + '%', true);
+    setStat('statReturn', formatBoardReturn(performance.total_return), true);
+    setStat('statAnnualized', formatBoardReturn(performance.annualized_return), true);
     setStat('statInception', performance.start_date ? performance.start_date.slice(0, 10) : '--');
 
-    document.getElementById('benchPortfolio').textContent = 'Portfolio: ' + performance.total_return.toFixed(2) + '%';
-    document.getElementById('benchSpy').textContent = 'S&P 500: ' + performance.benchmark_spy.toFixed(2) + '%';
-    document.getElementById('benchFtse').textContent = 'FTSE All-World: ' + performance.benchmark_ftse.toFixed(2) + '%';
-    document.getElementById('benchEems').textContent = 'EEMS: ' + performance.benchmark_eems.toFixed(2) + '%';
+    document.getElementById('benchPortfolio').textContent = formatBoardReturn(performance.total_return);
+    document.getElementById('benchSpy').textContent = formatBoardReturn(performance.benchmark_spy);
+    document.getElementById('benchFtse').textContent = formatBoardReturn(performance.benchmark_ftse);
+    document.getElementById('benchEems').textContent = formatBoardReturn(performance.benchmark_eems);
 }
 
 function togglePortfolio(view) {
     currentView = view;
 
     // Update toggle buttons
-    document.getElementById('btnApproved').classList.toggle('active', view === 'approved');
-    document.getElementById('btnPurchased').classList.toggle('active', view === 'purchased');
+    for (const [id, active] of [['btnApproved', view === 'approved'], ['btnPurchased', view === 'purchased']]) {
+        const button = document.getElementById(id);
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', String(active));
+    }
 
     const data = view === 'approved' ? approvedData : purchasedData;
     renderPortfolioStats(data.performance);
@@ -715,8 +440,9 @@ function togglePortfolio(view) {
 
 // Initialize on load
 document.addEventListener('DOMContentLoaded', function() {
+    renderPortfolioStats(currentView === 'approved' ? approvedData.performance : purchasedData.performance);
     initCharts();
-    
+
     // Handle Update Performance form submission with progress modal
     const updateForm = document.getElementById('updatePerformanceForm');
     if (updateForm) {
